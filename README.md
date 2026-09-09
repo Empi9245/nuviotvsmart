@@ -12,12 +12,24 @@
 
 </div>
 
+> [!IMPORTANT]
+> ### 📺 Hisense VIDAA OS Port (Experimental / AI-Assisted)
+> This fork introduces initial support for **Hisense VIDAA OS** (Smart TVs and Projectors).
+>
+> - 🤖 **Development:** Built with AI assistance.
+> - 🧪 **Testing Status:** Currently experimental — real-device testing on actual Hisense hardware is in progress over the coming days.
+> - 💬 **Early Feedback & Testers:** If you have a Hisense TV running VIDAA and want to test it out or report issues, please feel free to open an issue or reach out!
+
+---
+
 ## Get Nuvio TV
 
-Nuvio TV supports **Samsung Tizen TVs from 2018 onward (Tizen 4+)** and **LG webOS TVs from 2020 onward (webOS 5+)**.
-The startup compatibility baseline is Samsung Tizen 4.0 / Chromium 56 and LG webOS 5.0 / Chromium 68 when the platform reports those versions.
+Nuvio TV supports **Samsung Tizen TVs from 2018 onward (Tizen 4+)**, **LG webOS TVs from 2020 onward (webOS 5+)**, and **Hisense VIDAA OS (Experimental Port)**.
+The startup compatibility baseline is Samsung Tizen 4.0 / Chromium 56, LG webOS 5.0 / Chromium 68, and Hisense VIDAA OS (Chromium / WebKit runtime).
 
 Platform capabilities are intentionally version-dependent:
+
+- **Hisense VIDAA OS (New Port)** — Full TV remote control navigation (D-pad, Back, Exit, media keys), TV viewport scaling, native hardware video playback, and a dedicated local web installer (`installer/`).
 
 - **Samsung Tizen 4.x** — the app and direct playback are supported, but torrent/P2P playback is unavailable by design. Some advanced audio and subtitle features may also be limited.
 - **Samsung Tizen 5.x, including 5.5** — torrent/P2P playback is supported through the bundled local EngineFS service only. The PluginService, plugin execution, and remote plugin pull/push synchronization are disabled; the Plugins screen is not available.
@@ -28,6 +40,7 @@ Platform capabilities are intentionally version-dependent:
 
 On Tizen 5+ and LG webOS, torrent/P2P uses only the bundled local companion service; no external torrent streaming server is configured or required.
 
+- [Hisense VIDAA Web Installer](./installer) for local network installation
 - [Nuvio TV Installer](https://github.com/NuvioMedia/NuvioTVSmart/releases/latest) for Windows, macOS, and Linux
 - [Samsung Tizen WGT](https://github.com/NuvioMedia/NuvioTVSmart/releases/latest) for manual installation
 - [LG webOS Homebrew repository](https://raw.githubusercontent.com/NuvioMedia/NuvioTVWebOS/main/webosbrew/apps.json)
@@ -36,7 +49,7 @@ On Tizen 5+ and LG webOS, torrent/P2P uses only the bundled local companion serv
 ## Build from source
 
 ```bash
-git clone https://github.com/NuvioMedia/NuvioTVSmart.git NuvioTVSmart
+git clone https://github.com/derpwinnie/NuvioTVSmart.git NuvioTVSmart
 cd NuvioTVSmart
 npm install
 npm run build
@@ -48,6 +61,14 @@ Build TV packages with:
 npm run package:tizen
 npm run package:tizen:store
 npm run package:webos
+npm run package:vidaa
+```
+
+To test and run the VIDAA version locally:
+
+```bash
+npm run test:vidaa   # Run VIDAA adapter & platform test suite
+npm run serve:vidaa  # Start local VIDAA development server
 ```
 
 `package:tizen` creates the unsigned WGT used by development and the Nuvio TV Installer. The installer signs it locally for the target TV before installation. `package:tizen:store` is a separate Seller Office build: it requires Tizen Studio/Web CLI and a configured security profile, and creates the signed Store package with the local EngineFS service included so Tizen 5+ retains torrent/P2P playback. Tizen 4 still reports P2P as unsupported at runtime. Nuvio TV is built with JavaScript, HTML, CSS, and platform TV APIs. Building requires Node.js and npm; package installation additionally requires the relevant Tizen or webOS tools.
