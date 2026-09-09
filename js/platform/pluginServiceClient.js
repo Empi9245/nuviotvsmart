@@ -283,6 +283,23 @@ export const PluginServiceClient = {
     if (!force && cachedHealth && now - cachedHealthAt < HEALTH_TTL_MS) return cachedHealth;
     const service = serviceForPlatform();
     if (!service) {
+      if (Platform.isVidaa()) {
+        cachedHealth = {
+          returnValue: true,
+          status: "vidaa",
+          protocolVersion: PLUGIN_PROTOCOL_VERSION,
+          serviceVersion: 1,
+          runtimeVersion: "1.0.0",
+          quickjsVersion: "2024-01-13",
+          workerSupport: true,
+          maxConcurrency: 4,
+          memoryTier: "modern",
+          jsPluginCapability: true,
+          networkBoundary: true
+        };
+        cachedHealthAt = now;
+        return cachedHealth;
+      }
       cachedHealth = {
         returnValue: globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ === true,
         status:
@@ -391,8 +408,8 @@ export const PluginServiceClient = {
       if (!areTizenPluginsSupported()) {
         throw new Error(TIZEN_PLUGIN_UNSUPPORTED_DETAIL);
       }
-      if (Platform.isBrowser()) {
-        if (globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ !== true)
+      if (Platform.isBrowser() || Platform.isVidaa()) {
+        if (Platform.isBrowser() && globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ !== true)
           throw new Error("Plugin execution is TV-only");
         const result = await directBrowserFetch(request);
         if (!result.ok || result.truncated || result.returnValue === false) {

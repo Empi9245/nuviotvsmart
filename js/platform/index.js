@@ -1,11 +1,13 @@
 import { browserAdapter } from "./adapters/browserAdapter.js";
 import { webosAdapter } from "./adapters/webosAdapter.js";
 import { tizenAdapter } from "./adapters/tizenAdapter.js";
+import { vidaaAdapter } from "./adapters/vidaaAdapter.js";
 
 const ADAPTERS = {
   browser: browserAdapter,
   webos: webosAdapter,
-  tizen: tizenAdapter
+  tizen: tizenAdapter,
+  vidaa: vidaaAdapter
 };
 
 function parseWebOsMajorVersion() {
@@ -61,7 +63,22 @@ function detectPlatformName() {
   if (searchParams.includes("wrapper=tizen")) {
     return "tizen";
   }
+  if (searchParams.includes("wrapper=vidaa") || searchParams.includes("platform=vidaa")) {
+    return "vidaa";
+  }
   const userAgent = String(globalThis.navigator?.userAgent || "").toLowerCase();
+  if (
+    globalThis.Hisense_GetOSVersion ||
+    globalThis.Hisense_GetFirmWareVersion ||
+    globalThis.Hisense_installApp ||
+    globalThis.Hisense_Exit ||
+    globalThis.omi_platform ||
+    globalThis.opera_omi ||
+    userAgent.includes("vidaa") ||
+    userAgent.includes("hisense")
+  ) {
+    return "vidaa";
+  }
   if (globalThis.webOS || globalThis.PalmSystem || globalThis.webOSSystem) {
     return "webos";
   }
@@ -117,6 +134,10 @@ export const Platform = {
     return this.getName() === "tizen";
   },
 
+  isVidaa() {
+    return this.getName() === "vidaa";
+  },
+
   isBrowser() {
     return this.getName() === "browser";
   },
@@ -152,5 +173,9 @@ export const Platform = {
 
   prepareVideoElement(videoElement) {
     return getAdapter().prepareVideoElement?.(videoElement);
+  },
+
+  launchNativePlayer(url, title) {
+    return getAdapter().launchNativePlayer?.(url, title) ?? false;
   }
 };

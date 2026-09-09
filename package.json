@@ -18,12 +18,15 @@
     "package:tizen": "npm run build && node ./scripts/package-tizen.mjs",
     "package:tizen:store": "npm run build && node ./scripts/package-tizen.mjs --store",
     "package:webos": "npm run build && node ./scripts/package-webos.mjs",
+    "package:vidaa": "npm run build && node ./scripts/package-vidaa.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "serve": "node ./scripts/serve.mjs",
+    "serve:vidaa": "node ./scripts/serve.mjs --vidaa",
     "sync": "node ./scripts/sync-wrapper.mjs",
     "sync:tizen": "node ./scripts/sync-wrapper.mjs --tizen",
-    "sync:webos": "node ./scripts/sync-wrapper.mjs --webos"
+    "sync:webos": "node ./scripts/sync-wrapper.mjs --webos",
+    "test:vidaa": "node ./tests/test-vidaa-platform.mjs"
   },
   "devDependencies": {
     "@csstools/postcss-global-data": "^4.0.0",
