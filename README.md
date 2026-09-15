@@ -87,8 +87,10 @@ For users with developer mode enabled or who wish to package the app:
    npm run package:vidaa
    ```
    This generates `dist/nuvio-vidaa.zip` containing the packaged app, `manifest.json`, and service worker.
-2. **Sideloading:**
-   - If your TV firmware and region allow developer sideloading (via VIDAA CLI or USB app manager), deploy the generated zip package. Note that on newer VIDAA firmware versions, Hisense restricts unofficial launcher registrations, so pinning the browser shortcut (Method 1) is the most reliable approach.
+2. **Sideloading & Security Note:**
+   - On newer VIDAA firmware versions (VIDAA U6, U7, U8, U9+), Hisense has locked down file permissions (`websdk/Appinfo.json` returns `permission check error`) and enforces cryptographic signatures on launcher packages, silently dropping unsigned third-party registrations.
+   - ⚠️ **Brick Risk Warning:** Never attempt forced low-level file writes, raw JSON corruption, or dangerous service menu (`1969`) modifications. Independent security researchers warn that corrupting internal launcher files can easily soft-brick/boot-loop the TV with no public recovery method.
+   - **Recommended Approach:** Pinning the browser shortcut / PWA to your TV speed-dial (Method 1) is the official community-recommended standard: it is 100% safe, risk-free, update-proof, and runs in full-screen with native hardware decoding.
 
 ### Feedback & Troubleshooting
 
