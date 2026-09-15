@@ -19,7 +19,8 @@
 > This fork introduces initial support for **Hisense VIDAA OS** (Smart TVs and Projectors).
 >
 > - 🤖 **Development:** Built with AI assistance.
-> - 🧪 **Testing Status:** Currently experimental — real-device testing on actual Hisense hardware is in progress over the coming days.
+> - 🧪 **Testing Status:** Currently experimental — real-device testing on actual Hisense hardware is in progress.
+> - 🙏 **Special Thanks:** Huge thanks to **[@loggie86](https://github.com/loggie86)** for hands-on hardware testing and invaluable feedback!
 > - 💬 **Early Feedback & Testers:** If you have a Hisense TV running VIDAA and want to test it out or report issues, please feel free to open an issue or reach out!
 
 ---
@@ -120,6 +121,10 @@ npm run serve:vidaa  # Start local VIDAA development server
 ```
 
 `package:tizen` creates the unsigned WGT used by development and the Nuvio TV Installer. The installer signs it locally for the target TV before installation. `package:tizen:store` is a separate Seller Office build: it requires Tizen Studio/Web CLI and a configured security profile, and creates the signed Store package with the local EngineFS service included so Tizen 5+ retains torrent/P2P playback. Tizen 4 still reports P2P as unsupported at runtime. Nuvio TV is built with JavaScript, HTML, CSS, and platform TV APIs. Building requires Node.js and npm; package installation additionally requires the relevant Tizen or webOS tools.
+
+## Acknowledgements
+
+Special thanks to **[@loggie86](https://github.com/loggie86)** for testing this VIDAA port on real Hisense TV hardware and providing crucial insights on navigation, launcher installation, and backend setup.
 
 ## License
 
