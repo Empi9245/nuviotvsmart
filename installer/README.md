@@ -30,3 +30,6 @@ This adds a native app tile to your TV Home Screen using the built-in `Hisense_i
 4. Click **Install to TV Launcher**.
 5. Once complete, change your TV DNS back to **Automatic** and fully restart the TV.
 6. The **Nuvio TV** icon will now appear on your TV Home Screen!
+
+> [!NOTE]
+> **Compatibility Note on Option 2:** On newer VIDAA firmware versions (VIDAA U6, U7, U8), Hisense has tightened security and may silently ignore third-party launcher registrations. If Option 2 does not appear in your app list after rebooting, use **Option 1 (Browser Bookmark / Speed-Dial Shortcut Pin)**, which works 100% reliably across all VIDAA models!

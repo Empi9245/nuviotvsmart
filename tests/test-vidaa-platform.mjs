@@ -251,6 +251,37 @@ console.log("=== Running Nuvio TV VIDAA Platform Tests ===");
   );
 }
 
+// 7. Test TV Runtime Performance Profile & Default Supabase Env
+{
+  console.log("\n[Test 7] TV Runtime Performance Profile & Default Backend Configuration");
+  const { getTvRuntimePerformanceProfile, resetTvRuntimePerformanceProfile } =
+    await import("../js/platform/tvRuntimePerformance.js");
+  resetTvRuntimePerformanceProfile();
+  const profile = getTvRuntimePerformanceProfile({ forceRefresh: true });
+
+  assert.equal(profile.isTvRuntime, true, "profile.isTvRuntime must be true on VIDAA");
+  assert.equal(profile.platform, "vidaa", "profile.platform must be 'vidaa'");
+  assert.equal(
+    profile.isPerformanceConstrained,
+    true,
+    "profile.isPerformanceConstrained must be true to enable immediate focus scroll"
+  );
+
+  const { readEnvProperties } = await import("../scripts/envProperties.mjs");
+  const envResult = await readEnvProperties({ rootDir });
+  assert.equal(
+    envResult.env.NUVIO_SUPABASE_URL,
+    "https://api.nuvio.tv",
+    "Default NUVIO_SUPABASE_URL must be https://api.nuvio.tv"
+  );
+  assert.ok(
+    envResult.env.NUVIO_SUPABASE_ANON_KEY.length > 20,
+    "Default NUVIO_SUPABASE_ANON_KEY must be populated"
+  );
+
+  console.log("✓ TV Runtime Profile & Default Backend Configuration passed");
+}
+
 console.log("\n=======================================================");
-console.log("  ALL VIDAA OS PORT TESTS PASSED SUCCESSFULLY! (6/6)");
+console.log("  ALL VIDAA OS PORT TESTS PASSED SUCCESSFULLY! (7/7)");
 console.log("=======================================================\n");

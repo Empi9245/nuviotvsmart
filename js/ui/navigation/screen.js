@@ -205,6 +205,11 @@ export const ScreenUtils = {
     } catch (_) {
       target.focus();
     }
+    try {
+      if (typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+      }
+    } catch (_) {}
   },
 
   handleDpadNavigation(event, container, selector = ".focusable") {

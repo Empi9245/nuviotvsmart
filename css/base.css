@@ -85,11 +85,22 @@ body {
   height: 100vh;
 }
 
-/* Samsung TV apps render on a fixed 1920x1080 CSS canvas. Older Tizen
-   engines can under-report 100vh and leave an uncovered strip at the bottom. */
+/* Samsung TV and VIDAA TV apps render on a fixed 1920x1080 CSS canvas. */
 .tizen-tv #app,
-.tizen-tv .screen {
+.tizen-tv .screen,
+.vidaa-tv #app,
+.vidaa-tv .screen {
   height: 1080px;
+}
+
+/* On VIDAA TV, hide virtual cursor in D-pad mode unless pointer is actively used. */
+.vidaa-tv:not(.vidaa-pointer-active),
+.vidaa-tv:not(.vidaa-pointer-active) * {
+  cursor: none !important;
+}
+
+.vidaa-pointer-active .focusable {
+  cursor: pointer;
 }
 
 .row {

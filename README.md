@@ -13,7 +13,9 @@
 </div>
 
 > [!IMPORTANT]
+>
 > ### 📺 Hisense VIDAA OS Port (Experimental / AI-Assisted)
+>
 > This fork introduces initial support for **Hisense VIDAA OS** (Smart TVs and Projectors).
 >
 > - 🤖 **Development:** Built with AI assistance.
@@ -64,14 +66,16 @@ The easiest way to test Nuvio on a VIDAA TV without developer tools:
    npm run build:vidaa
    npm run serve:vidaa
    ```
-   *(Alternatively, run the included installer helper: `python3 installer/server.py` or double-click `installer/start-windows.bat` on Windows).*
+   _(Alternatively, run the included installer helper: `python3 installer/server.py` or double-click `installer/start-windows.bat` on Windows)._
 3. **Open the TV browser:**
    - The server terminal will output a local network URL (e.g. `http://192.168.1.50:8080`).
    - On your Hisense TV, launch the built-in **Web Browser**.
    - Navigate to `http://<YOUR-PC-IP>:8080/`.
 4. **Navigation & Controls:**
    - The app automatically detects VIDAA OS and maps your TV remote control (D-pad arrows, OK/Enter, Back, Play/Pause).
-   - Tip: Bookmark the page in your TV browser or add it to your browser speed-dial for quick access.
+   - D-pad input snaps focus instantly across lists with native scroll prevention, eliminating mouse-pointer drag and scroll lag.
+   - Pointer mode (via air-mouse or the VIDAA mobile remote touchpad) is also supported seamlessly.
+   - Tip: Bookmark the page in your TV browser or pin it to your browser speed-dial for quick 1-click access (recommended method for VIDAA U6/U7/U8).
 
 ### Method 2: Package Deployment (Advanced / Developer Mode)
 
@@ -83,9 +87,10 @@ For users with developer mode enabled or who wish to package the app:
    ```
    This generates `dist/nuvio-vidaa.zip` containing the packaged app, `manifest.json`, and service worker.
 2. **Sideloading:**
-   - If your TV firmware and region allow developer sideloading (via VIDAA CLI or USB app manager), deploy the generated zip package.
+   - If your TV firmware and region allow developer sideloading (via VIDAA CLI or USB app manager), deploy the generated zip package. Note that on newer VIDAA firmware versions, Hisense restricts unofficial launcher registrations, so pinning the browser shortcut (Method 1) is the most reliable approach.
 
 ### Feedback & Troubleshooting
+
 - **Codecs & Playback:** While desktop browsers might fail playing MKV or AC-3 audio streams due to missing browser codecs, VIDAA Smart TVs utilize hardware media decoders.
 - **Remote Keys:** Standard VIDAA remote codes are mapped. If any key on your specific Hisense remote model does not respond as expected, please open an issue with your TV model and VIDAA version.
 
