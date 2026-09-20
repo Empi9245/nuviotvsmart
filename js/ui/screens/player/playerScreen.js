@@ -180,7 +180,6 @@ const STARTUP_AUDIO_PREFERENCE_RETRY_WINDOW_MS = 6000;
 const STARTUP_AUDIO_PREFERENCE_RETRY_INTERVAL_MS = 250;
 const WEBOS_REMOTE_MKV_AUDIO_GATE_MAX_WAIT_MS = 30000;
 const WEBOS_NATIVE_STARTUP_LOADING_EXTENSION_MS = 120000;
-const WEBOS_HLS_STARTUP_STALL_TIMEOUT_MS = 120000;
 const WEBOS_HLS_REBUFFER_STALL_TIMEOUT_MS = 15000;
 const WEBOS_HLS_PLAYBACK_RECOVERY_MAX_ATTEMPTS = 2;
 // A transient window fetch must not change the renderer, but a persistent
@@ -3111,6 +3110,7 @@ export const PlayerScreen = {
     this.lastEmbeddedTrackProbeUrl = "";
     this.lastEmbeddedTrackRetryAt = 0;
     this.manifestLoadToken = 0;
+    this.manifestLoadAbortController = null;
     this.manifestLoading = false;
     this.manifestAudioTracks = [];
     this.manifestSubtitleTracks = [];
@@ -3313,6 +3313,9 @@ export const PlayerScreen = {
       this.tickTimer = setInterval(() => this.updateUiTick(), 1000);
       this.startSkipIntervalCheckTimer();
       this.endedHandler = () => {
+        if (PlayerController.isLivePlaybackItemType?.()) {
+          return;
+        }
         this.handlePlaybackEnded();
       };
       PlayerController.video?.addEventListener("ended", this.endedHandler);
@@ -6372,10 +6375,16 @@ export const PlayerScreen = {
 
   isCurrentSourceAdaptiveManifest() {
     const probeUrl = this.getTrackProbeUrl();
-    const probeMimeType =
-      typeof PlayerController.guessMediaMimeType === "function"
-        ? PlayerController.guessMediaMimeType(probeUrl)
+    const runtimeUrl = String(PlayerController.currentPlaybackUrl || "").trim();
+    const runtimeMimeType =
+      runtimeUrl && runtimeUrl === probeUrl
+        ? PlayerController.currentPlaybackMediaSourceType
         : null;
+    const probeMimeType =
+      runtimeMimeType ||
+      (typeof PlayerController.guessMediaMimeType === "function"
+        ? PlayerController.guessMediaMimeType(probeUrl)
+        : null);
     return (
       (typeof PlayerController.isLikelyHlsMimeType === "function" &&
         PlayerController.isLikelyHlsMimeType(probeMimeType)) ||
@@ -7081,6 +7090,15 @@ export const PlayerScreen = {
     const masterUrl = playbackUrl || currentCandidate?.url || "";
     const runtimeUrl = String(PlayerController.video?.currentSrc || "").trim();
     const loadToken = (this.manifestLoadToken || 0) + 1;
+    this.manifestLoadAbortController?.abort?.();
+    const manifestLoadAbortController =
+      typeof AbortController === "function" ? new AbortController() : null;
+    this.manifestLoadAbortController = manifestLoadAbortController;
+    const clearManifestLoadAbortController = () => {
+      if (this.manifestLoadAbortController === manifestLoadAbortController) {
+        this.manifestLoadAbortController = null;
+      }
+    };
     this.manifestLoadToken = loadToken;
     this.manifestLoading = true;
 
@@ -7093,10 +7111,43 @@ export const PlayerScreen = {
     this.refreshTrackDialogs();
 
     const probeUrl = masterUrl || runtimeUrl || playbackUrl || "";
-    const probeMimeType =
-      typeof PlayerController.guessMediaMimeType === "function"
-        ? PlayerController.guessMediaMimeType(probeUrl)
+    const runtimeMimeType =
+      runtimeUrl && runtimeUrl === probeUrl
+        ? PlayerController.currentPlaybackMediaSourceType
         : null;
+    let probeMimeType =
+      runtimeMimeType ||
+      (typeof PlayerController.guessMediaMimeType === "function"
+        ? PlayerController.guessMediaMimeType(probeUrl)
+        : null);
+    const headers = this.getCurrentStreamRequestHeaders(currentCandidate);
+    const shouldVerifyRemoteManifestType =
+      !runtimeMimeType &&
+      Environment.isWebOS() &&
+      typeof PlayerController.isRemoteDirectHttpSource === "function" &&
+      PlayerController.isRemoteDirectHttpSource(probeUrl) &&
+      ((typeof PlayerController.isLikelyHlsMimeType === "function" &&
+        PlayerController.isLikelyHlsMimeType(probeMimeType)) ||
+        (typeof PlayerController.isLikelyDashMimeType === "function" &&
+          PlayerController.isLikelyDashMimeType(probeMimeType)));
+
+    if (shouldVerifyRemoteManifestType) {
+      const verifiedMimeType =
+        typeof PlayerController.probeRemoteMediaSourceType === "function"
+          ? await PlayerController.probeRemoteMediaSourceType(probeUrl, headers)
+          : null;
+      if (loadToken !== this.manifestLoadToken) {
+        return;
+      }
+      if (!verifiedMimeType) {
+        clearManifestLoadAbortController();
+        this.manifestLoading = false;
+        this.refreshTrackDialogs();
+        return;
+      }
+      probeMimeType = verifiedMimeType;
+    }
+
     const isAdaptiveManifest =
       (typeof PlayerController.isLikelyHlsMimeType === "function" &&
         PlayerController.isLikelyHlsMimeType(probeMimeType)) ||
@@ -7105,6 +7156,7 @@ export const PlayerScreen = {
 
     if (!isAdaptiveManifest) {
       if (loadToken === this.manifestLoadToken) {
+        clearManifestLoadAbortController();
         this.manifestLoading = false;
         this.refreshTrackDialogs();
       }
@@ -7113,6 +7165,7 @@ export const PlayerScreen = {
 
     if (!masterUrl) {
       if (loadToken === this.manifestLoadToken) {
+        clearManifestLoadAbortController();
         this.manifestLoading = false;
         this.refreshTrackDialogs();
       }
@@ -7120,16 +7173,21 @@ export const PlayerScreen = {
     }
 
     try {
-      const headers = this.getCurrentStreamRequestHeaders(currentCandidate);
+      const isFetchableManifestUrl = (value) => /^https?:\/\//i.test(String(value || "").trim());
       const fetchManifestText = async (url, requestHeaders = {}) => {
-        const response = await fetch(url, {
+        const normalizedUrl = String(url || "").trim();
+        if (!isFetchableManifestUrl(normalizedUrl)) {
+          throw new Error("Manifest URL is not an HTTP(S) resource");
+        }
+        const response = await fetch(normalizedUrl, {
           method: "GET",
-          headers: requestHeaders
+          headers: requestHeaders,
+          ...(manifestLoadAbortController ? { signal: manifestLoadAbortController.signal } : {})
         });
         const text = await response.text();
         return {
           text,
-          finalUrl: response.url || url
+          finalUrl: response.url || normalizedUrl
         };
       };
 
@@ -7138,7 +7196,7 @@ export const PlayerScreen = {
         runtimeUrl,
         playbackUrl,
         this.activePlaybackUrl
-      ]);
+      ]).filter(isFetchableManifestUrl);
       let selectedParsed = null;
       let selectedMasterUrl = masterUrl;
 
@@ -7246,6 +7304,7 @@ export const PlayerScreen = {
       // Ignore parsing failures on providers that block manifest fetch.
     } finally {
       if (loadToken === this.manifestLoadToken) {
+        clearManifestLoadAbortController();
         this.manifestLoading = false;
         this.refreshTrackDialogs();
       }
@@ -11392,6 +11451,9 @@ export const PlayerScreen = {
       if (ended) {
         return;
       }
+      if (PlayerController.isLivePlaybackItemType?.() && PlayerController.isPlaying) {
+        return;
+      }
       if (this.hasPresentedPlaybackFrame && !this.playbackEngineValidated) {
         this.resetPlaybackEngineValidation();
       } else if (this.postValidationRecoveryValidationActive) {
@@ -14888,11 +14950,6 @@ export const PlayerScreen = {
         return TIZEN_NATIVE_HLS_STARTUP_STALL_TIMEOUT_MS;
       }
       if (Environment.isTizen() || Environment.isWebOS()) {
-        if (Environment.isWebOS() && playbackEngine === "hls.js") {
-          // Allow the hls.js load policy to use Android's six timeout retries
-          // before the screen-level engine fallback takes over.
-          return WEBOS_HLS_STARTUP_STALL_TIMEOUT_MS;
-        }
         return playbackEngine.endsWith("avplay") ? 60000 : 45000;
       }
       return 18000;
@@ -25838,6 +25895,8 @@ export const PlayerScreen = {
       this.subtitleLoadToken = (this.subtitleLoadToken || 0) + 1;
       this.subtitleSelectionToken = Number(this.subtitleSelectionToken || 0) + 1;
       this.manifestLoadToken = (this.manifestLoadToken || 0) + 1;
+      this.manifestLoadAbortController?.abort?.();
+      this.manifestLoadAbortController = null;
       this.trackDiscoveryToken = (this.trackDiscoveryToken || 0) + 1;
       this.clearStartupAudioPreferenceRetry();
       this.trackDiscoveryInProgress = false;
