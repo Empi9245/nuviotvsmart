@@ -23,10 +23,10 @@ const SECTIONS = [
   {
     titleKey: "settings.sections.playback.label",
     items: [
-      ["hls.js 1.5.20", "https://github.com/video-dev/hls.js", "Apache-2.0"],
-      ["dash.js 4.7.4", "https://github.com/Dash-Industry-Forum/dash.js", "BSD-3-Clause"],
-      ["JSZip 3.10.1", "https://github.com/Stuk/jszip", "MIT OR GPL-3.0-or-later"],
-      ["libbitsub 1.10.1", "https://github.com/altqx/libbitsub", "MIT"]
+      ["hls.js 1.7.3", "https://github.com/video-dev/hls.js", "Apache-2.0"],
+      ["dash.js 5.2.1", "https://github.com/Dash-Industry-Forum/dash.js", "BSD-3-Clause"],
+      ["JSZip 3.10.2", "https://github.com/Stuk/jszip", "MIT OR GPL-3.0-or-later"],
+      ["libbitsub 1.12.1", "https://github.com/altqx/libbitsub", "MIT"]
     ]
   }
 ];

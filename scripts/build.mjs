@@ -570,7 +570,7 @@ async function runBuild() {
         path.join(distDir, "assets", "libs", "hls.js.LICENSE")
       ),
       cp(
-        path.join(rootDir, "node_modules", "dashjs", "dist", "dash.all.min.js"),
+        path.join(rootDir, "node_modules", "dashjs", "dist", "legacy", "umd", "dash.all.min.js"),
         path.join(distDir, "assets", "libs", "dash.all.min.js")
       ),
       cp(
