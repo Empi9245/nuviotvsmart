@@ -1,13 +1,7 @@
 import { TizenEngineFsService } from "./tizenEngineFsService.js";
 
 const NATIVE_AVPLAY_REQUEST_HEADERS = new Set(["cookie", "user-agent"]);
-const HOP_BY_HOP_HEADERS = new Set([
-  "connection",
-  "content-length",
-  "host",
-  "range",
-  "transfer-encoding"
-]);
+const HOP_BY_HOP_HEADERS = new Set(["connection", "content-length", "host", "range", "transfer-encoding"]);
 
 function normalizeHeaderEntries(headers = {}) {
   if (!headers || typeof headers !== "object") {
@@ -17,10 +11,7 @@ function normalizeHeaderEntries(headers = {}) {
     .map(([key, value]) => [String(key || "").trim(), String(value ?? "").trim()])
     .filter(([key, value]) => key && value)
     .filter(([key]) => !HOP_BY_HOP_HEADERS.has(key.toLowerCase()))
-    .filter(
-      ([key, value]) =>
-        !key.includes("\r") && !key.includes("\n") && !value.includes("\r") && !value.includes("\n")
-    );
+    .filter(([key, value]) => !key.includes("\r") && !key.includes("\n") && !value.includes("\r") && !value.includes("\n"));
 }
 
 function parseHttpUrl(value = "") {
@@ -44,9 +35,7 @@ function isLocalProxyUrl(value = "") {
 }
 
 export function hasTizenUnsupportedPlaybackHeaders(headers = {}) {
-  return normalizeHeaderEntries(headers).some(
-    ([key]) => !NATIVE_AVPLAY_REQUEST_HEADERS.has(key.toLowerCase())
-  );
+  return normalizeHeaderEntries(headers).some(([key]) => !NATIVE_AVPLAY_REQUEST_HEADERS.has(key.toLowerCase()));
 }
 
 export function buildTizenPlaybackProxyUrl(baseUrl, sourceUrl, headers = {}) {
@@ -69,11 +58,7 @@ export function buildTizenPlaybackProxyUrl(baseUrl, sourceUrl, headers = {}) {
 
 export const TizenPlaybackProxy = {
   requiresProxy(sourceUrl = "", headers = {}) {
-    return Boolean(
-      parseHttpUrl(sourceUrl) &&
-      !isLocalProxyUrl(sourceUrl) &&
-      hasTizenUnsupportedPlaybackHeaders(headers)
-    );
+    return Boolean(parseHttpUrl(sourceUrl) && !isLocalProxyUrl(sourceUrl) && hasTizenUnsupportedPlaybackHeaders(headers));
   },
 
   async resolve(sourceUrl = "", headers = {}) {

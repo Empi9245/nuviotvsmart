@@ -1,12 +1,6 @@
 import { requestWebOsCompanionService } from "./webosCompanionService.js";
 
-const HOP_BY_HOP_HEADERS = new Set([
-  "connection",
-  "content-length",
-  "host",
-  "range",
-  "transfer-encoding"
-]);
+const HOP_BY_HOP_HEADERS = new Set(["connection", "content-length", "host", "range", "transfer-encoding"]);
 const WEBOS_PLAYBACK_PROXY_TIMEOUT_MS = 5000;
 
 function normalizeHeaderEntries(headers = {}) {
@@ -17,10 +11,7 @@ function normalizeHeaderEntries(headers = {}) {
     .map(([key, value]) => [String(key || "").trim(), String(value ?? "").trim()])
     .filter(([key, value]) => key && value)
     .filter(([key]) => !HOP_BY_HOP_HEADERS.has(key.toLowerCase()))
-    .filter(
-      ([key, value]) =>
-        !key.includes("\r") && !key.includes("\n") && !value.includes("\r") && !value.includes("\n")
-    );
+    .filter(([key, value]) => !key.includes("\r") && !key.includes("\n") && !value.includes("\r") && !value.includes("\n"));
 }
 
 function parseHttpUrl(value = "") {
@@ -83,9 +74,7 @@ export function buildWebOsPlaybackProxyUrl(baseUrl, sourceUrl, headers = {}) {
 
 export const WebOsPlaybackProxy = {
   requiresProxy(sourceUrl = "", headers = {}) {
-    return Boolean(
-      parseHttpUrl(sourceUrl) && !isLocalProxyUrl(sourceUrl) && hasWebOsPlaybackHeaders(headers)
-    );
+    return Boolean(parseHttpUrl(sourceUrl) && !isLocalProxyUrl(sourceUrl) && hasWebOsPlaybackHeaders(headers));
   },
 
   async resolve(sourceUrl = "", headers = {}) {

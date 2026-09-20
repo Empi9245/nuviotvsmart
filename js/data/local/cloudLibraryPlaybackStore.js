@@ -47,9 +47,7 @@ function normalizeCloudItem(item = {}) {
   if (!providerId || !id || !type || !stableKey) {
     return null;
   }
-  const files = (Array.isArray(item?.files) ? item.files : [])
-    .map(normalizeCloudFile)
-    .filter(Boolean);
+  const files = (Array.isArray(item?.files) ? item.files : []).map(normalizeCloudFile).filter(Boolean);
   return {
     providerId,
     providerName,
@@ -75,9 +73,7 @@ function normalizePlaybackContext(context = {}) {
 
 function readSessions(profileId = activeProfileId()) {
   const value = LocalStore.get(profileKey(SESSION_KEY, profileId), []);
-  return (Array.isArray(value) ? value : []).filter(
-    (entry) => entry && typeof entry === "object" && entry.token && entry.context
-  );
+  return (Array.isArray(value) ? value : []).filter((entry) => entry && typeof entry === "object" && entry.token && entry.context);
 }
 
 function writeSessions(profileId, entries) {
@@ -114,9 +110,7 @@ function normalizeProgress(progress = {}) {
     positionMs: Number.isFinite(positionMs) && positionMs > 0 ? Math.trunc(positionMs) : 0,
     durationMs: Number.isFinite(durationMs) && durationMs > 0 ? Math.trunc(durationMs) : 0,
     completed: Boolean(progress?.completed),
-    updatedAt: Number.isFinite(Number(progress?.updatedAt))
-      ? Number(progress.updatedAt)
-      : Date.now()
+    updatedAt: Number.isFinite(Number(progress?.updatedAt)) ? Number(progress.updatedAt) : Date.now()
   };
   const item = normalizeCloudItem(progress?.item);
   const file = normalizeCloudFile(progress?.file);
@@ -137,11 +131,7 @@ export function cloudPlaybackFileForSession(session = null) {
   if (!session?.item || !session.currentFileKey) {
     return null;
   }
-  return (
-    (Array.isArray(session.item.files) ? session.item.files : []).find(
-      (file) => file?.stableKey === session.currentFileKey
-    ) || null
-  );
+  return (Array.isArray(session.item.files) ? session.item.files : []).find((file) => file?.stableKey === session.currentFileKey) || null;
 }
 
 function cloudPlaybackVideoId(item = {}, file = {}) {
@@ -152,9 +142,7 @@ function isContinueWatchingProgress(progress = {}) {
   if (!progress || progress.completed || progress.positionMs < MIN_RESUME_POSITION_MS) {
     return false;
   }
-  return !(
-    progress.durationMs > 0 && progress.positionMs / progress.durationMs >= COMPLETED_FRACTION
-  );
+  return !(progress.durationMs > 0 && progress.positionMs / progress.durationMs >= COMPLETED_FRACTION);
 }
 
 function sessionProgressContextByKey(profileId = activeProfileId()) {
@@ -217,8 +205,7 @@ function toContinueWatchingProgressEntry(entry) {
     providerAddonId: `cloud:${item.providerId}`,
     positionMs: progress.positionMs,
     durationMs: progress.durationMs,
-    progressPercent:
-      progress.durationMs > 0 ? (progress.positionMs / progress.durationMs) * 100 : null,
+    progressPercent: progress.durationMs > 0 ? (progress.positionMs / progress.durationMs) * 100 : null,
     updatedAt: progress.updatedAt,
     source: "cloud_local",
     cloudSessionToken: entry.sessionToken || null
@@ -280,10 +267,7 @@ export const CloudLibraryPlaybackProgressStore = {
     if (!progress || progress.completed || progress.positionMs < MIN_RESUME_POSITION_MS) {
       return null;
     }
-    if (
-      progress.durationMs > 0 &&
-      progress.positionMs / progress.durationMs >= COMPLETED_FRACTION
-    ) {
+    if (progress.durationMs > 0 && progress.positionMs / progress.durationMs >= COMPLETED_FRACTION) {
       return null;
     }
     return progress;
@@ -339,15 +323,7 @@ export const CloudLibraryPlaybackProgressStore = {
     return true;
   },
 
-  save(
-    item,
-    file,
-    positionMs,
-    durationMs,
-    completed = false,
-    sessionToken = null,
-    profileId = activeProfileId()
-  ) {
+  save(item, file, positionMs, durationMs, completed = false, sessionToken = null, profileId = activeProfileId()) {
     const key = progressIdentity(item, file);
     if (!key) {
       return false;

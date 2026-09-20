@@ -1,0 +1,372 @@
+.series-primary-btn.focused {
+  background: #ffffff;
+  color: #000000;
+  border-color: var(--detail-focus-ring);
+  transform: none;
+}
+
+.series-circle-btn {
+  width: var(--detail-control-size);
+  height: var(--detail-control-size);
+  font-size: 48px;
+}
+
+.series-circle-btn.focused {
+  transform: none;
+}
+
+.series-btn-svg {
+  width: 44px;
+  height: 44px;
+}
+
+.series-primary-btn .series-btn-svg {
+  width: 36px;
+  height: 36px;
+  filter: none;
+}
+
+.series-detail-support,
+.series-detail-description {
+  max-width: min(66vw, 1040px);
+}
+
+.series-detail-support {
+  margin-bottom: 24px;
+  font-size: var(--detail-label-size);
+}
+
+.series-detail-description {
+  margin-bottom: 24px;
+  font-size: var(--detail-body-size);
+  line-height: 1.5;
+}
+
+.detail-ratings-row {
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.detail-rating-item {
+  gap: 16px;
+  font-size: var(--detail-caption-size);
+}
+
+.detail-rating-item img {
+  width: 56px;
+  height: 56px;
+}
+
+.detail-meta-stack {
+  gap: 16px;
+}
+
+.detail-meta-row {
+  gap: 24px;
+  font-size: var(--detail-label-size);
+}
+
+.detail-meta-row.secondary {
+  font-size: var(--detail-caption-size);
+}
+
+.detail-meta-row .series-imdb-badge img {
+  width: 60px;
+  height: 60px;
+}
+
+.series-season-row,
+.series-insight-tabs,
+.series-rating-seasons,
+.movie-cast-track,
+.series-cast-track,
+.detail-company-track,
+.detail-morelike-track,
+.series-episode-ratings-grid {
+  padding-left: var(--detail-safe-x);
+  padding-right: var(--detail-safe-x);
+}
+
+.series-season-row {
+  gap: 24px;
+  padding-top: 48px;
+  padding-bottom: 48px;
+}
+
+.series-season-btn {
+  min-height: 80px;
+  height: auto;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  padding: 20px 40px;
+  border-radius: 40px;
+  font-size: 32px;
+  box-sizing: border-box;
+}
+
+.series-episode-track {
+  gap: 28px;
+  padding: 28px 64px;
+}
+
+.series-episode-card {
+  flex-basis: 560px;
+  width: 560px;
+  border-radius: 32px;
+}
+
+.series-episode-thumb {
+  height: 358px;
+  border-radius: 32px;
+}
+
+.series-episode-copy {
+  padding: 28px 28px 32px;
+  gap: 12px;
+}
+
+.series-episode-badge {
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 20px;
+  line-height: 28px;
+  letter-spacing: 1.6px;
+}
+
+.series-episode-title {
+  display: block;
+  min-height: 38px;
+  font-size: 32px;
+  line-height: 38px;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.series-episode-overview {
+  font-size: 28px;
+  line-height: 32px;
+  max-height: 96px;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.series-episode-meta {
+  gap: 24px;
+  min-height: 28px;
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.series-episode-runtime {
+  gap: 8px;
+}
+
+.series-episode-runtime-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.series-episode-meta .series-imdb-badge {
+  font-size: 20px;
+}
+
+.series-episode-meta .series-imdb-badge img {
+  width: 44px;
+  height: 22px;
+}
+
+.series-episode-progress {
+  position: absolute;
+  right: 28px;
+  bottom: 14px;
+  left: 28px;
+  width: auto;
+  height: 8px;
+  margin-top: 0;
+}
+
+.series-episode-status {
+  top: 20px;
+  left: 20px;
+  width: 44px;
+  height: 44px;
+}
+
+.series-episode-status.complete {
+  font-size: 28px;
+}
+
+.series-watched-badge-svg {
+  width: 28px;
+  height: 28px;
+}
+
+.series-episode-unavailable {
+  top: 20px;
+  right: 20px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 20px;
+  line-height: 28px;
+  letter-spacing: 1.6px;
+}
+
+/* Mirror the responsive card tiers in NuvioTV EpisodesSection.kt. The Web
+   detail port uses a 2x Android dp-to-CSS-pixel mapping. */
+
+@media (min-width: 1520px) {
+  .series-episode-track {
+    gap: 32px;
+    padding: 32px 96px;
+  }
+
+  .series-episode-card {
+    flex-basis: 640px;
+    width: 640px;
+  }
+
+  .series-episode-thumb {
+    height: 414px;
+  }
+
+  .series-episode-copy {
+    padding: 32px 32px 40px;
+  }
+
+  .series-episode-badge {
+    padding: 8px 16px;
+    border-radius: 12px;
+    letter-spacing: 1.8px;
+  }
+
+  .series-episode-title {
+    min-height: 44px;
+    line-height: 44px;
+  }
+
+  .series-episode-overview {
+    line-height: 36px;
+    max-height: 108px;
+  }
+
+  .series-episode-runtime-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .series-episode-meta .series-imdb-badge img {
+    width: 48px;
+    height: 24px;
+  }
+
+  .series-episode-progress {
+    right: 32px;
+    bottom: 16px;
+    left: 32px;
+  }
+
+  .series-episode-status {
+    top: 24px;
+    left: 24px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .series-episode-status.complete {
+    font-size: 32px;
+  }
+
+  .series-watched-badge-svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .series-episode-unavailable {
+    top: 24px;
+    right: 24px;
+    padding: 8px 16px;
+    border-radius: 12px;
+    letter-spacing: 1.8px;
+  }
+}
+
+@media (min-width: 2000px) {
+  .series-episode-track {
+    gap: 36px;
+    padding: 36px 104px;
+  }
+
+  .series-episode-card {
+    flex-basis: 720px;
+    width: 720px;
+    border-radius: 36px;
+  }
+
+  .series-episode-thumb {
+    height: 470px;
+    border-radius: 36px;
+  }
+
+  .series-episode-copy {
+    padding: 36px 36px 44px;
+  }
+
+  .series-episode-badge {
+    padding: 8px 18px;
+    border-radius: 14px;
+  }
+
+  .series-episode-title {
+    min-height: 50px;
+    line-height: 50px;
+  }
+
+  .series-episode-overview {
+    line-height: 40px;
+    max-height: 160px;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+  }
+
+  .series-episode-runtime-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .series-episode-meta .series-imdb-badge img {
+    width: 52px;
+    height: 26px;
+  }
+
+  .series-episode-progress {
+    right: 36px;
+    bottom: 18px;
+    left: 36px;
+  }
+
+  .series-episode-status {
+    top: 28px;
+    left: 28px;
+    width: 56px;
+    height: 56px;
+  }
+
+  .series-episode-status.complete {
+    font-size: 36px;
+  }
+
+  .series-watched-badge-svg {
+    width: 36px;
+    height: 36px;
+  }
+
+  .series-episode-unavailable {
+    top: 28px;
+    right: 28px;
+    padding: 8px 18px;
+    border-radius: 14px;
+  }
+}
