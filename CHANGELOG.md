@@ -1,3 +1,14 @@
+## 1.1.5
+
+### Improvements & Fixes
+
+- Added an always-visible unsupported-device warning with localized Close and Try Anyway actions; the bypass lasts for the current session only, so the warning returns on the next launch (@WhiteGiso)
+- Removed the Tizen package-level minimum-version block so older TVs can reach the in-app compatibility decision while runtime capability checks remain active (@WhiteGiso)
+- Completed unsupported-device warning translations across all 36 app locales (@WhiteGiso)
+- Fixed the Essential playback settings crash on unsupported Tizen TVs and clearly disabled the unavailable P2P option (@WhiteGiso)
+- Restored direct and managed Debrid stream classification and local-resolution helpers in the shared presentation API (@WhiteGiso)
+- Expanded runtime lint coverage and removed stale self-imports from player and profile modules (@WhiteGiso)
+
 ## 1.1.4
 
 ### Improvements & Fixes
