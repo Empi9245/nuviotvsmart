@@ -2466,4 +2466,6 @@
     <string name="auth_qr_terms_prefix">By signing up / logging in, I agree to the</string>
     <string name="auth_qr_terms_link">Terms</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_warning">Anda tetap dapat mencoba memulai Nuvio TV, tetapi aplikasi mungkin tidak berfungsi dengan baik di TV ini. Konfigurasi ini tidak didukung secara resmi.</string>
+    <string name="unsupported_device_try_anyway">Coba tetap mulai</string>
 </resources>

@@ -2505,4 +2505,6 @@
     <string name="auth_qr_terms_prefix">Регистрируясь или входя в систему, я соглашаюсь с</string>
     <string name="auth_qr_terms_link">Условиями использования</string>
     <string name="auth_qr_manual_instruction">Или перейдите на %1$s и введите</string>
+    <string name="unsupported_device_warning">Вы можете всё равно попробовать запустить Nuvio TV, но приложение может работать на этом телевизоре некорректно. Эта конфигурация официально не поддерживается.</string>
+    <string name="unsupported_device_try_anyway">Всё равно запустить</string>
 </resources>

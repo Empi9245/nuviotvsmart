@@ -1,9 +1,4 @@
-/* eslint-disable no-unused-vars */
-import * as internals from "./playerScreenContext.js";
-
 export function createPlayerScreenMethods13() {
-  const {} = internals;
-
   return {
     parseDashManifestTracks(manifestText) {
       const parseErrorResult = {

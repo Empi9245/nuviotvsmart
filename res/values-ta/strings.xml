@@ -2454,4 +2454,6 @@
     <string name="auth_qr_terms_prefix">By signing up / logging in, I agree to the</string>
     <string name="auth_qr_terms_link">Terms</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_warning">இருந்தாலும் Nuvio TV-ஐ தொடங்க முயற்சிக்கலாம், ஆனால் இந்தத் தொலைக்காட்சியில் பயன்பாடு சரியாக இயங்காமல் இருக்கலாம். இந்த அமைப்பு அதிகாரப்பூர்வமாக ஆதரிக்கப்படவில்லை.</string>
+    <string name="unsupported_device_try_anyway">இருந்தாலும் தொடங்கு</string>
 </resources>

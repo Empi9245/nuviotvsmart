@@ -2872,4 +2872,6 @@
     <string name="auth_qr_terms_prefix">Registrandomi / accedendo, accetto i</string>
     <string name="auth_qr_terms_link">Termini</string>
     <string name="auth_qr_manual_instruction">Oppure vai su %1$s e inserisci</string>
+    <string name="unsupported_device_warning">Puoi comunque provare ad avviare Nuvio TV, ma l’app potrebbe non funzionare correttamente su questa TV. Questa configurazione non è ufficialmente supportata.</string>
+    <string name="unsupported_device_try_anyway">Prova comunque</string>
 </resources>

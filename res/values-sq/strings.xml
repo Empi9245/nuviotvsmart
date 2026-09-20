@@ -2984,4 +2984,13 @@
     <string name="custom_server_capability_email">Email and password</string>
     <string name="custom_server_capability_tv_login">TV/QR login</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_title">Televizori nuk mbështetet</string>
+    <string name="unsupported_device_message">Ky televizor nuk i plotëson kërkesat minimale për këtë version të Nuvio TV.</string>
+    <string name="unsupported_device_current_platform">Platforma aktuale</string>
+    <string name="unsupported_device_current_firmware">Firmware aktual</string>
+    <string name="unsupported_device_required_platform">Platforma e kërkuar</string>
+    <string name="unsupported_device_warning">Mund të provoni ta nisni përsëri Nuvio TV, por aplikacioni mund të mos funksionojë siç duhet në këtë televizor. Ky konfigurim nuk mbështetet zyrtarisht.</string>
+    <string name="unsupported_device_close">Mbyll</string>
+    <string name="unsupported_device_try_anyway">Provo gjithsesi</string>
+    <string name="unsupported_device_unavailable">E padisponueshme</string>
 </resources>

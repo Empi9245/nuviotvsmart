@@ -1,9 +1,4 @@
-/* eslint-disable no-unused-vars */
-import * as internals from "./profileSelectionScreen.js";
-
 export function createProfileSelectionScreenMethods08() {
-  const {} = internals;
-
   return {
     cleanup() {
       this.isMounted = false;

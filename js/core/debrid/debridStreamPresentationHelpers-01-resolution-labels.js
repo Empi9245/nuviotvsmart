@@ -1,12 +1,4 @@
-import { DebridSettingsStore } from "../../data/local/debridSettingsStore.js";
-
 import { DebridProviders } from "./debridProviders.js";
-
-import { DebridStreamTemplateEngine } from "./debridStreamTemplateEngine.js";
-
-import { sizeBytesFromStreamText } from "./streamTextSizeParser.js";
-
-import { resolutionFromFields } from "./streamResolution.js";
 
 export const RESOLUTION_LABELS = {
   P2160: "2160p",

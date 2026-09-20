@@ -2841,4 +2841,6 @@
     <string name="auth_qr_terms_prefix">Ao se cadastrar ou entrar, você concorda com os</string>
     <string name="auth_qr_terms_link">Termos</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_warning">Você pode tentar iniciar o Nuvio TV mesmo assim, mas o aplicativo pode não funcionar corretamente nesta TV. Esta configuração não tem suporte oficial.</string>
+    <string name="unsupported_device_try_anyway">Tentar mesmo assim</string>
 </resources>

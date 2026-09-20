@@ -1,9 +1,4 @@
-/* eslint-disable no-unused-vars */
-import * as internals from "./playerController.js";
-
 export function createPlayerControllerMethods03() {
-  const {} = internals;
-
   return {
     startAvPlayTickTimer() {
       this.stopAvPlayTickTimer();

@@ -1401,4 +1401,6 @@
     <string name="auth_qr_terms_prefix">By signing up / logging in, I agree to the</string>
     <string name="auth_qr_terms_link">Terms</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_warning">Ennek ellenére megpróbálhatja elindítani a Nuvio TV-t, de előfordulhat, hogy az alkalmazás nem működik megfelelően ezen a tévén. Ez a konfiguráció hivatalosan nem támogatott.</string>
+    <string name="unsupported_device_try_anyway">Próbálja meg mégis</string>
 </resources>

@@ -267,6 +267,11 @@ export function registerPlaybackActionsPart02(model) {
   });
 
   if (model.experience?.mode === "ESSENTIAL") {
+    const torrentSettings = model.torrent || TorrentSettingsStore.get();
+    const tizenP2pUnsupported = TizenCapabilities.isP2pUnsupported();
+    const p2pUnavailableSubtitle = tizenP2pUnsupported
+      ? t("settings_p2p_unsupported_subtitle", {}, "Not supported on this TV.")
+      : t("settings_p2p_subtitle");
     this.actionMap.set("playback:autoStreamMode", () => {
       const current = String(PlayerSettingsStore.get().streamAutoPlayMode || "MANUAL");
       PlayerSettingsStore.set({

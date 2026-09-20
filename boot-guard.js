@@ -18,13 +18,19 @@
     unsupported_device_current_platform: "Current platform",
     unsupported_device_current_firmware: "Current firmware",
     unsupported_device_required_platform: "Required platform",
+    unsupported_device_warning:
+      "You can try to start Nuvio TV anyway, but the app may not work correctly on this TV. This configuration is not officially supported.",
     unsupported_device_close: "Close",
+    unsupported_device_try_anyway: "Try anyway",
     unsupported_device_unavailable: "Unavailable"
   };
   var SUPPORTED_LOCALES = [
+    "en",
     "ar",
+    "bg",
     "bs",
     "cs",
+    "da",
     "de",
     "el",
     "es",
@@ -46,11 +52,15 @@
     "ru",
     "sk",
     "sl",
+    "sr-latn",
+    "sq",
     "sv",
     "ta",
     "tr",
+    "uk",
     "vi",
-    "zh-cn"
+    "zh-cn",
+    "zh-tw"
   ];
   var active = true;
   var lastStage = "Loading startup files";
@@ -258,19 +268,23 @@
     } catch (ignored) {}
   }
 
-  function showUnsupportedDevice(info, options, messages) {
+  function showUnsupportedDevice(info, options, messages, onTryAnyway) {
     var overlay;
     var card;
     var logo;
     var title;
     var description;
+    var warning;
     var details;
     var rows;
     var index;
     var row;
     var label;
     var value;
+    var actions;
     var close;
+    var tryAnyway;
+    var bypassStarted = false;
 
     if (!document.body) {
       return;
@@ -303,6 +317,11 @@
     description.style.cssText =
       "font-size:25px;line-height:1.45;color:#c9c9c9;margin:0 auto 30px;max-width:900px;";
     description.textContent = messages.unsupported_device_message;
+
+    warning = document.createElement("div");
+    warning.style.cssText =
+      "font-size:21px;line-height:1.45;color:#f0c674;margin:0 auto 30px;max-width:900px;";
+    warning.textContent = messages.unsupported_device_warning;
 
     details = document.createElement("div");
     details.style.cssText =
@@ -338,7 +357,7 @@
     close.type = "button";
     close.textContent = messages.unsupported_device_close;
     close.style.cssText =
-      "min-width:190px;padding:17px 30px;border:2px solid #ffffff;border-radius:12px;" +
+      "min-width:230px;padding:17px 30px;border:2px solid #ffffff;border-radius:12px;" +
       "background:#ffffff;color:#111111;font-size:23px;font-weight:700;";
     close.onclick = function closeUnsupportedApp() {
       exitUnsupportedApp(info.platform);
@@ -347,15 +366,58 @@
       var keyCode = Number(event && event.keyCode);
       var key = String((event && event.key) || "");
       if (key === "Enter" || key === "OK" || keyCode === 13) {
+        if (event && typeof event.preventDefault === "function") {
+          event.preventDefault();
+        }
         exitUnsupportedApp(info.platform);
       }
     };
 
+    tryAnyway = document.createElement("button");
+    tryAnyway.type = "button";
+    tryAnyway.textContent = messages.unsupported_device_try_anyway;
+    tryAnyway.style.cssText =
+      "min-width:300px;padding:17px 30px;border:2px solid #767676;border-radius:12px;" +
+      "background:#252525;color:#ffffff;font-size:23px;font-weight:700;";
+
+    function startUnsupportedAppAnyway() {
+      if (bypassStarted) {
+        return;
+      }
+      bypassStarted = true;
+      active = true;
+      // Keep this opt-in in memory only so the gate is shown again after reload.
+      window.__NUVIO_COMPATIBILITY_BYPASSED__ = true;
+      removeOverlay();
+      if (typeof onTryAnyway === "function") {
+        onTryAnyway();
+      }
+    }
+
+    tryAnyway.onclick = startUnsupportedAppAnyway;
+    tryAnyway.onkeydown = function startUnsupportedAppAnywayWithRemote(event) {
+      var keyCode = Number(event && event.keyCode);
+      var key = String((event && event.key) || "");
+      if (key === "Enter" || key === "OK" || keyCode === 13) {
+        if (event && typeof event.preventDefault === "function") {
+          event.preventDefault();
+        }
+        startUnsupportedAppAnyway();
+      }
+    };
+
+    actions = document.createElement("div");
+    actions.style.cssText =
+      "display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;";
+
     card.appendChild(logo);
     card.appendChild(title);
     card.appendChild(description);
+    card.appendChild(warning);
     card.appendChild(details);
-    card.appendChild(close);
+    actions.appendChild(close);
+    actions.appendChild(tryAnyway);
+    card.appendChild(actions);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
     document.documentElement.lang = info.locale;
@@ -484,7 +546,7 @@
     function renderUnsupported(resolvedInfo) {
       resolvedInfo.locale = locale;
       loadCompatibilityMessages(function onCompatibilityMessages(messages) {
-        showUnsupportedDevice(resolvedInfo, options, messages);
+        showUnsupportedDevice(resolvedInfo, options, messages, onSupported);
       });
     }
 

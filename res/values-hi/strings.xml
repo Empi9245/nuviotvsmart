@@ -1430,4 +1430,6 @@
     <string name="auth_qr_terms_prefix">By signing up / logging in, I agree to the</string>
     <string name="auth_qr_terms_link">Terms</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_warning">आप फिर भी Nuvio TV शुरू करने का प्रयास कर सकते हैं, लेकिन यह ऐप इस टीवी पर सही ढंग से काम नहीं कर सकता। यह कॉन्फ़िगरेशन आधिकारिक रूप से समर्थित नहीं है।</string>
+    <string name="unsupported_device_try_anyway">फिर भी शुरू करें</string>
 </resources>

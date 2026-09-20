@@ -2814,4 +2814,6 @@
     <string name="auth_qr_terms_prefix">Registráciou / prihlásením súhlasím s</string>
     <string name="auth_qr_terms_link">podmienkami</string>
     <string name="auth_qr_manual_instruction">Alebo prejdite na %1$s a zadajte</string>
+    <string name="unsupported_device_warning">Nuvio TV môžete napriek tomu skúsiť spustiť, no aplikácia nemusí na tomto televízore fungovať správne. Táto konfigurácia nie je oficiálne podporovaná.</string>
+    <string name="unsupported_device_try_anyway">Napriek tomu spustiť</string>
 </resources>

@@ -4,6 +4,11 @@ import { DebridStreamTemplateEngine } from "./debridStreamTemplateEngine.js";
 import { sizeBytesFromStreamText } from "./streamTextSizeParser.js";
 import { resolutionFromFields } from "./streamResolution.js";
 import { createDebridStreamPresentationMethods01 } from "./debridStreamPresentationMethods-01-apply.js";
+import {
+  isDirectDebrid,
+  isManagedDebridStream,
+  needsLocalDebridResolve
+} from "./debridStreamPresentationHelpers-01-resolution-labels.js";
 
 export {
   DebridSettingsStore,

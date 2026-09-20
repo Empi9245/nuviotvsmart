@@ -1713,4 +1713,6 @@
     <string name="auth_qr_terms_prefix">בהרשמה / התחברות, אני מסכים ל</string>
     <string name="auth_qr_terms_link">תנאי השימוש</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_warning">אפשר לנסות להפעיל את Nuvio TV בכל זאת, אך ייתכן שהאפליקציה לא תפעל כראוי בטלוויזיה הזו. תצורה זו אינה נתמכת באופן רשמי.</string>
+    <string name="unsupported_device_try_anyway">נסה בכל זאת</string>
 </resources>

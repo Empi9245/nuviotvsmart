@@ -1361,4 +1361,6 @@
     <string name="auth_qr_terms_prefix">Bằng việc đăng ký / đăng nhập, tôi đồng ý với</string>
     <string name="auth_qr_terms_link">Điều khoản sử dụng</string>
     <string name="auth_qr_manual_instruction">Hoặc truy cập %1$s và nhập</string>
+    <string name="unsupported_device_warning">Bạn vẫn có thể thử khởi động Nuvio TV, nhưng ứng dụng có thể không hoạt động bình thường trên TV này. Cấu hình này không được hỗ trợ chính thức.</string>
+    <string name="unsupported_device_try_anyway">Vẫn khởi động</string>
 </resources>

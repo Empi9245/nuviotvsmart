@@ -2815,4 +2815,6 @@
     <string name="auth_qr_terms_prefix">Kayıt olarak / giriş yaparak kabul ediyorum:</string>
     <string name="auth_qr_terms_link">Şartlar</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_warning">Yine de Nuvio TV'yi başlatmayı deneyebilirsiniz, ancak uygulama bu TV'de düzgün çalışmayabilir. Bu yapılandırma resmi olarak desteklenmiyor.</string>
+    <string name="unsupported_device_try_anyway">Yine de başlat</string>
 </resources>

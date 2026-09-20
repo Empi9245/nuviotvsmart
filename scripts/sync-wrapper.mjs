@@ -582,16 +582,8 @@ function upsertTizenWidgetVersion(xml, version) {
   return xml;
 }
 
-function upsertTizenRequiredVersion(xml, version) {
-  const applicationPattern = /<tizen:application\b([^>]*?)\brequired_version="[^"]*"([^>]*)\/>/;
-  if (applicationPattern.test(xml)) {
-    return xml.replace(applicationPattern, `<tizen:application$1required_version="${version}"$2/>`);
-  }
-
-  return xml.replace(
-    /<tizen:application\b([^>]*)\/>/,
-    `<tizen:application$1 required_version="${version}"/>`
-  );
+function removeTizenRequiredVersion(xml) {
+  return xml.replace(/\s+required_version\s*=\s*["'][^"']*["']/i, "");
 }
 
 async function updateTizenMetadata(targetDir) {
@@ -606,7 +598,7 @@ async function updateTizenMetadata(targetDir) {
   configXml = upsertTizenIcon(configXml, wrapperIconFiles.tizenIcon.target);
   configXml = upsertXmlTag(configXml, "name", appName);
   configXml = upsertTizenWidgetVersion(configXml, appVersion);
-  configXml = upsertTizenRequiredVersion(configXml, compatibilityPolicy.tizenRequiredVersion);
+  configXml = removeTizenRequiredVersion(configXml);
   configXml = upsertTizenFeature(configXml, "http://tizen.org/feature/web.service");
   configXml = upsertTizenPrivilege(configXml, "http://tizen.org/privilege/application.launch");
   // Remove privileges from the old application.kill shutdown fallback so

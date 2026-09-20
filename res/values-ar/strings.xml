@@ -2295,4 +2295,6 @@
     <string name="auth_qr_terms_prefix">بالتسجيل أو تسجيل الدخول، فأنا أوافق على</string>
     <string name="auth_qr_terms_link">الشروط</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_warning">يمكنك محاولة تشغيل Nuvio TV رغم ذلك، لكن قد لا يعمل التطبيق بشكل صحيح على هذا التلفاز. هذا الإعداد غير مدعوم رسميًا.</string>
+    <string name="unsupported_device_try_anyway">حاول رغم ذلك</string>
 </resources>

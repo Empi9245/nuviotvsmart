@@ -2695,4 +2695,6 @@
     <string name="auth_qr_terms_prefix">Με την εγγραφή / σύνδεση, συμφωνώ με τους</string>
     <string name="auth_qr_terms_link">Όρους χρήσης</string>
     <string name="auth_qr_manual_instruction">Ή μεταβείτε στο %1$s και εισάγετε τον κωδικό</string>
+    <string name="unsupported_device_warning">Μπορείτε να δοκιμάσετε να εκκινήσετε το Nuvio TV, αλλά η εφαρμογή ενδέχεται να μην λειτουργεί σωστά σε αυτήν την τηλεόραση. Αυτή η διαμόρφωση δεν υποστηρίζεται επίσημα.</string>
+    <string name="unsupported_device_try_anyway">Δοκιμή ούτως ή άλλως</string>
 </resources>

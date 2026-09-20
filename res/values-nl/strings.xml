@@ -1305,4 +1305,6 @@
     <string name="auth_qr_terms_prefix">Door me te registreren / aan te melden ga ik akkoord met de</string>
     <string name="auth_qr_terms_link">Voorwaarden</string>
     <string name="auth_qr_manual_instruction">Of ga naar %1$s en voer in</string>
+    <string name="unsupported_device_warning">Je kunt Nuvio TV toch proberen te starten, maar de app werkt mogelijk niet goed op deze tv. Deze configuratie wordt officieel niet ondersteund.</string>
+    <string name="unsupported_device_try_anyway">Toch starten</string>
 </resources>

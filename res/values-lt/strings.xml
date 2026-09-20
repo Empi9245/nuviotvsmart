@@ -1311,4 +1311,6 @@ Klaida: Bandomoji simuliuojama klaida — tai nėra tikras gedimas. Šaltinis gr
     <string name="auth_qr_terms_prefix">By signing up / logging in, I agree to the</string>
     <string name="auth_qr_terms_link">Terms</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_warning">Vis tiek galite pabandyti paleisti „Nuvio TV“, tačiau programa šiame televizoriuje gali veikti netinkamai. Ši konfigūracija oficialiai nepalaikoma.</string>
+    <string name="unsupported_device_try_anyway">Vis tiek paleisti</string>
 </resources>

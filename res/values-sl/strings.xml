@@ -2567,4 +2567,6 @@
     <string name="auth_qr_terms_prefix">By signing up / logging in, I agree to the</string>
     <string name="auth_qr_terms_link">Terms</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_warning">Kljub temu lahko poskusite zagnati Nuvio TV, vendar aplikacija na tem televizorju morda ne bo delovala pravilno. Ta konfiguracija ni uradno podprta.</string>
+    <string name="unsupported_device_try_anyway">Vseeno zaženi</string>
 </resources>

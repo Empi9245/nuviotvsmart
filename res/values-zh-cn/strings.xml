@@ -2573,4 +2573,6 @@
     <string name="auth_qr_terms_prefix">注册/登录即表示我同意</string>
     <string name="auth_qr_terms_link">服务条款</string>
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
+    <string name="unsupported_device_warning">您仍可尝试启动 Nuvio TV，但应用可能无法在此电视上正常运行。此配置不受官方支持。</string>
+    <string name="unsupported_device_try_anyway">仍要启动</string>
 </resources>
