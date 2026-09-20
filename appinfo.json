@@ -16,5 +16,14 @@
   "resolution": "1920x1080",
   "transparent": false,
   "services": ["space.nuvio.webos.service"],
-  "requiredPermissions": ["internet", "media.operation", "media.query"]
+  "requiredPermissions": ["internet", "media.operation", "media.query"],
+  "requiredACG": [
+    "application.launcher",
+    "application.query",
+    "arc.query",
+    "externalinput.query",
+    "profile.query",
+    "settings.query",
+    "systemconfig.query"
+  ]
 }
