@@ -113,7 +113,7 @@ function buildConfigXml({
   return `<?xml version="1.0" encoding="UTF-8"?>
 <widget xmlns:tizen="http://tizen.org/ns/widgets" xmlns="http://www.w3.org/ns/widgets" id="${defaultWidgetUri}" version="${version}" viewmodes="maximized">
   <access origin="*" subdomains="true"/>
-  <tizen:application id="${appId}" package="${packageId}"/>
+  <tizen:application id="${appId}" package="${packageId}" required_version="${compatibilityPolicy.tizenInstallMinimumVersion}"/>
   <author href="${defaultWidgetUri}">Nuvio</author>
   <content src="index.html"/>
   <feature name="http://tizen.org/feature/screen.size.all"/>

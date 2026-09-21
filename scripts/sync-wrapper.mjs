@@ -582,8 +582,22 @@ function upsertTizenWidgetVersion(xml, version) {
   return xml;
 }
 
-function removeTizenRequiredVersion(xml) {
-  return xml.replace(/\s+required_version\s*=\s*["'][^"']*["']/i, "");
+function upsertTizenRequiredVersion(xml, version) {
+  const applicationPattern = /<tizen:application\b[^>]*>/i;
+  if (!applicationPattern.test(xml)) {
+    throw new Error("Invalid Tizen wrapper config: missing <tizen:application> element.");
+  }
+
+  return xml.replace(applicationPattern, (applicationTag) => {
+    const withoutRequiredVersion = applicationTag.replace(
+      /\s+required_version\s*=\s*["'][^"']*["']/i,
+      ""
+    );
+    if (/\/>$/.test(withoutRequiredVersion)) {
+      return withoutRequiredVersion.replace(/\/>$/, ` required_version="${version}"/>`);
+    }
+    return withoutRequiredVersion.replace(/>$/, ` required_version="${version}">`);
+  });
 }
 
 async function updateTizenMetadata(targetDir) {
@@ -598,7 +612,7 @@ async function updateTizenMetadata(targetDir) {
   configXml = upsertTizenIcon(configXml, wrapperIconFiles.tizenIcon.target);
   configXml = upsertXmlTag(configXml, "name", appName);
   configXml = upsertTizenWidgetVersion(configXml, appVersion);
-  configXml = removeTizenRequiredVersion(configXml);
+  configXml = upsertTizenRequiredVersion(configXml, compatibilityPolicy.tizenInstallMinimumVersion);
   configXml = upsertTizenFeature(configXml, "http://tizen.org/feature/web.service");
   configXml = upsertTizenPrivilege(configXml, "http://tizen.org/privilege/application.launch");
   // Remove privileges from the old application.kill shutdown fallback so
