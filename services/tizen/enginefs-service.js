@@ -40,7 +40,7 @@ function patchTizenMediaRuntimeCode(code, filename) {
   // a query string, so that concatenation produces a literal `null` suffix
   // (for example, `segment.tsnull`) and sends malformed HLS segment URLs.
   if (
-    source.indexOf("function encodeProxyHeaderString(") >= 0 &&
+    source.indexOf("function normalizeProxyHeaderString(") >= 0 &&
     source.indexOf("decodeURIComponent(parsed[1])") >= 0 &&
     source.indexOf('lineUrl.pathname+(lineUrl.search||"")') >= 0 &&
     source.indexOf('urlJoin([virtualRoot,lineUrl.pathname])+(lineUrl.search||"")') >= 0
@@ -70,7 +70,7 @@ function patchTizenMediaRuntimeCode(code, filename) {
   }
 
   var helperReplacement =
-    'function parseHeaderString(headerString){var headerArray=headerString.split(":");return[headerArray.shift(),headerArray.join(":")]}function encodeProxyHeaderString(headerString){var parsed=parseHeaderString(headerString);try{parsed[1]=decodeURIComponent(parsed[1])}catch(_){ }return parsed[0]+":"+encodeURIComponent(parsed[1])}function stringifyProxyOptions(options,cfgOpts){var serialized=Object.assign({},options);serialized[cfgOpts.DestinationHeader]=ensureArray(serialized[cfgOpts.DestinationHeader]).map(encodeProxyHeaderString);return querystring.stringify(serialized)}function urlJoin(segments){';
+    'function parseHeaderString(headerString){var headerArray=headerString.split(":");return[headerArray.shift(),headerArray.join(":")]}function normalizeProxyHeaderString(headerString){var parsed=parseHeaderString(headerString);try{parsed[1]=decodeURIComponent(parsed[1])}catch(_){ }return parsed[0]+":"+parsed[1]}function stringifyProxyOptions(options,cfgOpts){var serialized=Object.assign({},options);serialized[cfgOpts.DestinationHeader]=ensureArray(serialized[cfgOpts.DestinationHeader]).map(normalizeProxyHeaderString);return querystring.stringify(serialized)}function urlJoin(segments){';
   source = source.replace(helperTarget, helperReplacement);
   source = source.replace(
     childTarget,
