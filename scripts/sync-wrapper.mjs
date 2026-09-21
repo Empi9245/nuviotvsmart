@@ -10,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 const distDir = path.join(rootDir, "dist");
 const appName = "Nuvio TV";
+const bundledCssFile = "bundle.css";
 const webOsRuntimeScriptPath = "assets/libs/webOSTV.js";
 const legacyWebOsServiceSourceDirName = "space.nuvio.webos.service";
 const webOsServiceSourceDirName = "webos";
@@ -224,10 +225,7 @@ function buildWebOsIndexHtml({ webOsScriptPath = "" } = {}) {
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>${appName}</title>
   <script src="assets/runtime/legacy-features.js"></script>
-  <link rel="stylesheet" href="css/base.css" />
-  <link rel="stylesheet" href="css/layout.css" />
-  <link rel="stylesheet" href="css/components.css" />
-  <link rel="stylesheet" href="css/themes.css" />
+  <link rel="stylesheet" href="css/${bundledCssFile}" />
 </head>
 <body>
   <script src="boot-guard.js"></script>
@@ -255,11 +253,7 @@ function buildTizenIndexHtml() {
   <title>${appName}</title>
   <script src="$WEBAPIS/webapis/webapis.js"></script>
   <script src="assets/runtime/legacy-features.js"></script>
-${buildTizenServiceBridgeMarkup()}
-  <link rel="stylesheet" href="css/base.css" />
-  <link rel="stylesheet" href="css/layout.css" />
-  <link rel="stylesheet" href="css/components.css" />
-  <link rel="stylesheet" href="css/themes.css" />
+${buildTizenServiceBridgeMarkup()}  <link rel="stylesheet" href="css/${bundledCssFile}" />
 </head>
 <body>
   <script src="boot-guard.js"></script>

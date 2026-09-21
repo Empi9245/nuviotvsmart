@@ -177,10 +177,7 @@ function buildIndexHtml({ includeEngineFsService = false, includePluginService =
   <title>${appName}</title>
   <script src="$WEBAPIS/webapis/webapis.js"></script>
   <script src="assets/runtime/legacy-features.js"></script>
-${pluginServiceBridge}  <link rel="stylesheet" href="css/base.css" />
-  <link rel="stylesheet" href="css/layout.css" />
-  <link rel="stylesheet" href="css/components.css" />
-  <link rel="stylesheet" href="css/themes.css" />
+${pluginServiceBridge}  <link rel="stylesheet" href="css/bundle.css" />
 </head>
 <body>
   <script src="boot-guard.js"></script>

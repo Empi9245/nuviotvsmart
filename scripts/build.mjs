@@ -383,32 +383,83 @@ function flexGapFallbackPlugin() {
 
 flexGapFallbackPlugin.postcss = true;
 
+const BUNDLED_CSS_FILE = "bundle.css";
+
 async function buildCSS() {
   console.log("processing CSS with PostCSS (legacy support)...");
   const cssDir = path.join(rootDir, "css");
+  const distCssDir = path.join(distDir, "css");
+  const outPath = path.join(distCssDir, BUNDLED_CSS_FILE);
   const files = await readdir(cssDir);
-  const cssFiles = files.filter((f) => f.endsWith(".css"));
 
-  for (const file of cssFiles) {
-    const cssPath = path.join(cssDir, file);
-    const outPath = path.join(distDir, "css", file);
+  const componentFiles = files
+    .filter((file) => /^components-\d+\.css$/.test(file))
+    .sort((a, b) => {
+      const numA = Number(a.match(/^components-(\d+)\.css$/)[1]);
+      const numB = Number(b.match(/^components-(\d+)\.css$/)[1]);
+      return numA - numB;
+    });
 
-    const css = await readFile(cssPath, "utf8");
-    const result = await postcss([
-      postcssGlobalData({ files: [path.join(cssDir, "base.css")] }),
-      autoprefixer({
-        overrideBrowserslist: [`Chrome ${compatibilityPolicy.chromiumVersion}`],
-        grid: "autoplace"
-      }),
-      legacyDeclarationFallbackPlugin(),
-      unsupportedSelectorFallbackPlugin(),
-      flexGapFallbackPlugin(),
-      cssnano()
-    ]).process(css, { from: cssPath, to: outPath });
+  // Preserve cascade order: tokens/base first, layout, components, then
+  // any future stylesheets, with themes last so overrides win.
+  const orderedFiles = ["base.css", "layout.css", ...componentFiles];
+  const orderedSet = new Set([...orderedFiles, "components.css", BUNDLED_CSS_FILE]);
+  const extraFiles = files
+    .filter((file) => file.endsWith(".css") && !orderedSet.has(file) && file !== "themes.css")
+    .sort();
+  const finalOrder = [...orderedFiles, ...extraFiles, "themes.css"].filter((file) =>
+    files.includes(file)
+  );
 
-    await mkdir(path.dirname(outPath), { recursive: true });
-    await writeFile(outPath, result.css);
+  const remoteImports = [];
+  const seenRemoteImports = new Set();
+  const bodies = [];
+
+  const remoteImportPattern =
+    /@import\s+(?:url\(\s*["']?(https?:\/\/[^"')]+)["']?\s*\)|["'](https?:\/\/[^"']+)["'])\s*[^;]*;/gi;
+  const localImportPattern =
+    /@import\s+(?:url\(\s*["']?(\.{0,2}\/[^"')]+)["']?\s*\)|["'](\.{0,2}\/[^"']+)["'])\s*[^;]*;/gi;
+
+  for (const file of finalOrder) {
+    const raw = await readFile(path.join(cssDir, file), "utf8");
+
+    for (const match of raw.matchAll(remoteImportPattern)) {
+      const url = match[1] || match[2];
+      if (url && !seenRemoteImports.has(url)) {
+        seenRemoteImports.add(url);
+        remoteImports.push(`@import url("${url}");`);
+      }
+    }
+
+    // Strip all @imports: remote ones are hoisted above, local ones are
+    // inlined by this concatenation (e.g. components.css manifest).
+    const body = raw.replace(remoteImportPattern, "").replace(localImportPattern, "").trim();
+    if (body) {
+      const result = await postcss([
+        postcssGlobalData({ files: [path.join(cssDir, "base.css")] }),
+        autoprefixer({
+          overrideBrowserslist: [`Chrome ${compatibilityPolicy.chromiumVersion}`],
+          grid: "autoplace"
+        }),
+        legacyDeclarationFallbackPlugin(),
+        unsupportedSelectorFallbackPlugin(),
+        flexGapFallbackPlugin(),
+        cssnano()
+      ]).process(`/* ${file} */\n${body}`, {
+        from: path.join(cssDir, file),
+        to: outPath
+      });
+
+      bodies.push(result.css);
+    }
   }
+
+  const concatenated = [...remoteImports, ...bodies].filter(Boolean).join("\n\n");
+
+  // Only the single bundled file is part of the build output.
+  await rm(distCssDir, { recursive: true, force: true });
+  await mkdir(distCssDir, { recursive: true });
+  await writeFile(outPath, concatenated);
 }
 
 async function copyOptionalRootFile(fileName, { fallback = null, defaultContents = "" } = {}) {
@@ -601,7 +652,21 @@ async function runBuild() {
     await buildBundle();
 
     const sourceIndex = await readFile(path.join(rootDir, "index.html"), "utf8");
-    await writeFile(path.join(distDir, "index.html"), sourceIndex);
+    // The build ships a single concatenated stylesheet. Rewrite any legacy
+    // per-file css/<name>.css references to the bundled output so dist
+    // always points at the one file, even if the source still lists several.
+    let injectedBundledCss = false;
+    const bundledIndex = sourceIndex.replace(
+      /[ \t]*<link\s+rel="stylesheet"\s+href="css\/[^"]*"(?:\s*\/?)>[ \t]*\r?\n?/gi,
+      () => {
+        if (!injectedBundledCss) {
+          injectedBundledCss = true;
+          return `    <link rel="stylesheet" href="css/${BUNDLED_CSS_FILE}" />\n`;
+        }
+        return "";
+      }
+    );
+    await writeFile(path.join(distDir, "index.html"), bundledIndex);
 
     console.log("configuring runtime env from local.properties...");
     const envResult = await writeRuntimeEnvScriptFile(path.join(distDir, "nuvio.env.js"), {
