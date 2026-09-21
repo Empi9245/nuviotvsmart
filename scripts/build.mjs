@@ -435,28 +435,31 @@ async function buildCSS() {
     // inlined by this concatenation (e.g. components.css manifest).
     const body = raw.replace(remoteImportPattern, "").replace(localImportPattern, "").trim();
     if (body) {
-      bodies.push(`/* ${file} */\n${body}`);
+      const result = await postcss([
+        postcssGlobalData({ files: [path.join(cssDir, "base.css")] }),
+        autoprefixer({
+          overrideBrowserslist: [`Chrome ${compatibilityPolicy.chromiumVersion}`],
+          grid: "autoplace"
+        }),
+        legacyDeclarationFallbackPlugin(),
+        unsupportedSelectorFallbackPlugin(),
+        flexGapFallbackPlugin(),
+        cssnano()
+      ]).process(`/* ${file} */\n${body}`, {
+        from: path.join(cssDir, file),
+        to: outPath
+      });
+
+      bodies.push(result.css);
     }
   }
 
   const concatenated = [...remoteImports, ...bodies].filter(Boolean).join("\n\n");
 
-  const result = await postcss([
-    postcssGlobalData({ files: [path.join(cssDir, "base.css")] }),
-    autoprefixer({
-      overrideBrowserslist: [`Chrome ${compatibilityPolicy.chromiumVersion}`],
-      grid: "autoplace"
-    }),
-    legacyDeclarationFallbackPlugin(),
-    unsupportedSelectorFallbackPlugin(),
-    flexGapFallbackPlugin(),
-    cssnano()
-  ]).process(concatenated, { from: path.join(cssDir, BUNDLED_CSS_FILE), to: outPath });
-
   // Only the single bundled file is part of the build output.
   await rm(distCssDir, { recursive: true, force: true });
   await mkdir(distCssDir, { recursive: true });
-  await writeFile(outPath, result.css);
+  await writeFile(outPath, concatenated);
 }
 
 async function copyOptionalRootFile(fileName, { fallback = null, defaultContents = "" } = {}) {
