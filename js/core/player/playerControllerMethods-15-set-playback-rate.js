@@ -280,7 +280,16 @@ export function createPlayerControllerMethods15() {
           mediaId,
           enable: Boolean(enabled)
         })
-          .then(() => true)
+          .then(() => {
+            if (
+              Boolean(enabled) &&
+              mediaId === this.nativeMediaId &&
+              Number(this.selectedWebOsEmbeddedSubtitleTrackIndex) === expectedSelectedIndex
+            ) {
+              this.applyWebOsSubtitleFontSize(mediaId, { force: true });
+            }
+            return true;
+          })
           .catch(() => false);
       };
 

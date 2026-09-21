@@ -133,9 +133,12 @@ export function createPlayerScreenMethods06() {
       if (!state.canReturnToPlayer) {
         return false;
       }
-      this.postPlayNaturalEndPending = false;
-      this.postPlayPlaybackEnded = false;
-      this.postPlayNaturalCompletionPrepared = false;
+      const playbackEnded = Boolean(this.postPlayPlaybackEnded);
+      if (!playbackEnded) {
+        this.postPlayNaturalEndPending = false;
+        this.postPlayPlaybackEnded = false;
+        this.postPlayNaturalCompletionPrepared = false;
+      }
       this.postPlayPendingSelect = false;
       this.postPlayPendingSelectAction = "";
       this.clearPostPlayLongPressTimer();
@@ -144,7 +147,14 @@ export function createPlayerScreenMethods06() {
       this.postPlaySynopsisVisible = false;
       this.clearPostPlaySynopsisScrollAnimation();
       this.postPlayRenderedSignature = "";
-      this.postPlayRecommendationController?.returnToPlayer?.();
+      const returnedToPlayer = this.postPlayRecommendationController?.returnToPlayer?.();
+      if (playbackEnded) {
+        // Android keeps playbackEnded set after the post-play surface is
+        // dismissed; its player effect then performs the natural completion
+        // teardown and navigation. Do not resume an AVPlay stream that has
+        // already emitted onstreamcompleted and been stopped.
+        return returnedToPlayer !== false;
+      }
       this.paused = false;
       try {
         PlayerController.resume();

@@ -14,8 +14,6 @@ export function createPlayerScreenMethods72() {
     TizenStreamingServerResolver,
     shouldEnterStillWatchingPrompt,
     isSelectKeyCode,
-    normalizeItemType,
-    isSeriesItemType,
     POST_PLAY_LONG_PRESS_DELAY_MS,
     streamDirectPlaybackUrl
   } = internals;
@@ -291,7 +289,6 @@ export function createPlayerScreenMethods72() {
         }
       }
 
-      const itemType = normalizeItemType(this.params?.itemType || "movie");
       const detailParams = this.buildDetailRouteParamsFromPlayer();
       if (
         this.params?.itemId &&
@@ -303,7 +300,11 @@ export function createPlayerScreenMethods72() {
         return;
       }
 
-      if (isSeriesItemType(itemType)) {
+      if (this.params?.itemId) {
+        // Android navigates to the matching Detail destination for movies too
+        // when the existing history entry cannot be restored. Keep the
+        // history pop above as the preferred path, then use the same direct
+        // Detail fallback for any content with a stable item id.
         this.releaseCurrentEngineFsStreamBestEffort("playback-ended", { removeTorrent: true });
         void Router.navigate("detail", detailParams, {
           skipStackPush: true,
