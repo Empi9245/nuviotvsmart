@@ -1,3 +1,14 @@
+## 1.1.8
+
+### Improvements & Fixes
+
+- Reworked CSS build output into a single ordered bundle compatible with Tizen and webOS wrapper runtimes while preserving stylesheet cascade order and static-page references (@WhiteGiso)
+- Fixed Tizen clock formatting to prefer the browser Intl hour cycle when the platform-reported pattern conflicts with the actual formatter (@WhiteGiso)
+- Aligned player completion with Android by preserving natural-completion state through post-play dismissal, preventing an AVPlay resume after stream completion, and restoring movie-detail fallback navigation (@WhiteGiso)
+- Refreshed embedded webOS subtitle styling after enabling the selected subtitle track during playback (@WhiteGiso)
+- Normalized Samsung Back key aliases and removed the duplicate Tizen hardware-key path to prevent repeated navigation while preserving packaged input handling (@WhiteGiso)
+- Fixed Tizen EngineFS proxy-header normalization so encoded header values and HLS segment URLs are serialized correctly (@WhiteGiso)
+
 ## 1.1.7
 
 ### Improvements & Fixes
