@@ -1,3 +1,9 @@
+## 1.1.6
+
+### Improvements & Fixes
+
+- Restored the Tizen install compatibility floor at 2.3 while keeping the runtime support warning at Tizen 4.0, so older TVs can install the app and choose whether to continue (@WhiteGiso)
+
 ## 1.1.5
 
 ### Improvements & Fixes
