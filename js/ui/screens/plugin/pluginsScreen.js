@@ -1,5 +1,5 @@
 import { ScreenUtils } from "../../navigation/screen.js";
-import { Router } from "../../navigation/router.js";
+import { Router } from "../../navigation/routerState.js";
 import { Platform } from "../../../platform/index.js";
 import { I18n } from "../../../i18n/index.js";
 import { PluginManager } from "../../../core/player/pluginManager.js";

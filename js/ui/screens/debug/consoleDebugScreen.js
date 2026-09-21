@@ -5,7 +5,7 @@ import {
 } from "../../../core/diagnostics/consoleDebugBuffer.js";
 import { Platform } from "../../../platform/index.js";
 import { PluginServiceClient } from "../../../platform/pluginServiceClient.js";
-import { Router } from "../../navigation/router.js";
+import { Router } from "../../navigation/routerState.js";
 import { ScreenUtils } from "../../navigation/screen.js";
 
 function t(key, params = {}, fallback = key) {

@@ -1,4 +1,4 @@
-import { Router } from "../../navigation/router.js";
+import { Router } from "../../navigation/routerState.js";
 import { ScreenUtils } from "../../navigation/screen.js";
 import {
   normalizeTmdbLanguageCode,

@@ -2,7 +2,7 @@ import { ExperienceModeStore } from "../../../data/local/experienceModeStore.js"
 import { ProfileManager } from "../../../core/profile/profileManager.js";
 import { ProfileSettingsSyncService } from "../../../core/profile/profileSettingsSyncService.js";
 import { I18n } from "../../../i18n/index.js";
-import { Router } from "../../navigation/router.js";
+import { Router } from "../../navigation/routerState.js";
 import { ScreenUtils } from "../../navigation/screen.js";
 import { renderBrandWordmarkImage } from "../../components/brandWordmark.js";
 

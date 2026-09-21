@@ -1,5 +1,5 @@
 import { ScreenUtils } from "../../navigation/screen.js";
-import { Router } from "../../navigation/router.js";
+import { Router } from "../../navigation/routerState.js";
 import { Platform } from "../../../platform/index.js";
 import { TraktAuthService } from "../../../data/repository/traktAuthService.js";
 import { SimklAuthService } from "../../../data/repository/simklAuthService.js";

@@ -94,7 +94,7 @@ import { Environment } from "../../../platform/environment.js";
 
 import { TizenCapabilities } from "../../../platform/tizen/tizenCapabilities.js";
 
-import { Router } from "../../navigation/router.js";
+import { Router } from "../../navigation/routerState.js";
 
 import { renderLoadingIndicator } from "../../components/loadingIndicator.js";
 

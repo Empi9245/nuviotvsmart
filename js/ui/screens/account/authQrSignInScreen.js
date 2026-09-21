@@ -1,4 +1,4 @@
-import { Router } from "../../navigation/router.js";
+import { Router } from "../../navigation/routerState.js";
 import { QrLoginService } from "../../../core/auth/qrLoginService.js";
 import { LocalStore } from "../../../core/storage/localStore.js";
 import { SessionStore } from "../../../core/storage/sessionStore.js";

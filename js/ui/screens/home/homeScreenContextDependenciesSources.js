@@ -1,4 +1,4 @@
-export { Router } from "../../navigation/router.js";
+export { Router } from "../../navigation/routerState.js";
 
 export { ScreenUtils } from "../../navigation/screen.js";
 

@@ -1,6 +1,6 @@
 import { I18n } from "../../../i18n/index.js";
 import { ScreenUtils } from "../../navigation/screen.js";
-import { Router } from "../../navigation/router.js";
+import { Router } from "../../navigation/routerState.js";
 
 const SECTIONS = [
   {

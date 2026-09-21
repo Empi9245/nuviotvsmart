@@ -28,6 +28,7 @@ import { FolderDetailScreen } from "../screens/collection/folderDetailScreen.js"
 import { Platform } from "../../platform/index.js";
 import { TizenCapabilities } from "../../platform/tizen/tizenCapabilities.js";
 import { RouteStateStore } from "./routeStateStore.js";
+import { Router } from "./routerState.js";
 import { LocalStore } from "../../core/storage/localStore.js";
 
 import { createRouterMethods01 } from "./routerMethods-01-get-route-state-key.js";
@@ -35,6 +36,7 @@ import { createRouterMethods02 } from "./routerMethods-02-complete-route-return-
 import { createRouterMethods03 } from "./routerMethods-03-back.js";
 
 export {
+  Router,
   HomeScreen,
   PlayerScreen,
   AccountScreen,
@@ -144,7 +146,7 @@ function resolvePendingHistoryReturnParams(pending, state, stackEntry) {
   };
 }
 
-export const Router = {
+Object.assign(Router, {
   current: null,
   currentParams: {},
   stack: [],
@@ -191,4 +193,4 @@ export const Router = {
   ...createRouterMethods01(),
   ...createRouterMethods02(),
   ...createRouterMethods03()
-};
+});

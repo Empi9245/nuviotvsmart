@@ -1,4 +1,4 @@
-import { Router } from "../../navigation/router.js";
+import { Router } from "../../navigation/routerState.js";
 import { ScreenUtils } from "../../navigation/screen.js";
 import { LocalStore } from "../../../core/storage/localStore.js";
 import { I18n } from "../../../i18n/index.js";

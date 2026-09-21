@@ -1,4 +1,4 @@
-import { Router } from "../../ui/navigation/router.js";
+import { Router } from "../../ui/navigation/routerState.js";
 import { MAX_PROFILES, ProfileManager } from "../../core/profile/profileManager.js";
 import { ProfileSyncService } from "../../core/profile/profileSyncService.js";
 import { StartupSyncService } from "../../core/profile/startupSyncService.js";

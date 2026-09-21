@@ -1,5 +1,5 @@
 import { ScreenUtils } from "../../navigation/screen.js";
-import { Router } from "../../navigation/router.js";
+import { Router } from "../../navigation/routerState.js";
 import { AuthManager } from "../../../core/auth/authManager.js";
 import { LibrarySyncService } from "../../../core/profile/librarySyncService.js";
 import { addonRepository } from "../../../data/repository/addonRepository.js";

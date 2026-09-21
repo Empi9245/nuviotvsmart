@@ -1,4 +1,4 @@
-import { Router } from "./router.js";
+import { Router } from "./routerState.js";
 import { Platform } from "../../platform/index.js";
 
 function buildNormalizedEvent(event) {

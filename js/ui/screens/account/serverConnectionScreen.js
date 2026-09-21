@@ -2,7 +2,7 @@ import { AuthManager } from "../../../core/auth/authManager.js";
 import { discoverServer } from "../../../core/server/serverDiscovery.js";
 import { ServerConfigurationStore } from "../../../data/local/serverConfigurationStore.js";
 import { I18n } from "../../../i18n/index.js";
-import { Router } from "../../navigation/router.js";
+import { Router } from "../../navigation/routerState.js";
 import { ScreenUtils } from "../../navigation/screen.js";
 
 function text(key, fallback, params = {}) {
