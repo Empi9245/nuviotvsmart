@@ -1,3 +1,9 @@
+## 1.1.7
+
+### Improvements & Fixes
+
+- Broke the Smart TV router and screen import cycle so Tizen startup no longer captures an undefined navigation router and remains stuck loading on affected TVs (@WhiteGiso)
+
 ## 1.1.6
 
 ### Improvements & Fixes
