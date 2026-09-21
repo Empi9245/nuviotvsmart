@@ -159,10 +159,7 @@ function buildWebOsIndexHtml({ webOsScriptPath = "" } = {}) {
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>${appName}</title>
   <script src="assets/runtime/legacy-features.js"></script>
-  <link rel="stylesheet" href="css/base.css" />
-  <link rel="stylesheet" href="css/layout.css" />
-  <link rel="stylesheet" href="css/components.css" />
-  <link rel="stylesheet" href="css/themes.css" />
+  <link rel="stylesheet" href="css/bundle.css" />
 </head>
 <body>
   <script src="boot-guard.js"></script>
