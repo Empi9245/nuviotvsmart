@@ -275,11 +275,7 @@ export function createStreamScreenMethods02() {
         fallbackTitle: this.params?.itemTitle || this.params?.playerTitle || "Untitled",
         returnToSearchOnBack: Boolean(this.params?.returnToSearchOnBack),
         returnHomeOnBack: Boolean(
-          !this.params?.returnToSearchOnBack &&
-          (this.params?.continueWatchingBackHome ||
-            this.params?.returnHomeOnBack ||
-            this.params?.returnToDetail ||
-            this.params?.fromDetailRoute)
+          !this.params?.returnToSearchOnBack && (this.params?.continueWatchingBackHome || this.params?.returnHomeOnBack)
         )
       };
       if (Router.popToExistingRoute?.("detail", detailParams)) {
