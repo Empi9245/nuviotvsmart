@@ -8,6 +8,7 @@ var MAX_CUES_BYTES = 8 * 1024 * 1024;
 var MAX_CLUSTER_BYTES = 20 * 1024 * 1024;
 var MAX_WINDOW_BYTES = 3 * 1024 * 1024;
 var MAX_BLOCK_BYTES = 1024 * 1024;
+var MAX_CUED_FRAME_CACHE_BYTES = 2 * 1024 * 1024;
 var CUED_BLOCK_PROBE_BYTES = 64 * 1024;
 var MAX_CUED_BLOCK_ELEMENT_BYTES = MAX_BLOCK_BYTES + 64 * 1024;
 var MIN_CLUSTER_HEADER_BYTES = 5;
@@ -18,6 +19,8 @@ var METADATA_CACHE_TTL_MS = 10 * 60 * 1000;
 var WINDOW_CACHE_TTL_MS = 5 * 60 * 1000;
 var MAX_METADATA_CACHE_ENTRIES = 6;
 var MAX_WINDOW_CACHE_ENTRIES = 12;
+var MAX_CUED_FRAME_CACHE_ENTRIES = 512;
+var CUED_FRAME_CACHE_TTL_MS = 5 * 60 * 1000;
 var WINDOW_BUCKET_SECONDS = 90;
 var WINDOW_END_QUANTUM_SECONDS = 30;
 var MIN_WINDOW_SECONDS = 120;
@@ -89,6 +92,8 @@ var windowCache = new Map();
 var windowRequests = new Map();
 var textWindowCache = new Map();
 var textWindowRequests = new Map();
+var cuedFrameCache = new Map();
+var cuedFrameCacheBytes = 0;
 var clusterRangeRequests = new Map();
 var activePgsWindowRequests = new Map();
 var activeTextWindowRequests = new Map();
@@ -136,6 +141,62 @@ function setCached(cache, key, value, ttlMs, maxEntries) {
   cache.delete(key);
   cache.set(key, { value: value, expiresAt: Date.now() + ttlMs });
   trimCache(cache, maxEntries);
+}
+
+function getCachedCuedFrame(key) {
+  var entry = cuedFrameCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    cuedFrameCache.delete(key);
+    cuedFrameCacheBytes -= entry.bytes;
+    return null;
+  }
+  cuedFrameCache.delete(key);
+  cuedFrameCache.set(key, entry);
+  return entry.value;
+}
+
+function setCachedCuedFrame(key, frame) {
+  var payloadBytes = Number(frame && frame.payload && frame.payload.length) || 0;
+  if (payloadBytes > MAX_CUED_FRAME_CACHE_BYTES) return;
+  var previous = cuedFrameCache.get(key);
+  if (previous) {
+    cuedFrameCacheBytes -= previous.bytes;
+    cuedFrameCache.delete(key);
+  }
+  cuedFrameCache.set(key, {
+    value: frame,
+    expiresAt: Date.now() + CUED_FRAME_CACHE_TTL_MS,
+    bytes: payloadBytes
+  });
+  cuedFrameCacheBytes += payloadBytes;
+  while (
+    cuedFrameCache.size > MAX_CUED_FRAME_CACHE_ENTRIES ||
+    cuedFrameCacheBytes > MAX_CUED_FRAME_CACHE_BYTES
+  ) {
+    var oldestKey = cuedFrameCache.keys().next().value;
+    var oldest = cuedFrameCache.get(oldestKey);
+    cuedFrameCache.delete(oldestKey);
+    cuedFrameCacheBytes -= oldest ? oldest.bytes : 0;
+  }
+}
+
+function cuedFrameCacheKey(mediaUrl, track, cue) {
+  return (
+    mediaUrl +
+    "::" +
+    String(track && track.number) +
+    "::" +
+    String(cue && cue.clusterPosition) +
+    "::" +
+    String(cue && cue.relativePosition) +
+    "::" +
+    String(cue && cue.timeTicks) +
+    "::" +
+    String(cue && cue.timeMs) +
+    "::" +
+    String(cue && cue.durationTicks)
+  );
 }
 
 function requestRange(url, start, end, maxBytes, redirects, requestContext) {
@@ -940,9 +1001,20 @@ async function loadCueFrames(mediaUrl, metadata, track, cues, requestContext) {
     directCues,
     MAX_CONCURRENT_CUED_BLOCK_REQUESTS,
     async function (cue) {
+      if (requestContext && requestContext.cancelled) {
+        throw bitmapSubtitleError("REQUEST_SUPERSEDED", "Bitmap subtitle request was superseded");
+      }
+      var cacheKey = cuedFrameCacheKey(mediaUrl, track, cue);
+      var cachedFrame = getCachedCuedFrame(cacheKey);
+      if (cachedFrame) return { frame: cachedFrame };
       try {
+        var frame = await loadCuedBlockFrame(mediaUrl, metadata, track, cue, requestContext);
+        setCachedCuedFrame(cacheKey, frame);
+        if (requestContext && requestContext.cancelled) {
+          throw bitmapSubtitleError("REQUEST_SUPERSEDED", "Bitmap subtitle request was superseded");
+        }
         return {
-          frame: await loadCuedBlockFrame(mediaUrl, metadata, track, cue, requestContext)
+          frame: frame
         };
       } catch (error) {
         if (error && error.code === "INVALID_CUE_POSITION") {
@@ -2117,6 +2189,8 @@ function clearBitmapSubtitleCaches() {
   windowRequests.clear();
   textWindowCache.clear();
   textWindowRequests.clear();
+  cuedFrameCache.clear();
+  cuedFrameCacheBytes = 0;
   clusterRangeRequests.clear();
   Array.from(activeTextWindowRequests.keys()).forEach(function (activeKey) {
     cancelActiveTextWindowRequest(activeKey);
