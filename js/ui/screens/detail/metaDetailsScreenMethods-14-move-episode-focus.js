@@ -254,9 +254,10 @@ export function createMetaDetailsScreenMethods14() {
         tmdbId: resolveMetaTmdbId(this.meta, this.params),
         traktId: resolveMetaTraktId(this.meta, this.params)
       };
-      for (const episode of targets) {
-        if (watched) {
-          await watchedItemsRepository.mark({
+      if (watched) {
+        const watchedAt = Date.now();
+        await watchedItemsRepository.markBatch(
+          targets.map((episode) => ({
             contentId: this.params?.itemId,
             ...providerIds,
             contentType: "series",
@@ -264,20 +265,26 @@ export function createMetaDetailsScreenMethods14() {
             season: episode.season,
             episode: episode.episode,
             videoId: episode.id,
-            watchedAt: Date.now()
-          });
-          await watchProgressRepository.saveProgress({
+            watchedAt
+          }))
+        );
+        await watchProgressRepository.saveProgressBatch(
+          targets.map((episode) => ({
             contentId: this.params?.itemId,
             ...providerIds,
             contentType: "series",
             videoId: episode.id,
             season: episode.season,
             episode: episode.episode,
+            title: this.meta?.name || this.params?.fallbackTitle || null,
+            episodeTitle: episode.title || null,
             positionMs: 100,
             durationMs: 100,
-            updatedAt: Date.now()
-          });
-        } else {
+            updatedAt: watchedAt
+          }))
+        );
+      } else {
+        for (const episode of targets) {
           await watchedItemsRepository.unmark(this.params?.itemId, {
             ...providerIds,
             contentType: "series",

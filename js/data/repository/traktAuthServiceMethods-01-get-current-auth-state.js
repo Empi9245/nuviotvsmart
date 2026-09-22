@@ -8,7 +8,6 @@ export function createTraktAuthServiceMethods01() {
     TRAKT_REDIRECT_URI,
     AuthManager,
     TraktAuthStore,
-    detailWatchedEnrichmentService,
     WATCHED_MOVIES_PAGE_LIMIT,
     WATCHED_SHOWS_PAGE_LIMIT,
     hasRequiredCredentials,
@@ -189,7 +188,7 @@ export function createTraktAuthServiceMethods01() {
           console.warn("Trakt revoke failed", error);
         }
       }
-      detailWatchedEnrichmentService.invalidateAllCache();
+      internals.detailWatchedEnrichmentService.invalidateAllCache();
       TraktAuthStore.clearAuth();
     },
     async fetchStats(forceRefresh = false) {
