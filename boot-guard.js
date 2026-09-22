@@ -363,6 +363,9 @@
       exitUnsupportedApp(info.platform);
     };
     close.onkeydown = function closeUnsupportedAppWithRemote(event) {
+      if (handleUnsupportedActionNavigation(event, close)) {
+        return;
+      }
       var keyCode = Number(event && event.keyCode);
       var key = String((event && event.key) || "");
       if (key === "Enter" || key === "OK" || keyCode === 13) {
@@ -380,6 +383,79 @@
       "min-width:300px;padding:17px 30px;border:2px solid #767676;border-radius:12px;" +
       "background:#252525;color:#ffffff;font-size:23px;font-weight:700;";
 
+    function focusUnsupportedAction(button) {
+      if (!button || typeof button.focus !== "function") {
+        return;
+      }
+      try {
+        button.focus();
+      } catch (ignored) {}
+    }
+
+    function moveUnsupportedActionFocus(currentButton, direction) {
+      var nextButton = currentButton;
+      if (currentButton === close && direction > 0) {
+        nextButton = tryAnyway;
+      } else if (currentButton === tryAnyway && direction < 0) {
+        nextButton = close;
+      }
+      if (nextButton !== currentButton) {
+        focusUnsupportedAction(nextButton);
+      }
+    }
+
+    function handleUnsupportedActionNavigation(event, currentButton) {
+      var keyCode = Number(event && (event.keyCode || event.which || 0));
+      var key = String((event && event.key) || "").toLowerCase();
+      var keyName = String(
+        (event && event.keyName) || (event && event.detail && event.detail.keyName) || ""
+      ).toLowerCase();
+      var code = String((event && event.code) || "").toLowerCase();
+      var direction = 0;
+      var names = [key, keyName, code];
+
+      if (
+        keyCode === 39 ||
+        keyCode === 40 ||
+        names.indexOf("arrowright") !== -1 ||
+        names.indexOf("right") !== -1 ||
+        names.indexOf("dpadright") !== -1 ||
+        names.indexOf("dpad_right") !== -1 ||
+        names.indexOf("arrowdown") !== -1 ||
+        names.indexOf("down") !== -1 ||
+        names.indexOf("dpaddown") !== -1 ||
+        names.indexOf("dpad_down") !== -1
+      ) {
+        direction = 1;
+      } else if (
+        keyCode === 37 ||
+        keyCode === 38 ||
+        names.indexOf("arrowleft") !== -1 ||
+        names.indexOf("left") !== -1 ||
+        names.indexOf("dpadleft") !== -1 ||
+        names.indexOf("dpad_left") !== -1 ||
+        names.indexOf("arrowup") !== -1 ||
+        names.indexOf("up") !== -1 ||
+        names.indexOf("dpadup") !== -1 ||
+        names.indexOf("dpad_up") !== -1
+      ) {
+        direction = -1;
+      }
+
+      if (!direction) {
+        return false;
+      }
+
+      if (event && typeof event.preventDefault === "function") {
+        event.preventDefault();
+      }
+      if (event && typeof event.stopPropagation === "function") {
+        event.stopPropagation();
+      }
+      moveUnsupportedActionFocus(currentButton, direction);
+      return true;
+    }
+
     function startUnsupportedAppAnyway() {
       if (bypassStarted) {
         return;
@@ -396,6 +472,9 @@
 
     tryAnyway.onclick = startUnsupportedAppAnyway;
     tryAnyway.onkeydown = function startUnsupportedAppAnywayWithRemote(event) {
+      if (handleUnsupportedActionNavigation(event, tryAnyway)) {
+        return;
+      }
       var keyCode = Number(event && event.keyCode);
       var key = String((event && event.key) || "");
       if (key === "Enter" || key === "OK" || keyCode === 13) {
