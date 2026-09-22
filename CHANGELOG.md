@@ -1,3 +1,14 @@
+## 1.1.9
+
+### Improvements & Fixes
+
+- Improved legacy webOS Home responsiveness by disabling per-track compositor layers and using TV-sized TMDB artwork while leaving unrelated image URLs unchanged (@WhiteGiso)
+- Batched watched-series reconciliation across local storage, Trakt, and Simkl, and excluded seasons whose premiere has not been released (@WhiteGiso)
+- Kept the webOS companion service alive during playback and stopped its keep-alive when playback ends (@WhiteGiso)
+- Cached bitmap subtitle cue frames in a bounded cache to reduce repeated reads (@WhiteGiso)
+- Added D-pad navigation between Close and Try Anyway in the unsupported-device warning (@WhiteGiso)
+- Fixed Stream Back navigation to preserve Detail returns and route Home only for explicit Home-return flows (@WhiteGiso)
+
 ## 1.1.8
 
 ### Improvements & Fixes
