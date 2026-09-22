@@ -315,6 +315,8 @@ export const PlayerController = {
   currentPlaybackMediaSourceType: null,
   webOsPlaybackKeepAliveHandle: null,
   webOsPlaybackKeepAliveToken: "",
+  webOsServiceKeepAliveHandle: null,
+  webOsServiceKeepAliveToken: "",
   lastProgressSnapshot: null,
   lastKnownDurationSeconds: 0,
   avplayFallbackAttempts: new Set(),

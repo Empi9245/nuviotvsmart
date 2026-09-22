@@ -42,6 +42,7 @@ export function createPlayerControllerMethods18() {
       }
 
       if (!preserveTrackSelections || !this.playbackSessionActive) {
+        this.stopWebOsServiceKeepAlive();
         this.clearWebOsTrackSelections();
       }
 
@@ -121,6 +122,10 @@ export function createPlayerControllerMethods18() {
         } else if (Platform.isWebOS()) {
           this.stopWebOsPlaybackKeepAlive();
         }
+      }
+
+      if (Platform.isWebOS() && !this.webOsPlaybackKeepAliveHandle) {
+        this.startWebOsServiceKeepAlive();
       }
 
       try {

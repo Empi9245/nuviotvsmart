@@ -94,6 +94,7 @@ export function createPlayerControllerMethods19() {
     },
     stop({ forceCloudSync = true, allowCloudSync = true, flushProgress = true } = {}) {
       this.stopWebOsPlaybackKeepAlive();
+      this.stopWebOsServiceKeepAlive();
       if (!this.video) return;
 
       this.stopProgressSaving();

@@ -80,6 +80,44 @@ export function createPlayerControllerMethods02() {
       // evicted on-demand service during teardown.
       this.webOsPlaybackKeepAliveToken = "";
     },
+    startWebOsServiceKeepAlive() {
+      if (!Platform.isWebOS() || this.webOsServiceKeepAliveHandle) {
+        return;
+      }
+
+      const token = `webos-playback:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+      this.webOsServiceKeepAliveToken = token;
+      try {
+        this.webOsServiceKeepAliveHandle = subscribeWebOsCompanionService({
+          method: "playbackServiceKeepAlive",
+          parameters: {
+            token,
+            intervalMs: 5000
+          },
+          onFailure: (error) => {
+            if (token !== this.webOsServiceKeepAliveToken) {
+              return;
+            }
+            console.warn("webOS playback service keepalive failed", { token, error });
+          }
+        });
+      } catch (error) {
+        this.webOsServiceKeepAliveHandle = null;
+        this.webOsServiceKeepAliveToken = "";
+        console.warn("webOS playback service keepalive could not start", { token, error });
+      }
+    },
+    stopWebOsServiceKeepAlive() {
+      if (this.webOsServiceKeepAliveHandle) {
+        try {
+          this.webOsServiceKeepAliveHandle.cancel?.();
+        } catch (_) {
+          // Ignore local cancellation failures.
+        }
+        this.webOsServiceKeepAliveHandle = null;
+      }
+      this.webOsServiceKeepAliveToken = "";
+    },
     emitVideoEvent(eventName, detail = null) {
       if (!this.video || !eventName) {
         return;
