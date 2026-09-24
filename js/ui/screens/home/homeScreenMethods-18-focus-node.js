@@ -26,7 +26,8 @@ export function createHomeScreenMethods18() {
       this.focusWithoutAutoScroll(target, { suppressDelegatedFocus: true });
       this.setCurrentFocusedNode(target);
       this.scheduleHomeLazyImageHydration(target, {
-        deferUntilVerticalSettle: direction === "up" || direction === "down"
+        deferUntilVerticalSettle: direction === "up" || direction === "down",
+        focusedRowOnly: this.isLegacyTvRuntime()
       });
       if (this.isCollectionFolderNode(current)) {
         this.hydrateCollectionFocusGif(current, false);

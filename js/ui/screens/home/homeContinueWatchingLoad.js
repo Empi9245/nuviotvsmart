@@ -4,12 +4,14 @@ export function startHomeContinueWatchingLoad(context) {
   const {
     Router,
     watchProgressRepository,
+    watchedItemsRepository,
     StartupSyncService,
     WatchProgressSource,
     buildWatchedTitleIdSet,
     CW_MAX_NEXT_UP_LOOKUPS,
     shouldApplyLateContinueWatchingFocus,
     shouldProtectContinueWatchingDisplay,
+    CW_MAX_VISIBLE_ITEMS,
     buildVisibleContinueWatchingItems,
     buildCompleteContinueWatchingDisplay,
     buildContinueWatchingSignature,
@@ -17,6 +19,7 @@ export function startHomeContinueWatchingLoad(context) {
   } = internals;
   const {
     token,
+    refreshGeneration = null,
     watchedItemsPromise,
     progressAllPromise,
     recentProgressPromise,
@@ -32,10 +35,14 @@ export function startHomeContinueWatchingLoad(context) {
     suppressContinueWatchingLoading,
     hasExistingContinueWatchingDisplay
   } = context;
+  const isCurrentHomeContinueWatchingLoad = () =>
+    token === this.homeLoadToken &&
+    (refreshGeneration == null || refreshGeneration === this.homeContinueWatchingSyncRefreshGeneration) &&
+    Router.getCurrent() === "home";
   {
-    (async () => {
+    return (async () => {
       const [allProgress, continueWatching] = await Promise.all([progressAllPromise, recentProgressPromise]);
-      if (token !== this.homeLoadToken || Router.getCurrent() !== "home") {
+      if (!isCurrentHomeContinueWatchingLoad()) {
         return;
       }
       if (watchProgressRepository.getContinueWatchingSourceKey() !== continueWatchingSourceKey) {
@@ -63,7 +70,7 @@ export function startHomeContinueWatchingLoad(context) {
       this.watchedItems = await watchedItemsPromise;
       this.watchedTitleIds = buildWatchedTitleIdSet(this.watchedItems);
       void this.refreshWatchedTitleState({ token });
-      if (token !== this.homeLoadToken || Router.getCurrent() !== "home") {
+      if (!isCurrentHomeContinueWatchingLoad()) {
         return;
       }
       this.nextUpProgressCandidates = this.selectNextUpProgressCandidates(this.allProgress, this.continueWatching, this.watchedItems, {
@@ -89,7 +96,34 @@ export function startHomeContinueWatchingLoad(context) {
       const previousLoadingState = Boolean(this.continueWatchingLoading);
       if (shouldWaitForStartupSync) {
         const refreshAfterStartupPull = () => {
-          if (token !== this.homeLoadToken || Router.getCurrent() !== "home") {
+          if (!isCurrentHomeContinueWatchingLoad()) {
+            return;
+          }
+          const renderedSignature = this.renderedSyncSensitiveSignature;
+          if (
+            StartupSyncService.getLastPullChangedHomeInputs?.() === false &&
+            renderedSignature &&
+            this.buildSyncSensitiveHomeSignature?.() === renderedSignature
+          ) {
+            // The initial progress reads ran while the profile pull was in
+            // flight. Re-read just Continue Watching after a confirmed no-op
+            // pull, so its loading state settles without rebuilding catalogs.
+            const retryProgressErrors = { all: null, recent: null };
+            startHomeContinueWatchingLoad.call(this, {
+              ...context,
+              watchedItemsPromise: watchedItemsRepository.getAll(2000).catch(() => []),
+              progressAllPromise: watchProgressRepository.getAllForContinueWatching().catch((error) => {
+                retryProgressErrors.all = error;
+                return [];
+              }),
+              recentProgressPromise: watchProgressRepository.getRecent(CW_MAX_VISIBLE_ITEMS, { enrichMetadata: false }).catch((error) => {
+                retryProgressErrors.recent = error;
+                return [];
+              }),
+              progressErrors: retryProgressErrors,
+              startupSyncPendingAtLoad: false,
+              startupSyncPullPromiseAtLoad: null
+            });
             return;
           }
           void this.requestHomeBackgroundRefresh({
@@ -181,7 +215,7 @@ export function startHomeContinueWatchingLoad(context) {
           watchedItems: this.watchedItems,
           nextUpProgressCandidates: this.nextUpProgressCandidates
         });
-        if (token !== this.homeLoadToken || Router.getCurrent() !== "home") {
+        if (!isCurrentHomeContinueWatchingLoad()) {
           return;
         }
         const nextDisplayStrict = buildVisibleContinueWatchingItems(enriched, {
@@ -250,7 +284,7 @@ export function startHomeContinueWatchingLoad(context) {
       }
     })().catch((error) => {
       console.warn("Continue watching load failed", error);
-      if (token !== this.homeLoadToken || Router.getCurrent() !== "home") {
+      if (!isCurrentHomeContinueWatchingLoad()) {
         return;
       }
       this.continueWatchingLoading = false;

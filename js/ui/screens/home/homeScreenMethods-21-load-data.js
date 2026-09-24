@@ -41,6 +41,7 @@ export function createHomeScreenMethods21() {
       const preservedHeroIdentity = preserveHomeReturnState ? buildHeroIdentity(this.heroItem) : "";
       const prefs = LayoutPreferences.get();
       this.layoutPrefs = prefs;
+      this.renderedSyncSensitiveSignature = this.buildSyncSensitiveHomeSignature();
       // Async catalog/progress refreshes must not collapse a focused sidebar.
       // Android keeps this presentation state outside the Home data flow.
       this.sidebarExpanded = Boolean(this.sidebarExpanded);
@@ -175,6 +176,12 @@ export function createHomeScreenMethods21() {
       });
       if (token !== this.homeLoadToken) {
         return;
+      }
+      if (initialDescriptors.length) {
+        // Match Android's catalog freshness window from the last page-one
+        // request. A later no-op sync can refresh these rows in place without
+        // rebuilding Continue Watching, the hero, or the Home shell.
+        this.lastHomeCatalogRefreshAtMs = Date.now();
       }
       // A background refresh resolves only the initial catalog batch first, so
       // assigning it directly discards every already-rendered row outside that

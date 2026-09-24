@@ -1,18 +1,109 @@
 import * as internals from "./homeScreenContext.js";
+import { startHomeContinueWatchingLoad } from "./homeContinueWatchingLoad.js";
+
+function catalogItemIdentity(item = {}) {
+  const id = String(item?.id || item?.videoId || item?.contentId || "").trim();
+  if (!id) {
+    return "";
+  }
+  const type = String(item?.apiType || item?.type || "")
+    .trim()
+    .toLowerCase();
+  return `${type}:${id}`;
+}
+
+function mergeHomeCatalogRefreshRow(currentRow, freshRow, { rowHasFocus = false, layoutMode = "" } = {}) {
+  const currentItems = Array.isArray(currentRow?.result?.data?.items) ? currentRow.result.data.items : [];
+  const freshItems = Array.isArray(freshRow?.result?.data?.items) ? freshRow.result.data.items : [];
+  if (!freshItems.length) {
+    return currentRow;
+  }
+  if (!currentItems.length) {
+    return rowHasFocus ? currentRow : freshRow;
+  }
+
+  const currentIds = currentItems.map(catalogItemIdentity);
+  const freshIds = freshItems.map(catalogItemIdentity);
+  const identitiesAreStable = currentIds.every(Boolean) && freshIds.every(Boolean);
+  if (identitiesAreStable && freshIds.length <= currentIds.length && freshIds.every((identity, index) => identity === currentIds[index])) {
+    // Keep pagination and the rendered card objects when page one still has
+    // the same head. Android applies the same rule to refreshed catalog rows.
+    return currentRow;
+  }
+
+  let addedCount = 0;
+  if (identitiesAreStable) {
+    const currentIdSet = new Set(currentIds);
+    while (addedCount < freshIds.length && !currentIdSet.has(freshIds[addedCount])) {
+      addedCount += 1;
+    }
+  }
+  const remainingFreshIds = freshIds.slice(addedCount);
+  const isPurePrepend = Boolean(
+    identitiesAreStable &&
+    addedCount > 0 &&
+    remainingFreshIds.length > 0 &&
+    remainingFreshIds.length <= currentIds.length &&
+    remainingFreshIds.every((identity, index) => identity === currentIds[index])
+  );
+
+  if (rowHasFocus && (!isPurePrepend || layoutMode !== "modern")) {
+    // Replacing a focused classic/grid row can remove the card under the focus
+    // ring. Preserve that row until the next catalog refresh opportunity.
+    return currentRow;
+  }
+
+  if (!isPurePrepend) {
+    return freshRow;
+  }
+
+  const currentData = currentRow.result?.data || {};
+  const freshData = freshRow.result?.data || {};
+  const nextSkip = Number(currentData.nextSkip || 0);
+  const mergedData = {
+    ...freshData,
+    ...currentData,
+    items: [...freshItems.slice(0, addedCount), ...currentItems],
+    nextSkip: currentData.supportsSkip !== false && nextSkip > 0 ? nextSkip + addedCount : currentData.nextSkip
+  };
+  return {
+    ...currentRow,
+    ...freshRow,
+    result: {
+      ...freshRow.result,
+      ...currentRow.result,
+      data: mergedData
+    }
+  };
+}
 
 export function createHomeScreenMethods04() {
   const {
     Router,
     addonRepository,
+    CollectionsStore,
     ProfileManager,
     StartupSyncService,
+    ProfileSettingsSyncService,
+    watchProgressRepository,
+    watchedItemsRepository,
+    LayoutPreferences,
+    getContinueWatchingNextUpSeedOptions,
+    buildCatalogOrderKey,
+    catalogShouldShowOnHome,
+    catalogSkipStep,
+    catalogSupportsExtra,
     MODERN_HOME_CONSTANTS,
+    CW_MAX_VISIBLE_ITEMS,
     HERO_ROTATE_FIRST_DELAY_MS,
     HERO_ROTATE_INTERVAL_MS,
+    HOME_CATALOG_REFRESH_TTL_MS,
     HOME_STABLE_GATE_TIMEOUT_MS,
     logHomePerf,
+    homePerfNow,
     preloadHeroAssets,
-    buildHeroIdentity
+    buildHeroIdentity,
+    I18n
   } = internals;
 
   return {
@@ -107,36 +198,288 @@ export function createHomeScreenMethods04() {
       return Boolean(this.layoutMode === "modern" && this.hasUserInteractedSinceHomePaint && this.shouldSuspendModernViewportFocusSync());
     },
     maybeStartPendingHomeBackgroundRefresh() {
-      if (!this.homeBackgroundRefreshPending || this.isInitialHomeLoading || !this.continueWatchingInitialResolved) {
+      if (this.homeBackgroundRefreshPending) {
+        if (this.isInitialHomeLoading || !this.continueWatchingInitialResolved) {
+          return false;
+        }
+        void this.requestHomeBackgroundRefresh({
+          preserveReturnState: Boolean(this.homeBackgroundRefreshPreserveReturnState),
+          reason: this.homeBackgroundRefreshReason || "post-initial-load"
+        }).catch((error) => {
+          console.warn("Home deferred background refresh failed", error);
+        });
+        return true;
+      }
+      if (!this.homeContinueWatchingSyncRefreshPending || this.isInitialHomeLoading || !this.continueWatchingInitialResolved) {
         return false;
       }
-      void this.requestHomeBackgroundRefresh({
-        preserveReturnState: Boolean(this.homeBackgroundRefreshPreserveReturnState),
-        reason: this.homeBackgroundRefreshReason || "post-initial-load"
-      }).catch((error) => {
-        console.warn("Home deferred background refresh failed", error);
+      this.homeContinueWatchingSyncRefreshPending = false;
+      void this.refreshHomeContinueWatchingAfterSync().catch((error) => {
+        console.warn("Home Continue Watching sync refresh failed", error);
       });
       return true;
+    },
+    refreshHomeContinueWatchingAfterSync() {
+      if (Router.getCurrent() !== "home" || this.homeBackgroundRefreshPending || this.homeBackgroundRefreshPromise) {
+        return Promise.resolve(false);
+      }
+      if (!this.hasLoadedOnce || this.isInitialHomeLoading || !this.continueWatchingInitialResolved) {
+        this.homeContinueWatchingSyncRefreshPending = true;
+        return Promise.resolve(false);
+      }
+      if (this.homeContinueWatchingSyncRefreshPromise) {
+        this.homeContinueWatchingSyncRefreshPending = true;
+        return this.homeContinueWatchingSyncRefreshPromise;
+      }
+
+      const token = this.homeLoadToken;
+      const continueWatchingSourceKey = watchProgressRepository.getContinueWatchingSourceKey();
+      const continueWatchingSource = watchProgressRepository.getContinueWatchingSource();
+      const progressErrors = { all: null, recent: null };
+      const refreshGeneration = Number(this.homeContinueWatchingSyncRefreshGeneration || 0) + 1;
+      this.homeContinueWatchingSyncRefreshGeneration = refreshGeneration;
+      let refreshPromise = null;
+      refreshPromise = Promise.resolve()
+        .then(() =>
+          startHomeContinueWatchingLoad.call(this, {
+            token,
+            refreshGeneration,
+            watchedItemsPromise: watchedItemsRepository.getAll(2000).catch(() => []),
+            progressAllPromise: watchProgressRepository.getAllForContinueWatching().catch((error) => {
+              progressErrors.all = error;
+              return [];
+            }),
+            recentProgressPromise: watchProgressRepository.getRecent(CW_MAX_VISIBLE_ITEMS, { enrichMetadata: false }).catch((error) => {
+              progressErrors.recent = error;
+              return [];
+            }),
+            progressErrors,
+            continueWatchingSourceKey,
+            continueWatchingSource,
+            startupSyncPendingAtLoad: false,
+            startupSyncPullPromiseAtLoad: null,
+            nextUpSeedOptions: getContinueWatchingNextUpSeedOptions(),
+            prefs: LayoutPreferences.get(),
+            background: true,
+            preserveHomeReturnState: true,
+            suppressContinueWatchingLoading: true,
+            hasExistingContinueWatchingDisplay: Boolean(this.continueWatchingDisplay?.length)
+          })
+        )
+        .finally(() => {
+          if (this.homeContinueWatchingSyncRefreshPromise === refreshPromise) {
+            this.homeContinueWatchingSyncRefreshPromise = null;
+          }
+          if (this.homeContinueWatchingSyncRefreshPending && Router.getCurrent() === "home") {
+            this.maybeStartPendingHomeBackgroundRefresh();
+          }
+        });
+      this.homeContinueWatchingSyncRefreshPromise = refreshPromise;
+      logHomePerf("continueWatchingSyncRefresh", {
+        source: String(continueWatchingSource || ""),
+        profileId: String(ProfileManager.getActiveProfileId() || "")
+      });
+      return refreshPromise;
+    },
+    async refreshHomeCatalogsIfStale({ reason = "catalogs-stale" } = {}) {
+      if (
+        Router.getCurrent() !== "home" ||
+        !this.hasLoadedOnce ||
+        this.isInitialHomeLoading ||
+        !this.continueWatchingInitialResolved ||
+        this.homeBackgroundRefreshPending ||
+        this.homeBackgroundRefreshPromise
+      ) {
+        return false;
+      }
+      if (this.homeCatalogRefreshPromise) {
+        return this.homeCatalogRefreshPromise;
+      }
+
+      const now = Date.now();
+      const lastRefreshAtMs = Number(this.lastHomeCatalogRefreshAtMs || 0);
+      if (lastRefreshAtMs > 0 && now >= lastRefreshAtMs && now - lastRefreshAtMs < HOME_CATALOG_REFRESH_TTL_MS) {
+        logHomePerf("catalogRefreshSkipped", {
+          reason: "catalogs-fresh",
+          ageMs: now - lastRefreshAtMs
+        });
+        return false;
+      }
+
+      const token = this.homeLoadToken;
+      const profileId = String(ProfileManager.getActiveProfileId() || "");
+      const loadedRows = (this.rows || []).filter(
+        (row) => row?.rowKind !== "collection" && row?.result?.status === "success" && row?.homeCatalogKey
+      );
+      if (!loadedRows.length) {
+        return false;
+      }
+
+      const refreshStart = homePerfNow();
+      const refreshPromise = (async () => {
+        const addons = await addonRepository.getInstalledAddons({ cacheOnly: true });
+        if (
+          token !== this.homeLoadToken ||
+          Router.getCurrent() !== "home" ||
+          this.homeBackgroundRefreshPending ||
+          profileId !== String(ProfileManager.getActiveProfileId() || "")
+        ) {
+          return false;
+        }
+
+        const loadedRowsByKey = new Map(loadedRows.map((row) => [String(row.homeCatalogKey), row]));
+        const descriptors = [];
+        const seenDescriptors = new Set();
+        const matchedLoadedRowKeys = new Set();
+        (Array.isArray(addons) ? addons : []).forEach((addon) => {
+          (Array.isArray(addon?.catalogs) ? addon.catalogs : [])
+            .filter((catalog) => catalogShouldShowOnHome(catalog))
+            .forEach((catalog) => {
+              const homeCatalogKey = buildCatalogOrderKey(addon.id, catalog.apiType, catalog.id);
+              const loadedRow = loadedRowsByKey.get(String(homeCatalogKey));
+              if (
+                !loadedRow ||
+                String(loadedRow.addonBaseUrl || "") !== String(addon.baseUrl || "") ||
+                String(loadedRow.addonId || "") !== String(addon.id || "")
+              ) {
+                return;
+              }
+              matchedLoadedRowKeys.add(String(homeCatalogKey));
+              const descriptor = {
+                addonBaseUrl: addon.baseUrl,
+                addonId: addon.id,
+                addonName: addon.displayName,
+                catalogId: catalog.id,
+                catalogName: catalog.name,
+                type: catalog.apiType,
+                supportsSkip: catalogSupportsExtra(catalog, "skip"),
+                skipStep: catalogSkipStep(catalog)
+              };
+              const descriptorKey = JSON.stringify([descriptor.addonBaseUrl, descriptor.addonId, descriptor.catalogId, descriptor.type]);
+              if (!seenDescriptors.has(descriptorKey)) {
+                seenDescriptors.add(descriptorKey);
+                descriptors.push(descriptor);
+              }
+            });
+        });
+
+        if (Array.from(loadedRowsByKey.keys()).some((key) => !matchedLoadedRowKeys.has(key))) {
+          logHomePerf("catalogRefreshFallback", {
+            reason: "loaded-catalog-missing-from-cache",
+            loaded: loadedRowsByKey.size,
+            matched: matchedLoadedRowKeys.size
+          });
+          return this.requestHomeBackgroundRefresh({
+            preserveReturnState: true,
+            reason: "catalog-refresh-manifest-mismatch"
+          });
+        }
+        if (!descriptors.length) {
+          return false;
+        }
+        this.lastHomeCatalogRefreshAtMs = Date.now();
+        const refreshedRows = await this.fetchCatalogRows(descriptors, {
+          batchSize: this.getDeferredCatalogBatchSize()
+        });
+        if (
+          token !== this.homeLoadToken ||
+          Router.getCurrent() !== "home" ||
+          this.homeBackgroundRefreshPending ||
+          profileId !== String(ProfileManager.getActiveProfileId() || "")
+        ) {
+          return false;
+        }
+
+        const freshRowsByKey = new Map(refreshedRows.map((row) => [String(row.homeCatalogKey), row]));
+        const focusedRowKey = String(this.captureCurrentFocusState()?.rowKey || "");
+        let changedRowCount = 0;
+        const nextRows = (this.rows || []).map((row) => {
+          const freshRow = freshRowsByKey.get(String(row?.homeCatalogKey || ""));
+          if (!freshRow || row?.rowKind === "collection") {
+            return row;
+          }
+          const mergedRow = mergeHomeCatalogRefreshRow(row, freshRow, {
+            rowHasFocus: String(row.homeCatalogKey) === focusedRowKey,
+            layoutMode: String(this.layoutMode || "")
+          });
+          if (mergedRow !== row) {
+            changedRowCount += 1;
+          }
+          return mergedRow;
+        });
+
+        if (changedRowCount) {
+          this.collections = CollectionsStore.get();
+          this.rows = this.sortAndFilterRows(nextRows, this.collections);
+          this.render();
+        }
+        logHomePerf("catalogRefresh", {
+          reason,
+          requested: descriptors.length,
+          returned: refreshedRows.length,
+          changedRows: changedRowCount,
+          ms: Number((homePerfNow() - refreshStart).toFixed(2))
+        });
+        return changedRowCount > 0;
+      })().finally(() => {
+        if (this.homeCatalogRefreshPromise === refreshPromise) {
+          this.homeCatalogRefreshPromise = null;
+        }
+      });
+      this.homeCatalogRefreshPromise = refreshPromise;
+      return refreshPromise;
     },
     ensureStartupSyncSubscription() {
       if (this.unsubscribeStartupSyncPullCompleted) {
         return;
       }
-      this.unsubscribeStartupSyncPullCompleted = StartupSyncService.subscribeToPullCompleted(({ profileId } = {}) => {
-        if (Router.getCurrent() !== "home") {
-          return;
+      this.unsubscribeStartupSyncPullCompleted = StartupSyncService.subscribeToPullCompleted(
+        ({ profileId, changedHomeInputs, source } = {}) => {
+          if (Router.getCurrent() !== "home") {
+            return;
+          }
+          const activeProfileId = String(ProfileManager.getActiveProfileId() || "");
+          if (profileId && String(profileId) !== activeProfileId) {
+            return;
+          }
+          if (source === "watch-state") {
+            void this.refreshHomeContinueWatchingAfterSync().catch((error) => {
+              console.warn("Home Continue Watching post-sync refresh failed", error);
+            });
+            return;
+          }
+          const renderedSignature = this.renderedSyncSensitiveSignature;
+          if (changedHomeInputs === false && renderedSignature && this.buildSyncSensitiveHomeSignature() === renderedSignature) {
+            logHomePerf("backgroundRefreshSkipped", { reason: "startup-sync" });
+            void this.refreshHomeCatalogsIfStale({ reason: "startup-sync" }).catch((error) => {
+              console.warn("Home stale-catalog refresh failed", error);
+            });
+            return;
+          }
+          void this.requestHomeBackgroundRefresh({
+            preserveReturnState: true,
+            reason: "startup-sync"
+          }).catch((error) => {
+            console.warn("Home post-sync refresh failed", error);
+          });
         }
-        const activeProfileId = String(ProfileManager.getActiveProfileId() || "");
-        if (profileId && String(profileId) !== activeProfileId) {
-          return;
+      );
+    },
+    buildSyncSensitiveHomeSignature() {
+      try {
+        const profileSettingsSignature = ProfileSettingsSyncService.getHomeInputSignature?.(ProfileManager.getActiveProfileId());
+        if (!profileSettingsSignature) {
+          return "";
         }
-        void this.requestHomeBackgroundRefresh({
-          preserveReturnState: true,
-          reason: "startup-sync"
-        }).catch((error) => {
-          console.warn("Home post-sync refresh failed", error);
-        });
-      });
+        return JSON.stringify([
+          LayoutPreferences.get() || {},
+          String(watchProgressRepository.getContinueWatchingSourceKey() || ""),
+          String(I18n.getLocale() || ""),
+          profileSettingsSignature
+        ]);
+      } catch (_) {
+        return "";
+      }
     },
     ensureAddonManifestSubscriptions() {
       if (!this.unsubscribeAddonManifestChanges) {
@@ -189,6 +532,7 @@ export function createHomeScreenMethods04() {
       // has child promises in flight. Invalidate that older load before the new
       // refresh captures its token, otherwise a slow stale response can win
       // after the freshly synchronized data has been rendered.
+      this.homeContinueWatchingSyncRefreshPending = false;
       this.homeLoadToken = (this.homeLoadToken || 0) + 1;
 
       let refreshPromise = null;

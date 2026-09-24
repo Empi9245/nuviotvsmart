@@ -56,6 +56,8 @@ export { ProfileManager } from "../../../core/profile/profileManager.js";
 
 export { StartupSyncService } from "../../../core/profile/startupSyncService.js";
 
+export { ProfileSettingsSyncService } from "../../../core/profile/profileSettingsSyncService.js";
+
 export { Platform } from "../../../platform/index.js";
 
 export { WatchProgressSource } from "../../../data/local/traktSettingsStore.js";
@@ -136,7 +138,10 @@ export {
   HERO_ROTATE_INTERVAL_MS,
   HOME_BACKGROUND_RENDER_DELAY_LEGACY_MS,
   HOME_BACKGROUND_RENDER_DELAY_MS,
+  HOME_LEGACY_LAZY_HYDRATION_DEBOUNCE_MS,
+  HOME_LEGACY_LAZY_HYDRATION_MAX_PER_FRAME,
   HOME_ADDON_MANIFEST_TIMEOUT_MS,
+  HOME_CATALOG_REFRESH_TTL_MS,
   HOME_GRID_COMPACT_ROW_COUNT,
   HOME_GRID_DEFAULT_ROW_COUNT,
   HOME_GRID_SAFE_MAX_COLUMNS,

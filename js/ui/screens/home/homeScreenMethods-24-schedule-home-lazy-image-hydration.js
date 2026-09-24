@@ -6,6 +6,8 @@ export function createHomeScreenMethods24() {
     CW_DAYS_CAP,
     HOME_LAZY_IMAGE_SELECTOR,
     HOME_LAZY_IMAGE_ROW_SELECTOR,
+    HOME_LEGACY_LAZY_HYDRATION_DEBOUNCE_MS,
+    HOME_LEGACY_LAZY_HYDRATION_MAX_PER_FRAME,
     isSeriesTypeForContinueWatching,
     isCompletedForContinueWatching,
     episodeKey,
@@ -14,11 +16,26 @@ export function createHomeScreenMethods24() {
   } = internals;
 
   return {
-    scheduleHomeLazyImageHydration(anchorNode = null, { refreshIndex = false, deferUntilVerticalSettle = false } = {}) {
+    scheduleHomeLazyImageHydration(
+      anchorNode = null,
+      { refreshIndex = false, deferUntilVerticalSettle = false, focusedRowOnly = false, includeNeighborRows = false } = {}
+    ) {
       const anchorRow = anchorNode instanceof HTMLElement ? anchorNode.closest(HOME_LAZY_IMAGE_ROW_SELECTOR) : null;
       const anchorImagePending = Boolean(
         anchorNode?.querySelector?.(".content-poster[data-src], .home-poster-landscape-logo[data-src], .home-continue-bg[data-src]")
       );
+      const legacyFocusedRowPass = Boolean(this.isLegacyTvRuntime() && focusedRowOnly && anchorRow instanceof HTMLElement);
+      if (legacyFocusedRowPass) {
+        if (this.homeLazyImageNeighborTimer) {
+          clearTimeout(this.homeLazyImageNeighborTimer);
+        }
+        this.homeLazyImageNeighborTimer = setTimeout(() => {
+          this.homeLazyImageNeighborTimer = null;
+          this.scheduleHomeLazyImageHydration(this.getCurrentFocusedNode(), {
+            includeNeighborRows: true
+          });
+        }, HOME_LEGACY_LAZY_HYDRATION_DEBOUNCE_MS);
+      }
       if (
         anchorRow instanceof HTMLElement &&
         anchorRow === this.lastHomeLazyImageHydrationAnchorRow &&
@@ -26,6 +43,7 @@ export function createHomeScreenMethods24() {
         !this.homeLazyImageHydrationNeedsFullScan &&
         !this.homeLazyImageHydrationNeedsIndexRefresh &&
         !this.homeLazyImageHydrationRaf &&
+        !includeNeighborRows &&
         !(this.shouldUseImmediateFocusScroll() && anchorImagePending)
       ) {
         // Avoid scheduling another animation-frame callback until the DOM,
@@ -39,10 +57,18 @@ export function createHomeScreenMethods24() {
       } else {
         this.homeLazyImageHydrationNeedsFullScan = true;
       }
+      this.pendingHomeLazyImageFocusedRowOnly = legacyFocusedRowPass;
+      this.pendingHomeLazyImageIncludeNeighborRows = Boolean(includeNeighborRows || (this.isLegacyTvRuntime() && !legacyFocusedRowPass));
       if (refreshIndex) {
         this.homeLazyImageHydrationNeedsIndexRefresh = true;
       }
-      if (deferUntilVerticalSettle && this.shouldUseImmediateFocusScroll() && this.layoutMode === "modern") {
+      if (!legacyFocusedRowPass && (includeNeighborRows || !(anchorRow instanceof HTMLElement))) {
+        if (this.homeLazyImageNeighborTimer) {
+          clearTimeout(this.homeLazyImageNeighborTimer);
+          this.homeLazyImageNeighborTimer = null;
+        }
+      }
+      if (deferUntilVerticalSettle && !legacyFocusedRowPass && this.shouldUseImmediateFocusScroll() && this.layoutMode === "modern") {
         if (this.homeLazyImageHydrationSettleTimer) {
           clearTimeout(this.homeLazyImageHydrationSettleTimer);
         }
@@ -79,7 +105,16 @@ export function createHomeScreenMethods24() {
         this.homeLazyImageHydrationNeedsFullScan = false;
         const shouldRefreshIndex = Boolean(this.homeLazyImageHydrationNeedsIndexRefresh);
         this.homeLazyImageHydrationNeedsIndexRefresh = false;
-        this.hydrateHomeLazyImages(anchor, { forceFullScan, refreshIndex: shouldRefreshIndex });
+        const onlyFocusedRow = Boolean(this.pendingHomeLazyImageFocusedRowOnly);
+        this.pendingHomeLazyImageFocusedRowOnly = false;
+        const includeNeighbors = Boolean(this.pendingHomeLazyImageIncludeNeighborRows);
+        this.pendingHomeLazyImageIncludeNeighborRows = false;
+        this.hydrateHomeLazyImages(anchor, {
+          forceFullScan,
+          refreshIndex: shouldRefreshIndex,
+          focusedRowOnly: onlyFocusedRow,
+          includeNeighborRows: includeNeighbors
+        });
       });
     },
     buildHomeLazyImageHydrationIndex() {
@@ -98,7 +133,10 @@ export function createHomeScreenMethods24() {
       this.homeLazyImageHydrationIndex = index;
       return index;
     },
-    hydrateHomeLazyImages(anchorNode = null, { forceFullScan = false, refreshIndex = false } = {}) {
+    hydrateHomeLazyImages(
+      anchorNode = null,
+      { forceFullScan = false, refreshIndex = false, focusedRowOnly = false, includeNeighborRows = false } = {}
+    ) {
       if (!this.container) {
         return;
       }
@@ -138,7 +176,10 @@ export function createHomeScreenMethods24() {
           return;
         }
         const isFocusedRow = Boolean(anchorRow && row === anchorRow);
-        if (sameAnchorRow && useBoundedTvHydration && !forceFullScan && !refreshIndex && !isFocusedRow) {
+        if (focusedRowOnly && anchorRow && !isFocusedRow) {
+          return;
+        }
+        if (sameAnchorRow && useBoundedTvHydration && !forceFullScan && !refreshIndex && !includeNeighborRows && !isFocusedRow) {
           return;
         }
         const images = entry.images.filter((image) => image.isConnected && image.dataset.src);
@@ -181,15 +222,86 @@ export function createHomeScreenMethods24() {
           // The app already decides when an image is close enough to load. Leaving
           // loading="lazy" here delegates that decision back to old TV browsers,
           // which can miscalculate visibility inside the nested modern-home viewport.
-          pendingLoads.push({ image, src });
+          const isFocusedImage = Boolean(
+            anchorNode && (anchorNode === image || anchorNode.contains?.(image) || image.closest(".focusable") === anchorNode)
+          );
+          pendingLoads.push({
+            image,
+            src,
+            row,
+            isFocusedRow,
+            isFocusedImage,
+            priority: isFocusedImage ? 0 : isFocusedRow ? 1 : 2
+          });
         });
       });
       // Complete geometry reads before changing image layout/loading state.
-      pendingLoads.forEach(({ image, src }) => {
-        image.loading = "eager";
-        image.removeAttribute("data-src");
-        image.src = src;
+      if (this.isLegacyTvRuntime()) {
+        this.commitHomeLazyImageSources(pendingLoads, anchorNode, anchorRow);
+      } else {
+        pendingLoads.forEach(({ image, src }) => {
+          image.loading = "eager";
+          image.removeAttribute("data-src");
+          image.src = src;
+        });
+      }
+    },
+    commitHomeLazyImageSources(queued = [], anchorNode = null, anchorRow = null) {
+      const pending = this.homeLazyImageCommitQueue || (this.homeLazyImageCommitQueue = []);
+      const nextOrder = () => {
+        this.homeLazyImageCommitOrder = Number(this.homeLazyImageCommitOrder || 0) + 1;
+        return this.homeLazyImageCommitOrder;
+      };
+      const isCurrentFocusedImage = (image) =>
+        Boolean(anchorNode && (anchorNode === image || anchorNode.contains?.(image) || image.closest(".focusable") === anchorNode));
+      pending.forEach((entry) => {
+        entry.isFocusedImage = isCurrentFocusedImage(entry.image);
+        entry.priority = entry.row === anchorRow ? (entry.isFocusedImage ? 0 : 1) : 2;
       });
+      queued.forEach((entry) => {
+        if (!(entry?.image instanceof HTMLImageElement) || !entry.image.isConnected || !entry.image.dataset.src) {
+          return;
+        }
+        const existingIndex = pending.findIndex((candidate) => candidate.image === entry.image);
+        if (existingIndex >= 0) {
+          const existing = pending[existingIndex];
+          existing.src = entry.src;
+          existing.row = entry.row;
+          existing.isFocusedRow = entry.isFocusedRow;
+          existing.isFocusedImage = entry.isFocusedImage;
+          existing.priority = entry.priority;
+          existing.order = nextOrder();
+          return;
+        }
+        pending.push({ ...entry, order: nextOrder() });
+      });
+      pending.sort((left, right) => left.priority - right.priority || left.order - right.order);
+      if (!pending.length || this.homeLazyImageCommitRaf) {
+        return;
+      }
+
+      const drain = () => {
+        this.homeLazyImageCommitRaf = 0;
+        let assigned = 0;
+        while (pending.length && assigned < HOME_LEGACY_LAZY_HYDRATION_MAX_PER_FRAME) {
+          const { image, src } = pending.shift();
+          if (!(image instanceof HTMLImageElement) || !image.isConnected) {
+            continue;
+          }
+          const currentSrc = String(image.dataset.src || "").trim();
+          if (!currentSrc) {
+            continue;
+          }
+          image.loading = "eager";
+          image.removeAttribute("data-src");
+          image.src = currentSrc || src;
+          assigned += 1;
+        }
+        if (pending.length) {
+          this.homeLazyImageCommitRaf = requestAnimationFrame(drain);
+        }
+      };
+      this.homeLazyImageCommitRaf = requestAnimationFrame(drain);
     },
     teardownGridStickyHeader() {
       if (this.gridStickyCleanup) {

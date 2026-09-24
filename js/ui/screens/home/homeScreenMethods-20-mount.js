@@ -206,6 +206,7 @@ export function createHomeScreenMethods20() {
       this.isInitialHomeLoading = true;
       this.ensureStartupSyncSubscription();
       this.layoutPrefs = LayoutPreferences.get();
+      this.renderedSyncSensitiveSignature = this.buildSyncSensitiveHomeSignature();
       this.layoutMode = String(this.layoutPrefs.homeLayout || "classic").toLowerCase();
       this.rows = [];
       this.watchedItems = [];

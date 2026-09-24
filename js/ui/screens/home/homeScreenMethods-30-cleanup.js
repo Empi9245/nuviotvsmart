@@ -70,7 +70,19 @@ export function createHomeScreenMethods30() {
         clearTimeout(this.homeLazyImageHydrationSettleTimer);
         this.homeLazyImageHydrationSettleTimer = null;
       }
+      if (this.homeLazyImageNeighborTimer) {
+        clearTimeout(this.homeLazyImageNeighborTimer);
+        this.homeLazyImageNeighborTimer = null;
+      }
+      if (this.homeLazyImageCommitRaf) {
+        cancelAnimationFrame(this.homeLazyImageCommitRaf);
+        this.homeLazyImageCommitRaf = 0;
+      }
+      this.homeLazyImageCommitQueue = [];
+      this.homeLazyImageCommitOrder = 0;
       this.pendingHomeLazyImageAnchor = null;
+      this.pendingHomeLazyImageFocusedRowOnly = false;
+      this.pendingHomeLazyImageIncludeNeighborRows = false;
       this.homeLazyImageHydrationNeedsFullScan = false;
       this.homeLazyImageHydrationNeedsIndexRefresh = false;
       this.homeLazyImageHydrationIndex = null;
