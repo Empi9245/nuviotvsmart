@@ -154,8 +154,8 @@ export function isSeriesDetailMeta(meta = {}, episodes = null) {
     return true;
   }
   const resolvedEpisodes = Array.isArray(episodes) ? episodes : normalizeEpisodes(meta?.videos || [], normalizedType);
-  // Match Android TV: addon-defined types such as `other` are episodic when
-  // their full meta contains videos, even if the addon omitted episode fields.
+  // Addon-defined types such as `other` can be episodic when their full meta
+  // contains unnumbered playable videos; live `tv` channels stay non-episodic.
   return resolvedEpisodes.length > 0;
 }
 
