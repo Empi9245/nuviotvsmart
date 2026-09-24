@@ -1,4 +1,5 @@
 import { ThemeStore } from "../data/local/themeStore.js";
+import { decodeAndroidStringEscapes } from "./androidStringEscapes.js";
 
 const DEFAULT_LOCALE = "en";
 const RTL_LOCALES = new Set(["ar", "he"]);
@@ -505,16 +506,6 @@ function interpolate(template, params = {}) {
     .replace(/\\"/g, '"');
 }
 
-function decodeUnicodeEscapes(value) {
-  return String(value ?? "").replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) =>
-    String.fromCharCode(Number.parseInt(hex, 16))
-  );
-}
-
-function decodeAndroidStringEscapes(value) {
-  return decodeUnicodeEscapes(value).replace(/\\n/g, "\n");
-}
-
 function parseStringsXml(source) {
   const parser = new DOMParser();
   const xml = parser.parseFromString(source, "application/xml");
@@ -572,6 +563,48 @@ async function loadXmlFile(relativePath) {
   throw new Error(`Unable to load translation file: ${relativePath}`);
 }
 
+function loadJsonFileXhr(url) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", url, true);
+    xhr.onload = () => {
+      // status 0 is returned for successful file:// loads in webOS
+      if (xhr.status === 200 || xhr.status === 0) {
+        try {
+          const messages = JSON.parse(xhr.responseText);
+          if (
+            !messages ||
+            typeof messages !== "object" ||
+            Array.isArray(messages) ||
+            Object.values(messages).some((message) => typeof message !== "string")
+          ) {
+            throw new Error("Invalid translation bundle");
+          }
+          resolve(messages);
+        } catch (error) {
+          reject(error);
+        }
+      } else {
+        reject(new Error(`XHR status ${xhr.status} for ${url}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error(`XHR error for ${url}`));
+    xhr.send();
+  });
+}
+
+async function loadJsonFile(relativePath) {
+  const candidates = [`res/${relativePath}`, `dist/res/${relativePath}`];
+  for (const candidate of candidates) {
+    try {
+      return await loadJsonFileXhr(candidate);
+    } catch (_) {
+      // Try the next build location, then let the XML loader provide the fallback.
+    }
+  }
+  throw new Error(`Unable to load translation bundle: ${relativePath}`);
+}
+
 async function loadBaseMessages() {
   if (!baseMessagesPromise) {
     baseMessagesPromise = loadXmlFile("values/strings.xml");
@@ -585,6 +618,12 @@ async function loadLocaleMessages(locale) {
   }
 
   const promise = (async () => {
+    try {
+      return await loadJsonFile(`i18n/${locale}.json`);
+    } catch (_) {
+      // Unbuilt development trees can still load the source XML files below.
+    }
+
     const base = await loadBaseMessages();
     if (locale === DEFAULT_LOCALE) {
       return { ...base };
