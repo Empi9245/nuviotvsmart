@@ -178,7 +178,8 @@ function validatePayload(payload) {
       error: "Only valid HTTP(S) URLs are allowed"
     };
   var requestedMethod = String((payload && payload.method) || "GET").toUpperCase();
-  var method = ["POST", "PUT", "PATCH", "DELETE"].indexOf(requestedMethod) >= 0 ? requestedMethod : "GET";
+  var method =
+    ["POST", "PUT", "PATCH", "DELETE"].indexOf(requestedMethod) >= 0 ? requestedMethod : "GET";
   var body = typeof (payload && payload.body) === "string" ? payload.body : "";
   var hasBinaryBody = payload && Object.prototype.hasOwnProperty.call(payload, "bodyBase64");
   var encodedBody = hasBinaryBody ? payload.bodyBase64 : "";
@@ -190,11 +191,7 @@ function validatePayload(payload) {
     return { ok: false, error: "Invalid binary request body" };
   var bodyKind = payload && payload.bodyKind;
   if (bodyKind === undefined || bodyKind === null) {
-    bodyKind = hasBinaryBody
-      ? "base64"
-      : method === "DELETE" || !body
-        ? "none"
-        : "text";
+    bodyKind = hasBinaryBody ? "base64" : method === "DELETE" || !body ? "none" : "text";
   }
   if (["none", "text", "base64"].indexOf(bodyKind) < 0)
     return { ok: false, error: "Unsupported request body type" };
@@ -214,10 +211,7 @@ function validatePayload(payload) {
   // charset, because some providers include the value in a signature.
   if (!headerValue(headers, "Content-Type")) {
     if (method === "POST") headers["Content-Type"] = "application/x-www-form-urlencoded";
-    if (
-      ["PUT", "PATCH"].indexOf(method) >= 0 ||
-      (method === "DELETE" && bodyKind !== "none")
-    ) {
+    if (["PUT", "PATCH"].indexOf(method) >= 0 || (method === "DELETE" && bodyKind !== "none")) {
       headers["Content-Type"] = "application/json";
     }
   }
@@ -890,8 +884,7 @@ function performFetch(payload, callback, redirects, trace, networkState) {
       if (validation.requestId && typeof finish.registerRequest === "function") {
         finish.registerRequest(validation.requestId, request);
       }
-      if (hasRequestBody && validation.body.length > 0)
-        request.write(validation.body);
+      if (hasRequestBody && validation.body.length > 0) request.write(validation.body);
       request.end();
       requestSent = true;
       emitTrace(

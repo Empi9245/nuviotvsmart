@@ -73,7 +73,8 @@ export function validatePluginFetchRequest(
     ? (bodyBase64.length / 4) * 3 -
       (bodyBase64.endsWith("==") ? 2 : bodyBase64.endsWith("=") ? 1 : 0)
     : 0;
-  const requestBodyBytes = bodyKind === "base64" ? binaryBytes : bodyKind === "text" ? bodyBytes : 0;
+  const requestBodyBytes =
+    bodyKind === "base64" ? binaryBytes : bodyKind === "text" ? bodyBytes : 0;
   if (requestBodyBytes > maxBodyBytes) {
     return { ok: false, reason: "Request body exceeds the plugin quota" };
   }
