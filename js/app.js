@@ -209,11 +209,10 @@ function isAddonRemoteMode() {
 }
 
 async function shouldShowProfileSelection() {
-  const [, pinStates] = await Promise.all([
-    ProfileSyncService.pull(),
+  const [profiles, pinStates] = await Promise.all([
+    ProfileManager.getProfiles(),
     ProfileSyncService.pullProfileLockStates()
   ]);
-  const profiles = await ProfileManager.getProfiles();
   const activeProfileId = ProfileManager.getActiveProfileId();
   const activeProfileHasPin = Boolean(
     pinStates?.[String(activeProfileId)] || pinStates?.[Number(activeProfileId)]
@@ -261,6 +260,11 @@ async function enterWithLastProfile({ restoreWebOsRoute = false } = {}) {
     });
   }
   const experienceRoute = activeProfile ? await resolveExperienceRoute(activeProfile.id) : "home";
+  void StartupSyncService.requestSyncNow({
+    notifyPullCompleted: ["home", "plugins"].includes(experienceRoute)
+  }).catch((error) => {
+    console.warn("Profile background sync failed", error);
+  });
   const resumeRoute =
     restoreWebOsRoute && typeof Router.consumeWebOsResumeRoute === "function"
       ? Router.consumeWebOsResumeRoute()
@@ -280,12 +284,6 @@ async function enterWithLastProfile({ restoreWebOsRoute = false } = {}) {
       ...(StartupSyncService.started ? { forceReload: true } : {})
     });
   }
-
-  void StartupSyncService.requestSyncNow({
-    notifyPullCompleted: ["home", "plugins"].includes(experienceRoute)
-  }).catch((error) => {
-    console.warn("Profile background sync failed", error);
-  });
 }
 
 async function routeAfterAuthentication() {

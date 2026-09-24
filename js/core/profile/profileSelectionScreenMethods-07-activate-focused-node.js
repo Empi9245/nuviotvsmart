@@ -171,16 +171,16 @@ export function createProfileSelectionScreenMethods07() {
         ThemeManager.apply({ enforceAccess: true, access: memberAccess });
         I18n.apply();
         const experienceRoute = await resolveExperienceRoute(profileId);
-        await Router.navigate(
-          experienceRoute,
-          experienceRoute === "home" ? { forceReload: true } : {},
-          experienceRoute === "home" ? {} : { replaceHistory: true, skipStackPush: true }
-        );
         void StartupSyncService.requestSyncNow({
           notifyPullCompleted: ["home", "plugins"].includes(experienceRoute)
         }).catch((error) => {
           console.warn("Profile background sync failed", error);
         });
+        await Router.navigate(
+          experienceRoute,
+          experienceRoute === "home" ? { forceReload: true } : {},
+          experienceRoute === "home" ? {} : { replaceHistory: true, skipStackPush: true }
+        );
       } catch (error) {
         console.warn("Failed to activate profile", error);
         this.isActivatingProfile = false;

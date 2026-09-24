@@ -206,5 +206,18 @@ export {
 };
 
 export const ProfileSettingsSyncService = {
-  ...createProfileSettingsSyncServiceMethods01()
+  ...createProfileSettingsSyncServiceMethods01(),
+  getHomeInputSignature(profileId = null) {
+    const comparableFeatures = buildComparableFeaturesFromLocal(resolveProfileId(profileId));
+    return stableStringify({
+      theme: comparableFeatures.theme_settings,
+      layout: comparableFeatures.layout_settings,
+      experience: comparableFeatures.experience_settings,
+      trailer: comparableFeatures.trailer_settings,
+      tmdb: comparableFeatures.tmdb_settings,
+      mdblist: comparableFeatures.mdblist_settings,
+      trakt: comparableFeatures.trakt_settings,
+      streamBadges: comparableFeatures.stream_badge_settings
+    });
+  }
 };

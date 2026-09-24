@@ -8,6 +8,7 @@ import { registerSessionTeardownHandler } from "../auth/sessionLifecycle.js";
 const PULL_RPC = "sync_pull_collections";
 const PUSH_RPC = "sync_push_collections";
 const PUSH_DEBOUNCE_MS = 500;
+let lastPullFailed = false;
 
 function resolveProfileId(profileId = null) {
   const raw = Number(profileId ?? ProfileManager.getActiveProfileId() ?? 1);
@@ -45,6 +46,10 @@ function parseRemoteCollectionsPayload(blob = null) {
 export const CollectionSyncService = {
   syncingFromRemoteProfiles: new Set(),
   pushTimers: new Map(),
+
+  getLastPullFailed() {
+    return lastPullFailed;
+  },
   syncGeneration: 0,
 
   isSyncingFromRemote(profileId = null) {
@@ -75,6 +80,7 @@ export const CollectionSyncService = {
   },
 
   async pull(profileId = null) {
+    lastPullFailed = false;
     if (!AuthManager.isAuthenticated || isSyncBackoffActive()) {
       return false;
     }
@@ -108,6 +114,7 @@ export const CollectionSyncService = {
       }
       return true;
     } catch (error) {
+      lastPullFailed = true;
       console.warn("Collection sync pull failed", error);
       return false;
     }

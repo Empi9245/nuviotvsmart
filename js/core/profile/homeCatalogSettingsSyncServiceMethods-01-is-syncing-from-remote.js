@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import * as internals from "./homeCatalogSettingsSyncService.js";
 
 export function createHomeCatalogSettingsSyncServiceMethods01() {
@@ -26,7 +25,11 @@ export function createHomeCatalogSettingsSyncServiceMethods01() {
     isSyncingFromRemote(profileId = null) {
       return this.syncingFromRemoteProfiles.has(resolveProfileId(profileId));
     },
+    getLastPullFailed() {
+      return this.lastPullFailed === true;
+    },
     async pull(profileId = null) {
+      this.lastPullFailed = false;
       if (isSyncBackoffActive()) {
         return false;
       }
@@ -68,6 +71,7 @@ export function createHomeCatalogSettingsSyncServiceMethods01() {
         }
         return true;
       } catch (error) {
+        this.lastPullFailed = true;
         console.warn("Home catalog settings sync pull failed", error);
         return false;
       }

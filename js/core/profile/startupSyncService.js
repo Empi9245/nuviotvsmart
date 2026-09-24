@@ -177,6 +177,7 @@ function notifySyncPullCompleted(event = {}) {
 
 export const StartupSyncService = {
   started: false,
+  lastPullChangedHomeInputs: true,
   intervalId: null,
   libraryIntervalId: null,
   foregroundPullTimer: null,

@@ -529,6 +529,7 @@ export const HomeCatalogSettingsSyncService = {
   pushTimers: new Map(),
   completedInitialPullTokens: new Set(),
   syncGeneration: 0,
+  lastPullFailed: false,
   ...createHomeCatalogSettingsSyncServiceMethods01()
 };
 

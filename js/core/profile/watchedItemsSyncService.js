@@ -16,6 +16,8 @@ const WATCHED_ITEMS_PAGE_SIZE = 900;
 
 let lastPullStatus = "idle";
 let lastPullHadUnsynced = false;
+let lastPullChangedHomeInputs = false;
+let homeInputChangeRevision = 0;
 
 function resolveProfileId(profileId = null) {
   const raw = Number(profileId ?? ProfileManager.getActiveProfileId() ?? 1);
@@ -49,6 +51,23 @@ function watchedItemKey(item = {}) {
   const season = item.season == null ? "" : String(Number(item.season));
   const episode = item.episode == null ? "" : String(Number(item.episode));
   return `${contentId}:${season}:${episode}`;
+}
+
+function homeWatchedItemsSnapshotSignature(items = []) {
+  return (Array.isArray(items) ? items : [])
+    .filter((item) => Boolean(item?.contentId))
+    .map((item) =>
+      JSON.stringify([
+        watchedItemKey(item),
+        String(item.contentType || "movie"),
+        String(item.title || ""),
+        item.season == null ? null : Number(item.season),
+        item.episode == null ? null : Number(item.episode),
+        Number(item.watchedAt || 0)
+      ])
+    )
+    .sort()
+    .join("\n");
 }
 
 function watchedStateForProfile(profileId = resolveProfileId()) {
@@ -179,6 +198,18 @@ export const WatchedItemsSyncService = {
     return lastPullHadUnsynced;
   },
 
+  getLastPullChangedHomeInputs() {
+    return lastPullChangedHomeInputs;
+  },
+
+  getHomeInputChangeRevision() {
+    return homeInputChangeRevision;
+  },
+
+  resetLastPullChangedHomeInputs() {
+    lastPullChangedHomeInputs = false;
+  },
+
   async pull(profileId = null) {
     if (isSyncBackoffActive()) {
       lastPullStatus = "deferred";
@@ -214,12 +245,20 @@ export const WatchedItemsSyncService = {
         return localItems;
       }
       const mergedItems = mergeWatchedItems(localItems, remoteItems, lastSuccessfulPushAt);
+      const didChangeHomeInputs =
+        homeWatchedItemsSnapshotSignature(localItems) !==
+        homeWatchedItemsSnapshotSignature(mergedItems);
+      lastPullChangedHomeInputs = lastPullChangedHomeInputs || didChangeHomeInputs;
+      if (didChangeHomeInputs) {
+        homeInputChangeRevision += 1;
+      }
       await watchedItemsRepository.replaceAll(mergedItems, resolvedProfileId);
       lastPullHadUnsynced = hasUnsyncedLocalItems(localItems, remoteItems, lastSuccessfulPushAt);
       lastPullStatus = "ok";
       return mergedItems;
     } catch (error) {
       lastPullStatus = "error";
+      lastPullChangedHomeInputs = true;
       console.warn("Watched items sync pull failed", error);
       return localItems;
     }
