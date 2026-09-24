@@ -1,3 +1,16 @@
+## 1.2.0
+
+### Improvements & Fixes
+
+- Aligned profile startup with Android TV by routing from local settings and running account sync in the background, while refreshing Home only when synced inputs change (@WhiteGiso)
+- Improved Home responsiveness on older TV runtimes by prioritizing focused artwork and spreading image requests across frames; added background catalog refresh without rebuilding unchanged Home state (@WhiteGiso)
+- Aligned watch-progress recovery and deletion with Android by restoring remote rows when local data is missing and retrying pending remote deletions (@WhiteGiso)
+- Hardened Tizen HLS playback so browser engines preserve request headers through EngineFS, with a safe AVPlay fallback when the proxy is unavailable; added limited retries for post-startup AVPlay connection failures (@WhiteGiso)
+- Matched Android's bounded provider-search waves, propagated TMDB cancellation and deadlines, and reused PluginService connections while preferring healthy network routes (@WhiteGiso)
+- Preserved binary plugin request and response bytes across the TV fetch bridge, including typed-array bodies and `response.arrayBuffer()` (@joojoooo, @WhiteGiso)
+- Added the webOS minimal-buffering control, corrected Movie Credits translation lookup, and clarified when ASS/SSA styles remain managed by the subtitle renderer (@WhiteGiso)
+- Precompiled locale dictionaries for TV runtimes and retained Android string-escape decoding (@WhiteGiso)
+
 ## 1.1.9
 
 ### Improvements & Fixes
