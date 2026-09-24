@@ -21,6 +21,7 @@ export function createPlayerScreenMethods34() {
         preservePendingRestore = false,
         preserveStartupRecoveryState = false,
         preservePlaybackRecoveryState = false,
+        preserveTizenAvPlayConnectionRetryState = false,
         forceEngine = null,
         sourceCandidate: explicitSourceCandidate = null,
         mountToken = null
@@ -28,6 +29,17 @@ export function createPlayerScreenMethods34() {
     ) {
       if (!this.isActiveMountToken(mountToken)) {
         return;
+      }
+      if (!preserveTizenAvPlayConnectionRetryState) {
+        if (this.tizenAvPlayConnectionRetryTimer) {
+          clearTimeout(this.tizenAvPlayConnectionRetryTimer);
+        }
+        if (this.tizenAvPlayConnectionRetryBudgetResetTimer) {
+          clearTimeout(this.tizenAvPlayConnectionRetryBudgetResetTimer);
+        }
+        this.tizenAvPlayConnectionRetryTimer = null;
+        this.tizenAvPlayConnectionRetryBudgetResetTimer = null;
+        this.tizenAvPlayConnectionRetryAttempts = 0;
       }
       if (this.isExternalFrameMode()) {
         return;

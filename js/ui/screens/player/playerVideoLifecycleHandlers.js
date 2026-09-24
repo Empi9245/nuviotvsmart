@@ -99,6 +99,7 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
       }
       this.markPlaybackProgress();
       this.paused = false;
+      this.scheduleTizenAvPlayConnectionRetryBudgetReset?.();
       this.seekOverlaySuppressControlsUntil = 0;
       this.startupTrackPreferenceReady = true;
       this.dismissPauseOverlay();
@@ -188,6 +189,9 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
       this.resetPlaybackEngineValidation();
     } else if (this.postValidationRecoveryValidationActive) {
       this.resetPostValidationRecoveryValidationWindow();
+    }
+    if (isTizenAvPlayPlayback()) {
+      this.cancelTizenAvPlayConnectionRetryBudgetReset?.();
     }
     // Immediate scrobble pause
     if (TrackingScrobbleService.isEnabled()) {

@@ -242,6 +242,16 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
       return;
     }
 
+    const isTizenAvPlayConnectionFailure =
+      isTizenAvPlayPlayback() &&
+      !currentEngineFsState &&
+      !terminalHlsHttpFailure &&
+      mediaErrorCode === 2 &&
+      avplayError === "player_error_connection_failed";
+    if (this.hasPresentedPlaybackFrame && isTizenAvPlayConnectionFailure && this.scheduleTizenAvPlayConnectionErrorRetry?.()) {
+      return;
+    }
+
     this.markPlaybackSourceFailed(this.activePlaybackUrl);
 
     this.clearPlaybackStallGuard();

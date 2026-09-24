@@ -92,32 +92,69 @@ export function createPlayerControllerMethods18() {
           return;
         }
       }
-      const preferredEngine = forceEngine || this.choosePlaybackEngine(url, sourceType, itemType);
+      let preferredEngine = forceEngine || this.choosePlaybackEngine(url, sourceType, itemType);
       await this.ensureAdaptiveLibrariesForSource(sourceType, preferredEngine);
       if (!this.isPlaybackRequestActive(playToken, requestedUrl)) {
         return;
       }
 
       let playbackUrl = requestedUrl;
-      const playbackProxy = Platform.isTizen() && this.canUseAvPlay() ? TizenPlaybackProxy : Platform.isWebOS() ? WebOsPlaybackProxy : null;
+      let tizenProxyUnavailable = false;
+      let tizenAvPlayFallbackForProxyUnavailable = false;
+      const canUseTizenPlaybackProxy =
+        Platform.isTizen() && (this.canUseAvPlay() || preferredEngine === "hls.js" || preferredEngine === "native-hls");
+      const playbackProxy = canUseTizenPlaybackProxy ? TizenPlaybackProxy : Platform.isWebOS() ? WebOsPlaybackProxy : null;
       if (playbackProxy) {
-        const proxyResult = await playbackProxy.resolve(requestedUrl, requestHeaders);
+        const proxyResult = Platform.isTizen()
+          ? await playbackProxy.resolve(requestedUrl, requestHeaders, { playbackEngine: preferredEngine })
+          : await playbackProxy.resolve(requestedUrl, requestHeaders);
         if (!this.isPlaybackRequestActive(playToken, requestedUrl)) {
           return;
+        }
+        if (Platform.isTizen() && proxyResult?.status === "unavailable") {
+          const avplayEngine = this.getPlatformAvplayEngineName();
+          const canPreserveHeadersWithAvPlay = !TizenPlaybackProxy.requiresProxy(requestedUrl, requestHeaders, {
+            playbackEngine: avplayEngine
+          });
+          const canFallbackToAvPlay =
+            !forceEngine &&
+            this.isLikelyHlsMimeType(sourceType) &&
+            (preferredEngine === "hls.js" || preferredEngine === "native-hls") &&
+            this.canUseAvPlay() &&
+            canPreserveHeadersWithAvPlay;
+          if (canFallbackToAvPlay) {
+            // AVPlay can carry Cookie/User-Agent natively. Use the existing
+            // Tizen HLS fallback only when it preserves every declared header.
+            preferredEngine = avplayEngine;
+            tizenAvPlayFallbackForProxyUnavailable = true;
+          } else {
+            // Never start a raw browser request after EngineFS failed to
+            // preserve headers that Android's HTTP data source would send.
+            tizenProxyUnavailable = true;
+          }
         }
         playbackUrl = String(proxyResult?.url || requestedUrl).trim() || requestedUrl;
         if (proxyResult?.proxied) {
           this.currentPlaybackUrl = playbackUrl;
           this.startWebOsPlaybackKeepAlive();
-          const debugPayload = {
-            baseUrl: proxyResult.baseUrl,
-            headerNames: proxyResult.headerNames,
-            playbackUrl
-          };
           if (Platform.isTizen()) {
-            logTizenAvPlayDebug("PlayerController: Tizen playback proxy selected", debugPayload);
+            let sourceHost = null;
+            try {
+              sourceHost = new URL(requestedUrl).host;
+            } catch (_) {
+              // Keep diagnostics useful without exposing header-bearing proxy URLs.
+            }
+            logTizenAvPlayDebug("PlayerController: Tizen playback proxy selected", {
+              baseUrl: proxyResult.baseUrl,
+              headerNames: proxyResult.headerNames,
+              sourceHost
+            });
           } else {
-            logWebOsPlaybackDebug("PlayerController: webOS playback proxy selected", debugPayload);
+            logWebOsPlaybackDebug("PlayerController: webOS playback proxy selected", {
+              baseUrl: proxyResult.baseUrl,
+              headerNames: proxyResult.headerNames,
+              playbackUrl
+            });
           }
         } else if (Platform.isWebOS()) {
           this.stopWebOsPlaybackKeepAlive();
@@ -160,6 +197,11 @@ export function createPlayerControllerMethods18() {
       this.video.removeAttribute("src");
       this.video.load();
       this.resetNativeMediaState();
+      if (tizenProxyUnavailable) {
+        this.isPlaying = false;
+        this.stopProgressSaving();
+        throw new Error("Tizen playback proxy unavailable; declared request headers cannot be forwarded");
+      }
       const nativeFallbackEngine = this.isLikelyHlsMimeType(sourceType)
         ? "native-hls"
         : this.isLikelyDashMimeType(sourceType)
@@ -169,6 +211,11 @@ export function createPlayerControllerMethods18() {
       if (preferredEngine === this.getPlatformAvplayEngineName()) {
         const avplayStarted = this.playWithAvPlay(playbackUrl, requestHeaders, sourceType, playToken);
         if (!avplayStarted) {
+          if (tizenAvPlayFallbackForProxyUnavailable) {
+            this.isPlaying = false;
+            this.stopProgressSaving();
+            throw new Error("AVPlay could not start HLS while the Tizen playback proxy was unavailable");
+          }
           const isRemoteProgressiveTizenSource =
             Platform.isTizen() && nativeFallbackEngine === "native-file" && this.isRemoteDirectHttpSource(playbackUrl);
           if (isRemoteProgressiveTizenSource) {

@@ -1,6 +1,8 @@
 import { TizenEngineFsService } from "./tizenEngineFsService.js";
 
 const NATIVE_AVPLAY_REQUEST_HEADERS = new Set(["cookie", "user-agent"]);
+const HLS_BROWSER_RESTRICTED_HEADERS = new Set(["cookie", "user-agent"]);
+const BROWSER_HLS_ENGINES = new Set(["hls.js", "native-hls"]);
 const HOP_BY_HOP_HEADERS = new Set(["connection", "content-length", "host", "range", "transfer-encoding"]);
 
 function normalizeHeaderEntries(headers = {}) {
@@ -57,13 +59,25 @@ export function buildTizenPlaybackProxyUrl(baseUrl, sourceUrl, headers = {}) {
 }
 
 export const TizenPlaybackProxy = {
-  requiresProxy(sourceUrl = "", headers = {}) {
-    return Boolean(parseHttpUrl(sourceUrl) && !isLocalProxyUrl(sourceUrl) && hasTizenUnsupportedPlaybackHeaders(headers));
+  requiresProxy(sourceUrl = "", headers = {}, { playbackEngine = "" } = {}) {
+    const engine = String(playbackEngine || "")
+      .trim()
+      .toLowerCase();
+    // AVPlay can set Cookie and User-Agent itself. Browser HLS paths cannot,
+    // so keep those declared source headers on the EngineFS request instead.
+    const browserHlsNeedsRestrictedHeaders =
+      BROWSER_HLS_ENGINES.has(engine) &&
+      normalizeHeaderEntries(headers).some(([key]) => HLS_BROWSER_RESTRICTED_HEADERS.has(key.toLowerCase()));
+    return Boolean(
+      parseHttpUrl(sourceUrl) &&
+      !isLocalProxyUrl(sourceUrl) &&
+      (hasTizenUnsupportedPlaybackHeaders(headers) || browserHlsNeedsRestrictedHeaders)
+    );
   },
 
-  async resolve(sourceUrl = "", headers = {}) {
+  async resolve(sourceUrl = "", headers = {}, { playbackEngine = "" } = {}) {
     const originalUrl = String(sourceUrl || "").trim();
-    if (!this.requiresProxy(originalUrl, headers)) {
+    if (!this.requiresProxy(originalUrl, headers, { playbackEngine })) {
       return { status: "not-required", url: originalUrl, proxied: false };
     }
 

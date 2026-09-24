@@ -309,6 +309,9 @@ export function initializePlayerMountState(params, initialStreamUrl) {
   this.webOsNativeReadyStartupRetries = 0;
   this.playbackRecoveryActive = false;
   this.playbackRecoveryAttempts = 0;
+  this.tizenAvPlayConnectionRetryAttempts = 0;
+  this.tizenAvPlayConnectionRetryTimer = null;
+  this.tizenAvPlayConnectionRetryBudgetResetTimer = null;
   this.lastEngineFsStallStats = null;
   this.lastEngineFsStartupErrorStats = null;
   this.engineFsKeepAliveHandle = null;

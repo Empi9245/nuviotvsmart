@@ -13,6 +13,12 @@ export function createPlayerScreenMethods73() {
         this.playbackRecoveryActive = false;
         this.playbackRecoveryAttempts = 0;
         this.playerMountToken = Number(this.playerMountToken || 0) + 1;
+        if (this.tizenAvPlayConnectionRetryTimer) {
+          clearTimeout(this.tizenAvPlayConnectionRetryTimer);
+          this.tizenAvPlayConnectionRetryTimer = null;
+        }
+        this.cancelTizenAvPlayConnectionRetryBudgetReset();
+        this.tizenAvPlayConnectionRetryAttempts = 0;
         this.nextEpisodeLaunchToken = Number(this.nextEpisodeLaunchToken || 0) + 1;
         this.nextEpisodeLaunching = false;
         this.resetNextEpisodeLaunchPresentation();

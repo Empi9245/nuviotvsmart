@@ -1,6 +1,10 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
 
+const TIZEN_AVPLAY_CONNECTION_RETRY_MAX_ATTEMPTS = 2;
+const TIZEN_AVPLAY_CONNECTION_RETRY_DELAY_MS = 1500;
+const TIZEN_AVPLAY_CONNECTION_RETRY_STABLE_RESET_DELAY_MS = 5000;
+
 export function createPlayerScreenMethods36() {
   const {
     PlayerController,
@@ -119,6 +123,7 @@ export function createPlayerScreenMethods36() {
       } else {
         this.playbackEngineValidated = true;
       }
+      this.tizenAvPlayConnectionRetryAttempts = 0;
       return true;
     },
     isPlaybackEngineValidated() {
@@ -157,6 +162,103 @@ export function createPlayerScreenMethods36() {
         sourceCandidate
       });
       return true;
+    },
+    scheduleTizenAvPlayConnectionErrorRetry() {
+      this.cancelTizenAvPlayConnectionRetryBudgetReset();
+      const retryUrl = String(this.activePlaybackUrl || "").trim();
+      const currentEngine = String(PlayerController.playbackEngine || "").trim();
+      const currentAttempt = Number(this.tizenAvPlayConnectionRetryAttempts || 0);
+      if (this.tizenAvPlayConnectionRetryTimer) {
+        return true;
+      }
+      if (
+        !retryUrl ||
+        currentEngine !== "tizen-avplay" ||
+        !this.hasPresentedPlaybackFrame ||
+        this.currentEngineFsStream ||
+        currentAttempt >= TIZEN_AVPLAY_CONNECTION_RETRY_MAX_ATTEMPTS
+      ) {
+        return false;
+      }
+
+      const sourceCandidate = this.getStreamCandidateByUrl(retryUrl) || this.getCurrentStreamCandidate();
+      const attempt = currentAttempt + 1;
+      this.tizenAvPlayConnectionRetryAttempts = attempt;
+      this.armPostValidationRecoveryValidation();
+      this.clearPlaybackStallGuard();
+      this.loadingVisible = true;
+      this.bufferingActive = true;
+      this.sourcesError = null;
+      this.updateLoadingVisibility();
+      this.updateMediaSessionPlaybackState();
+
+      const mountToken = Number(this.playerMountToken || 0);
+      console.warn("Tizen AVPlay connection failed; retrying the same stream", {
+        engine: currentEngine,
+        attempt,
+        limit: TIZEN_AVPLAY_CONNECTION_RETRY_MAX_ATTEMPTS
+      });
+      this.tizenAvPlayConnectionRetryTimer = setTimeout(() => {
+        this.tizenAvPlayConnectionRetryTimer = null;
+        if (
+          !this.isActiveMountToken(mountToken) ||
+          String(this.activePlaybackUrl || "").trim() !== retryUrl ||
+          this.currentEngineFsStream ||
+          String(PlayerController.playbackEngine || "").trim() !== currentEngine
+        ) {
+          return;
+        }
+        void this.playStreamByUrl(retryUrl, {
+          preservePanel: true,
+          preservePlaybackState: true,
+          resetSilentAudioState: false,
+          preservePlaybackRecoveryState: true,
+          preserveTizenAvPlayConnectionRetryState: true,
+          forceEngine: currentEngine,
+          sourceCandidate,
+          mountToken
+        });
+      }, TIZEN_AVPLAY_CONNECTION_RETRY_DELAY_MS);
+      return true;
+    },
+    scheduleTizenAvPlayConnectionRetryBudgetReset() {
+      const retryUrl = String(this.activePlaybackUrl || "").trim();
+      const currentEngine = String(PlayerController.playbackEngine || "").trim();
+      if (
+        !this.tizenAvPlayConnectionRetryAttempts ||
+        this.tizenAvPlayConnectionRetryBudgetResetTimer ||
+        !retryUrl ||
+        currentEngine !== "tizen-avplay" ||
+        !this.hasPresentedPlaybackFrame ||
+        this.currentEngineFsStream ||
+        this.paused
+      ) {
+        return false;
+      }
+
+      const mountToken = Number(this.playerMountToken || 0);
+      this.tizenAvPlayConnectionRetryBudgetResetTimer = setTimeout(() => {
+        this.tizenAvPlayConnectionRetryBudgetResetTimer = null;
+        if (
+          !this.isActiveMountToken(mountToken) ||
+          String(this.activePlaybackUrl || "").trim() !== retryUrl ||
+          String(PlayerController.playbackEngine || "").trim() !== currentEngine ||
+          !this.hasPresentedPlaybackFrame ||
+          this.currentEngineFsStream ||
+          this.paused ||
+          !PlayerController.isPlaying
+        ) {
+          return;
+        }
+        this.tizenAvPlayConnectionRetryAttempts = 0;
+      }, TIZEN_AVPLAY_CONNECTION_RETRY_STABLE_RESET_DELAY_MS);
+      return true;
+    },
+    cancelTizenAvPlayConnectionRetryBudgetReset() {
+      if (this.tizenAvPlayConnectionRetryBudgetResetTimer) {
+        clearTimeout(this.tizenAvPlayConnectionRetryBudgetResetTimer);
+        this.tizenAvPlayConnectionRetryBudgetResetTimer = null;
+      }
     },
     markPlaybackProgress() {
       const currentSeconds = this.getPlaybackCurrentSeconds();
