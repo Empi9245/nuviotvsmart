@@ -50,6 +50,8 @@ var DEFAULT_TIMEOUT_MS = 60000;
 // request/read timeout unchanged. This is the per-address budget used when a
 // DNS route fails before a response is received.
 var CONNECT_ATTEMPT_TIMEOUT_MS = 30000;
+var MAX_FAILED_ROUTES = 256;
+var MAX_IDLE_CONNECTIONS = 5;
 var PLUGIN_PROTOCOL_VERSION = 1;
 var MAX_ACTIVE_REQUESTS = 10;
 // Keep the active network cap unchanged, but queue the burst generated when
@@ -348,7 +350,93 @@ function responseCharset(contentType) {
   return "utf8";
 }
 
-function performFetch(payload, callback, redirects, trace) {
+function routeDatabaseKey(parsed, address) {
+  return JSON.stringify([
+    String((parsed && parsed.protocol) || "").toLowerCase(),
+    String((parsed && parsed.hostname) || "").toLowerCase(),
+    Number((parsed && parsed.port) || 0) || (parsed && parsed.protocol === "https:" ? 443 : 80),
+    String(address || "")
+  ]);
+}
+
+function orderResolvedAddresses(networkState, parsed, addresses) {
+  var failedRoutes = networkState && networkState.failedRoutes;
+  if (!failedRoutes || !failedRoutes.size) return addresses;
+  var available = [];
+  var postponed = [];
+  addresses.forEach(function (address) {
+    (failedRoutes.has(routeDatabaseKey(parsed, address)) ? postponed : available).push(address);
+  });
+  return available.concat(postponed);
+}
+
+function rememberFailedRoute(networkState, parsed, address) {
+  var failedRoutes = networkState && networkState.failedRoutes;
+  if (!failedRoutes || !address) return;
+  var key = routeDatabaseKey(parsed, address);
+  failedRoutes.delete(key);
+  failedRoutes.set(key, true);
+  while (failedRoutes.size > MAX_FAILED_ROUTES) {
+    failedRoutes.delete(failedRoutes.keys().next().value);
+  }
+}
+
+function rememberConnectedRoute(networkState, parsed, address) {
+  var failedRoutes = networkState && networkState.failedRoutes;
+  if (!failedRoutes || !address) return;
+  failedRoutes.delete(routeDatabaseKey(parsed, address));
+}
+
+function hasActiveAgentSockets(agent) {
+  var sockets = agent && agent.sockets;
+  return Object.keys(sockets || {}).some(function (name) {
+    return Array.isArray(sockets[name]) && sockets[name].length > 0;
+  });
+}
+
+function requestAgent(networkState, transport, parsed, address) {
+  var agents = networkState && networkState.agents;
+  if (!agents || !transport || typeof transport.Agent !== "function") return false;
+  var key = routeDatabaseKey(parsed, address);
+  var agent = agents.get(key);
+  if (agent) {
+    agents.delete(key);
+    agents.set(key, agent);
+    return agent;
+  }
+  if (agents.size >= MAX_IDLE_CONNECTIONS) {
+    var oldestIdleKey = null;
+    agents.forEach(function (candidate, candidateKey) {
+      if (oldestIdleKey === null && !hasActiveAgentSockets(candidate)) {
+        oldestIdleKey = candidateKey;
+      }
+    });
+    if (oldestIdleKey !== null) {
+      var staleAgent = agents.get(oldestIdleKey);
+      agents.delete(oldestIdleKey);
+      if (staleAgent && typeof staleAgent.destroy === "function") staleAgent.destroy();
+    }
+  }
+  if (agents.size >= MAX_IDLE_CONNECTIONS) return false;
+  agent = new transport.Agent({
+    keepAlive: true,
+    maxSockets: MAX_ACTIVE_REQUESTS,
+    maxFreeSockets: 1
+  });
+  agents.set(key, agent);
+  return agent;
+}
+
+function destroyRouteAgents(networkState) {
+  var agents = networkState && networkState.agents;
+  if (!agents) return;
+  agents.forEach(function (agent) {
+    if (agent && typeof agent.destroy === "function") agent.destroy();
+  });
+  agents.clear();
+}
+
+function performFetch(payload, callback, redirects, trace, networkState) {
   var requestTrace = null;
   var finish = once(function (error, result) {
     emitTrace(
@@ -398,6 +486,7 @@ function performFetch(payload, callback, redirects, trace) {
       .filter(function (address, index, list) {
         return address && list.indexOf(address) === index;
       });
+    resolvedAddresses = orderResolvedAddresses(networkState, parsed, resolvedAddresses);
     if (!resolvedAddresses.length) {
       var missingAddressError = new Error("DNS lookup returned no address");
       emitTrace(
@@ -498,9 +587,13 @@ function performFetch(payload, callback, redirects, trace) {
     }
     function failTransport(error) {
       if (attemptComplete) return;
+      var retryableAddressError = isRetryableAddressError(error);
+      if (!responseStarted && retryableAddressError) {
+        rememberFailedRoute(networkState, parsed, address);
+      }
       var canTryNextAddress =
         !responseStarted &&
-        isRetryableAddressError(error) &&
+        retryableAddressError &&
         resolvedAddresses.length > 1 &&
         requestDeadline > Date.now();
       if (canTryNextAddress) {
@@ -531,7 +624,7 @@ function performFetch(payload, callback, redirects, trace) {
       method: validation.method,
       headers: requestHeaders,
       servername: String(parsed.hostname || "").replace(/^\[|\]$/g, ""),
-      agent: false
+      agent: requestAgent(networkState, transport, parsed, address)
     };
     var requestSent = false;
     try {
@@ -543,6 +636,7 @@ function performFetch(payload, callback, redirects, trace) {
       request = transport.request(requestOptions, function (response) {
         responseStarted = true;
         clearConnectTimer();
+        rememberConnectedRoute(networkState, parsed, address);
         emitTrace(
           trace,
           "fetch response begin",
@@ -652,7 +746,7 @@ function performFetch(payload, callback, redirects, trace) {
               redirect: (redirects || 0) + 1
             })
           );
-          performFetch(redirectedPayload, finish, (redirects || 0) + 1, trace);
+          performFetch(redirectedPayload, finish, (redirects || 0) + 1, trace, networkState);
           return;
         }
 
@@ -744,25 +838,32 @@ function performFetch(payload, callback, redirects, trace) {
         "fetch transport request created",
         Object.assign({}, requestTrace, { address: address })
       );
-      var connectTimeoutMs = Math.min(
-        CONNECT_ATTEMPT_TIMEOUT_MS,
-        Math.max(1, requestDeadline - Date.now())
-      );
-      connectTimer = setTimeout(function () {
-        if (attemptComplete || responseStarted) return;
-        var timeoutError = new Error("Plugin provider connection timed out");
-        timeoutError.code = "ETIMEDOUT";
-        emitTrace(
-          trace,
-          "fetch transport connect timeout",
-          Object.assign({}, requestTrace, {
-            address: address,
-            timeoutMs: connectTimeoutMs
-          })
+      request.on("socket", function (socket) {
+        if (!socket || socket.connecting === false) {
+          clearConnectTimer();
+          return;
+        }
+        var connectTimeoutMs = Math.min(
+          CONNECT_ATTEMPT_TIMEOUT_MS,
+          Math.max(1, requestDeadline - Date.now())
         );
-        failTransport(timeoutError);
-        if (request && typeof request.destroy === "function") request.destroy(timeoutError);
-      }, connectTimeoutMs);
+        connectTimer = setTimeout(function () {
+          if (attemptComplete || responseStarted) return;
+          var timeoutError = new Error("Plugin provider connection timed out");
+          timeoutError.code = "ETIMEDOUT";
+          emitTrace(
+            trace,
+            "fetch transport connect timeout",
+            Object.assign({}, requestTrace, {
+              address: address,
+              timeoutMs: connectTimeoutMs
+            })
+          );
+          failTransport(timeoutError);
+          if (request && typeof request.destroy === "function") request.destroy(timeoutError);
+        }, connectTimeoutMs);
+        if (typeof socket.once === "function") socket.once("connect", clearConnectTimer);
+      });
       request.setTimeout(validation.timeoutMs, function () {
         if (attemptComplete) return;
         var timeoutError = new Error("Plugin provider request timed out");
@@ -841,6 +942,7 @@ function memoryUsage() {
 }
 
 function createPluginHttpServer({ port = 2711, logger = console, trace } = {}) {
+  var networkState = { failedRoutes: new Map(), agents: new Map() };
   var activeRequests = {};
   var inFlightRequests = {};
   var queuedRequests = [];
@@ -1040,7 +1142,8 @@ function createPluginHttpServer({ port = 2711, logger = console, trace } = {}) {
         Object.assign({}, state.payload, { requestId: requestId }),
         callback,
         0,
-        recordDiagnostic
+        recordDiagnostic,
+        networkState
       );
     } catch (error) {
       recordDiagnostic(
@@ -1206,6 +1309,9 @@ function createPluginHttpServer({ port = 2711, logger = console, trace } = {}) {
   server.on("error", function (error) {
     if (logger && typeof logger.warn === "function")
       logger.warn("Plugin service error", error.message || error);
+  });
+  server.on("close", function () {
+    destroyRouteAgents(networkState);
   });
   return server;
 }
