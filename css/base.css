@@ -110,6 +110,9 @@ html.vidaa-tv {
   --tv-body-text: 18px;
   --tv-subtitle-text: 24px;
   --tv-title-text: 46px;
+  --vidaa-ui-zoom: 1;
+  --vidaa-ui-offset-x: 0px;
+  --vidaa-ui-offset-y: 0px;
 }
 
 html.vidaa-tv body {
@@ -139,8 +142,11 @@ html.vidaa-tv .screen {
    scrollers remain available for D-pad navigation. */
 html.vidaa-tv #app > .screen:not(#player) {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: var(--vidaa-ui-offset-y, 0px);
+  left: var(--vidaa-ui-offset-x, 0px);
+  width: 1920px;
+  height: 1080px;
+  zoom: var(--vidaa-ui-zoom, 1);
   overflow: hidden;
 }
 
