@@ -26008,3 +26008,145 @@ html.tizen-tv #player.post-play-visible .tizen-avplay-object {
     transition-duration: 1ms !important;
   }
 }
+
+
+/* VIDAA QR LOGIN LAYOUT */
+/*
+ * Keep authentication deterministic on older VIDAA Chromium/WebKit builds.
+ * The player is intentionally untouched: only the QR/account surface is
+ * overridden here. Avoid CSS Grid and CSS math functions on this screen.
+ */
+html.vidaa-tv .qr-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  width: 1920px;
+  height: 1080px;
+  padding: 32px 56px;
+  gap: 0;
+}
+
+html.vidaa-tv .qr-left-panel {
+  flex: 0 0 760px;
+  width: 760px;
+  margin-right: 40px;
+}
+
+html.vidaa-tv .qr-card-panel {
+  flex: 1 1 auto;
+  width: 1008px;
+  min-width: 0;
+}
+
+html.vidaa-tv .qr-brand-lockup {
+  margin-bottom: 26px;
+}
+
+html.vidaa-tv .qr-logo {
+  height: 86px;
+  max-width: 680px;
+}
+
+html.vidaa-tv .qr-copy-block {
+  width: 680px;
+  max-width: 680px;
+}
+
+html.vidaa-tv .qr-title {
+  font-size: 46px;
+  line-height: 1.12;
+}
+
+html.vidaa-tv .qr-description {
+  margin-top: 18px;
+  max-width: 680px;
+  font-size: 26px;
+  line-height: 1.38;
+}
+
+html.vidaa-tv .qr-card {
+  width: 860px;
+  height: 960px;
+  max-width: 860px;
+  max-height: 960px;
+  padding: 34px 32px 28px;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+html.vidaa-tv .qr-card-header {
+  gap: 8px;
+}
+
+html.vidaa-tv .qr-card-title {
+  font-size: 34px;
+  line-height: 1.24;
+}
+
+html.vidaa-tv .qr-card-subtitle {
+  font-size: 19px;
+  line-height: 1.3;
+}
+
+html.vidaa-tv .qr-login-instruction {
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+html.vidaa-tv .qr-code-frame {
+  width: 320px;
+  height: 320px;
+  min-width: 320px;
+  min-height: 320px;
+  flex: 0 0 320px;
+  padding: 14px;
+  border-radius: 16px;
+}
+
+html.vidaa-tv .qr-code-text {
+  font-size: 19px;
+  line-height: 1.3;
+}
+
+html.vidaa-tv .qr-manual-text,
+html.vidaa-tv .qr-expiry {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+html.vidaa-tv .qr-status {
+  padding: 12px 18px;
+  border-radius: 18px;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+html.vidaa-tv .qr-actions {
+  gap: 14px;
+  padding-top: 10px;
+}
+
+html.vidaa-tv .qr-action-btn {
+  height: 64px;
+  padding: 0 28px;
+  font-size: 22px;
+}
+
+html.vidaa-tv .qr-terms {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+/* Older VIDAA engines may support flex without flex-gap. */
+html.vidaa-tv.no-flex-gap .qr-card-header > * + * {
+  margin-top: 8px;
+}
+
+html.vidaa-tv.no-flex-gap .qr-actions > * + * {
+  margin-left: 14px;
+}
+
+html.vidaa-tv.no-flex-gap .qr-terms > * + * {
+  margin-left: 6px;
+}
