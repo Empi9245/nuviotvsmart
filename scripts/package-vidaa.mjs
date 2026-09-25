@@ -56,6 +56,12 @@ async function packageVidaa() {
     await cp(srcPath, destPath, { recursive: true });
   }
 
+  // VIDAA-only hosted/PWA assets must not leak into Tizen/webOS dist packages.
+  await Promise.all([
+    cp(path.join(rootDir, "sw.js"), path.join(vidaaDistDir, "sw.js")),
+    cp(path.join(rootDir, "manifest.json"), path.join(vidaaDistDir, "manifest.json"))
+  ]);
+
   // Copy installer directory
   try {
     await cp(installerSourceDir, path.join(vidaaDistDir, "installer"), { recursive: true });

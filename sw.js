@@ -1,4 +1,4 @@
-var CACHE_NAME = "nuvio-vidaa-v2";
+var CACHE_NAME = "nuvio-vidaa-v3";
 var ASSETS = [
   "./",
   "./index.html",
@@ -14,11 +14,7 @@ var ASSETS = [
   "./assets/libs/ass.min.js",
   "./assets/libs/hls.min.js",
   "./assets/libs/dash.all.min.js",
-  "./css/base.css",
-  "./css/layout.css",
-  "./css/components.css",
-  "./css/themes.css",
-  "./res/icon.png"
+  "./css/bundle.css"
 ];
 
 self.addEventListener("install", function (e) {

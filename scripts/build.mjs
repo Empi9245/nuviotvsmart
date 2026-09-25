@@ -609,8 +609,6 @@ async function runBuild() {
       cp(path.join(rootDir, "assets"), path.join(distDir, "assets"), { recursive: true }),
       cp(path.join(rootDir, "res"), path.join(distDir, "res"), { recursive: true }),
       cp(path.join(rootDir, "boot-guard.js"), path.join(distDir, "boot-guard.js")),
-      cp(path.join(rootDir, "sw.js"), path.join(distDir, "sw.js")),
-      cp(path.join(rootDir, "manifest.json"), path.join(distDir, "manifest.json")),
       cp(path.join(rootDir, "docs", "youtube-proxy.html"), path.join(distDir, "youtube-proxy.html"))
     ]);
     await buildI18nBundles({ rootDir, distDir });

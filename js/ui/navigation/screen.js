@@ -238,12 +238,14 @@ export const ScreenUtils = {
     current.classList.remove("focused");
     target.classList.add("focused");
     focusWithoutDocumentScroll(target);
-    try {
-      if (typeof target.scrollIntoView === "function") {
-        target.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
-      }
-    } catch (_) {}
-    scheduleVidaaViewportRestore();
+    if (isVidaaViewportLocked()) {
+      try {
+        if (typeof target.scrollIntoView === "function") {
+          target.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+        }
+      } catch (_) {}
+      scheduleVidaaViewportRestore();
+    }
   },
 
   handleDpadNavigation(event, container, selector = ".focusable") {

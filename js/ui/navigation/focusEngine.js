@@ -16,9 +16,6 @@ function buildNormalizedEvent(event) {
     metaKey: Boolean(event?.metaKey),
     repeat: Boolean(event?.repeat),
     defaultPrevented: Boolean(event?.defaultPrevented),
-    isArrow: Boolean(normalizedKey.isArrow),
-    isEnter: Boolean(normalizedKey.isEnter),
-    isBack: Boolean(normalizedKey.isBack),
     keyCode: normalizedCode,
     which: normalizedCode,
     originalKeyCode: Number(normalizedKey.originalKeyCode || event?.keyCode || 0),
@@ -172,8 +169,7 @@ export const FocusEngine = {
       return;
     }
 
-    const isArrowKey =
-      normalizedEvent.isArrow || (normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40);
+    const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
 
     if (Platform.isVidaa() && (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)) {
       normalizedEvent.preventDefault();
@@ -182,18 +178,6 @@ export const FocusEngine = {
       this.lastPointerFocusTarget = null;
       if (normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE && normalizedEvent.repeat) {
         return;
-      }
-    }
-
-    if (isArrowKey) {
-      const targetTag = String(event?.target?.tagName || "").toUpperCase();
-      const isEditable =
-        Boolean(event?.target?.isContentEditable) ||
-        targetTag === "INPUT" ||
-        targetTag === "TEXTAREA" ||
-        targetTag === "SELECT";
-      if (!isEditable) {
-        normalizedEvent.preventDefault();
       }
     }
 
@@ -221,24 +205,27 @@ export const FocusEngine = {
     ) {
       this.activeBackKeyIdentities.delete("back");
     }
+    const isVidaa = Platform.isVidaa();
+    if (event?.target && !document.contains(event.target) && !isVidaa) return;
+    if (hasActiveModal()) {
+      if (keyIdentity) {
+        this.activeKeyDownStartedAt.delete(keyIdentity);
+      }
+      return;
+    }
+
     if (keyIdentity) {
       const startedAt = Number(this.activeKeyDownStartedAt.get(keyIdentity) || 0);
       normalizedEvent.keyDownDurationMs = startedAt > 0 ? Math.max(0, Date.now() - startedAt) : 0;
       this.activeKeyDownStartedAt.delete(keyIdentity);
     }
 
-    const isArrowKey =
-      normalizedEvent.isArrow || (normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40);
-    if (Platform.isVidaa() && (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)) {
+    const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
+    if (isVidaa && (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)) {
       normalizedEvent.preventDefault();
       normalizedEvent.stopPropagation();
       normalizedEvent.stopImmediatePropagation();
       this.lastPointerFocusTarget = null;
-    }
-
-    if (event?.target && !document.contains(event.target) && !Platform.isVidaa()) return;
-    if (hasActiveModal()) {
-      return;
     }
 
     const currentScreen = Router.getCurrentScreen();
