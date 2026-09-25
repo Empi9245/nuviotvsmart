@@ -1,3 +1,52 @@
+function isVidaaViewportLocked() {
+  const root = globalThis?.document?.documentElement;
+  return Boolean(
+    root?.classList?.contains("vidaa-tv") ||
+      String(globalThis?.__NUVIO_PLATFORM__ || "").toLowerCase() === "vidaa"
+  );
+}
+
+function restoreVidaaViewportOrigin() {
+  if (!isVidaaViewportLocked()) {
+    return;
+  }
+  const documentRef = globalThis?.document;
+  try {
+    if (documentRef?.documentElement) {
+      documentRef.documentElement.scrollLeft = 0;
+      documentRef.documentElement.scrollTop = 0;
+    }
+    if (documentRef?.body) {
+      documentRef.body.scrollLeft = 0;
+      documentRef.body.scrollTop = 0;
+    }
+    globalThis?.scrollTo?.(0, 0);
+  } catch (_) {
+    // Older VIDAA browsers may expose only part of the scroll API.
+  }
+}
+
+function scheduleVidaaViewportRestore() {
+  restoreVidaaViewportOrigin();
+  try {
+    globalThis?.requestAnimationFrame?.(() => restoreVidaaViewportOrigin());
+  } catch (_) {}
+}
+
+function focusWithoutDocumentScroll(node) {
+  if (!node || typeof node.focus !== "function") {
+    return;
+  }
+  try {
+    node.focus({ preventScroll: true });
+  } catch (_) {
+    try {
+      node.focus();
+    } catch (_) {}
+  }
+  scheduleVidaaViewportRestore();
+}
+
 export const ScreenUtils = {
   show(container) {
     if (!container) {
@@ -6,6 +55,7 @@ export const ScreenUtils = {
     if (container.style.display !== "block") {
       container.style.display = "block";
     }
+    scheduleVidaaViewportRestore();
   },
 
   hide(container) {
@@ -29,26 +79,14 @@ export const ScreenUtils = {
     if (modalOpen) {
       const existingFocused = container?.querySelector?.(".focusable.focused") || null;
       if (existingFocused instanceof HTMLElement && container?.contains(existingFocused)) {
-        try {
-          existingFocused.focus({ preventScroll: true });
-        } catch (_) {
-          try {
-            existingFocused.focus();
-          } catch (_) {}
-        }
+        focusWithoutDocumentScroll(existingFocused);
         return existingFocused;
       }
       return null;
     }
     const existingFocused = container?.querySelector?.(".focusable.focused") || null;
     if (existingFocused instanceof HTMLElement && container?.contains(existingFocused)) {
-      try {
-        existingFocused.focus({ preventScroll: true });
-      } catch (_) {
-        try {
-          existingFocused.focus();
-        } catch (_) {}
-      }
+      focusWithoutDocumentScroll(existingFocused);
       return existingFocused;
     }
     const first = container?.querySelector(selector);
@@ -56,7 +94,7 @@ export const ScreenUtils = {
       return;
     }
     first.classList.add("focused");
-    first.focus();
+    focusWithoutDocumentScroll(first);
   },
 
   moveFocus(container, direction, selector = ".focusable") {
@@ -77,11 +115,7 @@ export const ScreenUtils = {
 
     current.classList.remove("focused");
     list[nextIndex].classList.add("focused");
-    try {
-      list[nextIndex].focus({ preventScroll: true });
-    } catch (_) {
-      list[nextIndex].focus();
-    }
+    focusWithoutDocumentScroll(list[nextIndex]);
   },
 
   moveFocusDirectional(container, direction, selector = ".focusable") {
@@ -100,11 +134,7 @@ export const ScreenUtils = {
     if (!current.classList.contains("focused")) {
       list.forEach((node) => node.classList.remove("focused"));
       current.classList.add("focused");
-      try {
-        current.focus({ preventScroll: true });
-      } catch (_) {
-        current.focus();
-      }
+      focusWithoutDocumentScroll(current);
       return;
     }
 
@@ -200,16 +230,13 @@ export const ScreenUtils = {
 
     current.classList.remove("focused");
     target.classList.add("focused");
-    try {
-      target.focus({ preventScroll: true });
-    } catch (_) {
-      target.focus();
-    }
+    focusWithoutDocumentScroll(target);
     try {
       if (typeof target.scrollIntoView === "function") {
         target.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
       }
     } catch (_) {}
+    scheduleVidaaViewportRestore();
   },
 
   handleDpadNavigation(event, container, selector = ".focusable") {
