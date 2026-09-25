@@ -64,14 +64,12 @@ export const FocusEngine = {
       document.addEventListener("tizenhwkey", this.boundHandleTizenHardwareKey, true);
       window.addEventListener("tizenhwkey", this.boundHandleTizenHardwareKey, true);
     }
-    if (Platform.isWebOS() || Platform.isVidaa()) {
+    if (Platform.isWebOS()) {
       document.addEventListener("mousemove", this.boundHandlePointerMove, true);
       document.addEventListener("pointermove", this.boundHandlePointerMove, true);
       document.addEventListener("click", this.boundHandlePointerClick, true);
-      if (Platform.isWebOS()) {
-        document.documentElement?.classList?.add("webos-pointer-remote");
-        document.body?.classList?.add("webos-pointer-remote");
-      }
+      document.documentElement?.classList?.add("webos-pointer-remote");
+      document.body?.classList?.add("webos-pointer-remote");
     }
   },
 
@@ -177,12 +175,11 @@ export const FocusEngine = {
     const isArrowKey =
       normalizedEvent.isArrow || (normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40);
 
-    if (Platform.isVidaa()) {
-      if (isArrowKey || normalizedEvent.keyCode === 13) {
-        document.documentElement?.classList?.remove("vidaa-pointer-active");
-        document.body?.classList?.remove("vidaa-pointer-active");
-        this.lastPointerFocusTarget = null;
-      }
+    if (Platform.isVidaa() && (isArrowKey || normalizedEvent.keyCode === 13)) {
+      // VIDAA apps own remote navigation. Prevent the browser from applying
+      // its native spatial-navigation/click behavior behind the app.
+      normalizedEvent.preventDefault();
+      this.lastPointerFocusTarget = null;
     }
 
     if (isArrowKey) {

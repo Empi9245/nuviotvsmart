@@ -13,7 +13,7 @@ function applyVidaaViewport() {
 
   viewport.setAttribute(
     "content",
-    "width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    "width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
   );
   documentRef.documentElement?.classList?.add("vidaa-tv");
   documentRef.body?.classList?.add("vidaa-tv");
