@@ -410,7 +410,8 @@ export const LibraryScreen = {
     bindRootSidebarEvents(this.container, {
       currentRoute: "library",
       onSelectedAction: () => this.focusMainNode(),
-      onExpandSidebar: () => this.focusSidebarNode()
+      onExpandSidebar: () => this.focusSidebarNode(),
+      onCollapseSidebar: () => this.focusMainNode()
     });
   },
 
@@ -839,7 +840,8 @@ export const LibraryScreen = {
     bindRootSidebarEvents(this.container, {
       currentRoute: "library",
       onSelectedAction: () => this.focusMainNode(),
-      onExpandSidebar: () => this.focusSidebarNode()
+      onExpandSidebar: () => this.focusSidebarNode(),
+      onCollapseSidebar: () => this.focusMainNode()
     });
     if (this.isModalFocusLocked()) {
       return;
@@ -1169,7 +1171,8 @@ export const LibraryScreen = {
     bindRootSidebarEvents(this.container, {
       currentRoute: "library",
       onSelectedAction: () => this.focusMainNode(),
-      onExpandSidebar: () => this.focusSidebarNode()
+      onExpandSidebar: () => this.focusSidebarNode(),
+      onCollapseSidebar: () => this.focusMainNode()
     });
     if (this.isModalFocusLocked()) {
       return;
