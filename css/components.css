@@ -27493,7 +27493,19 @@ html.vidaa-tv .vidaa-sidebar-menu-trigger[aria-expanded="true"] .vidaa-sidebar-m
    the modern-sidebar geometry. Search has no native pill, so the same control
    becomes its primary sidebar entry point. */
 html.vidaa-tv .modern-sidebar-pill {
-  left: 148px;
+  top: 96px;
+  left: 18px;
+}
+
+html.vidaa-tv .vidaa-sidebar-menu-trigger[aria-expanded="true"] {
+  left: 236px;
+  width: 58px;
+  min-width: 58px;
+  padding: 0;
+}
+
+html.vidaa-tv .vidaa-sidebar-menu-trigger[aria-expanded="true"] .vidaa-sidebar-menu-label {
+  display: none;
 }
 
 /* Pointer feedback should match D-pad feedback on the navigation chrome. */
