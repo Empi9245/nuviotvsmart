@@ -1,7 +1,7 @@
 import { isBackEvent, normalizeKeyEvent } from "../sharedKeys.js";
 
-// VIDAA WebApps should follow the device viewport so both 1280x720 and 1920x1080
-// panels render the complete UI without browser-level zoom/cropping.
+// VIDAA TV uses a stable 1920x1080 logical canvas. The TV runtime scales
+// that canvas to the physical panel resolution (including 4K displays).
 function applyVidaaViewport() {
   const documentRef = globalThis.document;
   if (!documentRef?.head) return;
@@ -15,7 +15,7 @@ function applyVidaaViewport() {
 
   viewport.setAttribute(
     "content",
-    "width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    "width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
   );
   documentRef.documentElement?.classList?.add("vidaa-tv");
   documentRef.body?.classList?.add("vidaa-tv");
