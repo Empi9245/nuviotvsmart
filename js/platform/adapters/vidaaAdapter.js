@@ -1,7 +1,85 @@
 import { isBackEvent, normalizeKeyEvent } from "../sharedKeys.js";
 
-// VIDAA TV uses a stable 1920x1080 logical canvas. The TV runtime scales
-// that canvas to the physical panel resolution (including 4K displays).
+const VIDAA_LOGICAL_WIDTH = 1920;
+const VIDAA_LOGICAL_HEIGHT = 1080;
+
+function syncVidaaBrowserViewportFit() {
+  const documentRef = globalThis.document;
+  const screens = documentRef?.querySelectorAll?.("#app > .screen:not(#player)");
+  if (!documentRef || !screens?.length) return;
+
+  const visualViewport = globalThis.visualViewport;
+  const viewportWidth = Math.max(
+    1,
+    Number(visualViewport?.width || globalThis.innerWidth || documentRef.documentElement?.clientWidth || VIDAA_LOGICAL_WIDTH)
+  );
+  const viewportHeight = Math.max(
+    1,
+    Number(visualViewport?.height || globalThis.innerHeight || documentRef.documentElement?.clientHeight || VIDAA_LOGICAL_HEIGHT)
+  );
+
+  // A packaged VIDAA WebApp normally exposes the full 1920x1080 canvas.
+  // The hosted Browser can expose a smaller viewport because browser chrome
+  // remains visible. Keep 1920x1080 as the logical layout and fit only the
+  // non-player UI into the actually visible browser area.
+  const zoom = Math.min(
+    1,
+    viewportWidth / VIDAA_LOGICAL_WIDTH,
+    viewportHeight / VIDAA_LOGICAL_HEIGHT
+  );
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  const renderedWidth = VIDAA_LOGICAL_WIDTH * safeZoom;
+  const renderedHeight = VIDAA_LOGICAL_HEIGHT * safeZoom;
+  const physicalOffsetX = Math.max(0, (viewportWidth - renderedWidth) / 2);
+  const physicalOffsetY = Math.max(0, (viewportHeight - renderedHeight) / 2);
+  const logicalOffsetX = physicalOffsetX / safeZoom;
+  const logicalOffsetY = physicalOffsetY / safeZoom;
+
+  documentRef.documentElement?.style?.setProperty("--vidaa-ui-zoom", String(safeZoom));
+  documentRef.documentElement?.style?.setProperty("--vidaa-ui-offset-x", `${logicalOffsetX}px`);
+  documentRef.documentElement?.style?.setProperty("--vidaa-ui-offset-y", `${logicalOffsetY}px`);
+
+  screens.forEach((screen) => {
+    // CSS zoom is deliberate here: unlike transform:scale(), it keeps pointer
+    // hit testing and layout coordinates coherent on older TV Chromium/WebKit.
+    screen.style.zoom = String(safeZoom);
+    screen.style.left = `${logicalOffsetX}px`;
+    screen.style.top = `${logicalOffsetY}px`;
+  });
+}
+
+function installVidaaBrowserViewportFit() {
+  const globalRef = globalThis;
+  if (globalRef.__NUVIO_VIDAA_VIEWPORT_FIT_INSTALLED__) {
+    syncVidaaBrowserViewportFit();
+    return;
+  }
+  globalRef.__NUVIO_VIDAA_VIEWPORT_FIT_INSTALLED__ = true;
+
+  let frame = null;
+  const schedule = () => {
+    if (frame) {
+      try {
+        globalRef.cancelAnimationFrame?.(frame);
+      } catch (_) {}
+    }
+    const run = () => {
+      frame = null;
+      syncVidaaBrowserViewportFit();
+    };
+    frame = globalRef.requestAnimationFrame?.(run) || globalRef.setTimeout?.(run, 0) || null;
+  };
+
+  globalRef.addEventListener?.("resize", schedule);
+  globalRef.visualViewport?.addEventListener?.("resize", schedule);
+  globalRef.visualViewport?.addEventListener?.("scroll", schedule);
+  schedule();
+  globalRef.setTimeout?.(schedule, 120);
+  globalRef.setTimeout?.(schedule, 500);
+}
+
+// VIDAA keeps a 1920x1080 logical UI. Packaged apps receive that canvas
+// directly; the hosted Browser may expose less visible space, handled above.
 function applyVidaaViewport() {
   const documentRef = globalThis.document;
   if (!documentRef?.head) return;
@@ -165,6 +243,7 @@ export const vidaaAdapter = {
 
   init() {
     applyVidaaViewport();
+    installVidaaBrowserViewportFit();
     installVidaaKeyboardFix();
     installFKeyCrashSuppressor();
     registerTrustedDomains();
