@@ -27413,3 +27413,103 @@ html.vidaa-tv .debug-console-back .material-icons {
   font-size: 28px;
 }
 
+/* VIDAA hosted-browser controls: explicit pointer-friendly navigation chrome. */
+html.vidaa-tv .vidaa-sidebar-menu-trigger {
+  position: absolute;
+  top: 22px;
+  left: 20px;
+  z-index: 60;
+  min-width: 116px;
+  height: 58px;
+  padding: 0 18px 0 15px;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 999px;
+  background: rgb(20 20 20 / 0.92);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  font-family: var(--app-font-family);
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: 0.1px;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.28);
+  cursor: pointer !important;
+  transform: translateZ(0) scale(1);
+  transition:
+    transform 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+html.vidaa-tv .vidaa-sidebar-menu-trigger:hover,
+html.vidaa-tv .vidaa-sidebar-menu-trigger.focused,
+html.vidaa-tv .vidaa-sidebar-menu-trigger:focus {
+  background: #fff;
+  color: #111;
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 0.2), 0 12px 30px rgb(0 0 0 / 0.32);
+  transform: translateZ(0) scale(1.035);
+}
+
+html.vidaa-tv .vidaa-sidebar-menu-glyph {
+  position: relative;
+  width: 22px;
+  height: 16px;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 0 0 22px;
+}
+
+html.vidaa-tv .vidaa-sidebar-menu-glyph span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: center;
+  transition:
+    transform 180ms ease,
+    opacity 140ms ease;
+}
+
+html.vidaa-tv .vidaa-sidebar-menu-trigger[aria-expanded="true"] .vidaa-sidebar-menu-glyph span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+html.vidaa-tv .vidaa-sidebar-menu-trigger[aria-expanded="true"] .vidaa-sidebar-menu-glyph span:nth-child(2) {
+  opacity: 0;
+}
+
+html.vidaa-tv .vidaa-sidebar-menu-trigger[aria-expanded="true"] .vidaa-sidebar-menu-glyph span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Leave room for the explicit VIDAA Menu button without changing the rest of
+   the modern-sidebar geometry. Search has no native pill, so the same control
+   becomes its primary sidebar entry point. */
+html.vidaa-tv .modern-sidebar-pill {
+  left: 148px;
+}
+
+/* Pointer feedback should match D-pad feedback on the navigation chrome. */
+html.vidaa-tv .home-nav-item:hover,
+html.vidaa-tv .home-profile-pill:hover,
+html.vidaa-tv .modern-sidebar-nav-item:hover,
+html.vidaa-tv .modern-sidebar-profile:hover,
+html.vidaa-tv .modern-sidebar-pill:hover {
+  filter: brightness(1.12);
+}
+
+html.vidaa-tv .home-nav-item,
+html.vidaa-tv .home-profile-pill,
+html.vidaa-tv .modern-sidebar-nav-item,
+html.vidaa-tv .modern-sidebar-profile,
+html.vidaa-tv .modern-sidebar-pill {
+  cursor: pointer !important;
+}
+
