@@ -306,7 +306,8 @@ export function createHomeScreenMethods23() {
       bindRootSidebarEvents(this.container, {
         currentRoute: "home",
         onSelectedAction: () => this.closeSidebarToContent(),
-        onExpandSidebar: () => this.openSidebar()
+        onExpandSidebar: () => this.openSidebar(),
+        onCollapseSidebar: () => this.closeSidebarToContent()
       });
       this.scheduleModernSidebarPillAutoCollapse();
 

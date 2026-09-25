@@ -85,11 +85,76 @@ body {
   height: 100vh;
 }
 
-/* Samsung TV apps render on a fixed 1920x1080 CSS canvas. Older Tizen
-   engines can under-report 100vh and leave an uncovered strip at the bottom. */
+/* Samsung keeps its existing fixed-height TV canvas behavior. */
 .tizen-tv #app,
 .tizen-tv .screen {
   height: 1080px;
+}
+
+/* VIDAA runs inside a browser even on 4K panels. Keep one explicit 1920x1080
+   CSS canvas so nested 100vw/100vh calculations cannot grow to panel pixels. */
+html.vidaa-tv {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  --tv-safe-gutter: 36px;
+  --tv-safe-gutter-wide: 52px;
+  --tv-card-radius: 16px;
+  --tv-card-gap: 14px;
+  --tv-button-height: 56px;
+  --tv-button-padding-x: 24px;
+  --tv-control-size: 58px;
+  --tv-control-icon-size: 28px;
+  --tv-caption-text: 14px;
+  --tv-secondary-text: 17px;
+  --tv-body-text: 18px;
+  --tv-subtitle-text: 24px;
+  --tv-title-text: 46px;
+  --vidaa-ui-zoom: 1;
+  --vidaa-ui-offset-x: 0px;
+  --vidaa-ui-offset-y: 0px;
+}
+
+html.vidaa-tv body {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+}
+
+html.vidaa-tv #app {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+}
+
+html.vidaa-tv .screen {
+  width: 1920px;
+  height: 1080px;
+}
+
+/* Non-player routes must never move the browser viewport. Their own internal
+   scrollers remain available for D-pad navigation. */
+html.vidaa-tv #app > .screen:not(#player) {
+  position: absolute;
+  top: var(--vidaa-ui-offset-y, 0px);
+  left: var(--vidaa-ui-offset-x, 0px);
+  width: 1920px;
+  height: 1080px;
+  zoom: var(--vidaa-ui-zoom, 1);
+  overflow: hidden;
+}
+
+/* Hosted VIDAA Browser can use its pointer layer as part of remote navigation.
+   Keep it usable instead of hiding an input path we cannot replace reliably. */
+.vidaa-tv,
+.vidaa-tv * {
+  cursor: auto !important;
 }
 
 .row {

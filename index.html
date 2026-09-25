@@ -43,13 +43,98 @@
           "width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         );
       })();
+      (function configureVidaaLaunch() {
+        var root = typeof globalThis !== "undefined" ? globalThis : window;
+        var search = String((window.location && window.location.search) || "").toLowerCase();
+        var userAgent = String(
+          (window.navigator && window.navigator.userAgent) || ""
+        ).toLowerCase();
+        var isVidaaLaunch = Boolean(
+          root.__NUVIO_PLATFORM__ === "vidaa" ||
+          root.Hisense_GetOSVersion ||
+          root.Hisense_GetFirmWareVersion ||
+          root.Hisense_installApp ||
+          root.Hisense_Exit ||
+          root.omi_platform ||
+          root.opera_omi ||
+          search.indexOf("wrapper=vidaa") !== -1 ||
+          search.indexOf("platform=vidaa") !== -1 ||
+          userAgent.indexOf("vidaa") !== -1 ||
+          userAgent.indexOf("hisense") !== -1
+        );
+
+        if (!isVidaaLaunch) {
+          return;
+        }
+
+        root.__NUVIO_PLATFORM__ = "vidaa";
+        var viewport = document.querySelector("meta[name='viewport']");
+        if (!viewport) {
+          viewport = document.createElement("meta");
+          viewport.name = "viewport";
+          document.head.appendChild(viewport);
+        }
+        viewport.setAttribute(
+          "content",
+          "width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        );
+        if (document.documentElement) document.documentElement.classList.add("vidaa-tv");
+
+        // Suppress F-key fullscreen crash on VIDAA browser
+        window.addEventListener(
+          "keydown",
+          function (e) {
+            if (e.keyCode === 70 || e.key === "f" || e.key === "F") {
+              var tag = (e.target && e.target.tagName ? e.target.tagName : "").toLowerCase();
+              if (tag === "input" || tag === "textarea") return;
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          },
+          true
+        );
+
+        // Early VIDAA virtual keyboard input fix
+        try {
+          var desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+          if (desc && desc.set) {
+            var origSet = desc.set;
+            var origGet = desc.get;
+            var guard = false;
+            Object.defineProperty(HTMLInputElement.prototype, "value", {
+              get: origGet,
+              set: function (v) {
+                var old = origGet.call(this);
+                origSet.call(this, v);
+                if (v !== old && !guard) {
+                  guard = true;
+                  try {
+                    this.dispatchEvent(new Event("input", { bubbles: true }));
+                    this.dispatchEvent(new Event("change", { bubbles: true }));
+                  } catch (_) {}
+                  guard = false;
+                }
+              },
+              configurable: true
+            });
+          }
+        } catch (_) {}
+      })();
     </script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("sw.js").catch(function () {});
+        });
+      }
+    </script>
+    <link rel="manifest" href="manifest.json" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Nuvio TV</title>
 
-    <link rel="stylesheet" href="css/base.css?v=20260509s" />
+    <link rel="stylesheet" href="css/base.css?v=20260925vidaa-viewportfit2" />
     <link rel="stylesheet" href="css/layout.css?v=20260509s" />
-    <link rel="stylesheet" href="css/components.css?v=20260531supporters2" />
+    <link rel="stylesheet" href="css/components.css?v=20260925vidaa-player-sources1" />
     <link rel="stylesheet" href="css/themes.css?v=20260509s" />
   </head>
   <body>
@@ -63,7 +148,7 @@
     <script src="assets/libs/qrcode-generator.js"></script>
 
     <script
-      src="app.bundle.js?v=20260531supporters2"
+      src="app.bundle.js?v=20260925vidaa-player-sources1"
       onerror="window.NuvioBootGuard && window.NuvioBootGuard.scriptFailed(this.src)"
     ></script>
   </body>

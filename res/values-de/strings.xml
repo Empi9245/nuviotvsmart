@@ -2453,4 +2453,5 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">Du kannst trotzdem versuchen, Nuvio TV zu starten, aber die App funktioniert auf diesem Fernseher möglicherweise nicht richtig. Diese Konfiguration wird offiziell nicht unterstützt.</string>
     <string name="unsupported_device_try_anyway">Trotzdem starten</string>
+    <string name="common_off">Aus</string>
 </resources>

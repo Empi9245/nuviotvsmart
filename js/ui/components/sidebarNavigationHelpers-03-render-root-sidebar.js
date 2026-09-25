@@ -11,6 +11,7 @@ import { MemberAccessRepository } from "../../data/remote/supabase/memberAccessR
 import { I18n } from "../../i18n/index.js";
 
 import { getTvRuntimePerformanceProfile } from "../../platform/tvRuntimePerformance.js";
+import { Platform } from "../../platform/index.js";
 
 import {
   renderModernSidebar,
@@ -20,23 +21,45 @@ import {
   isSelectedSidebarAction
 } from "./sidebarNavigationHelpers-02-get-sidebar-avatar-catalog.js";
 import { focusWithoutAutoScroll } from "./sidebarNavigationHelpers-04-set-modern-sidebar-expanded.js";
-import { scheduleRootSidebarTextFit, syncSidebarStateClasses } from "./sidebarNavigationHelpers-01-root-sidebar-items.js";
+import { scheduleRootSidebarTextFit, syncSidebarStateClasses, t } from "./sidebarNavigationHelpers-01-root-sidebar-items.js";
 
-export function renderRootSidebar({ selectedRoute = "home", profile = null, layout = {}, expanded = false, pillIconOnly = false } = {}) {
-  if (layout?.modernSidebar) {
-    return renderModernSidebar({
-      selectedRoute,
-      profile,
-      expanded,
-      pillIconOnly,
-      blurEnabled: Boolean(layout?.modernSidebarBlur) && isModernSidebarBlurAvailable(),
-      layout
-    });
+function renderVidaaSidebarMenuTrigger(expanded = false) {
+  if (!Platform.isVidaa()) {
+    return "";
   }
-  return renderLegacySidebar({ selectedRoute, profile, layout, expanded });
+  return `
+    <button class="vidaa-sidebar-menu-trigger"
+            type="button"
+            data-action="toggleSidebar"
+            aria-label="${t("sidebar.expandSidebar", {}, "Menu")}"
+            aria-expanded="${expanded ? "true" : "false"}">
+      <span class="vidaa-sidebar-menu-glyph" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </span>
+      <span class="vidaa-sidebar-menu-label">Menu</span>
+    </button>
+  `;
 }
 
-export function bindRootSidebarEvents(container, { currentRoute = "", onExpandSidebar = null, onSelectedAction = null } = {}) {
+export function renderRootSidebar({ selectedRoute = "home", profile = null, layout = {}, expanded = false, pillIconOnly = false } = {}) {
+  const menuTrigger = renderVidaaSidebarMenuTrigger(expanded);
+  const sidebarMarkup = layout?.modernSidebar
+    ? renderModernSidebar({
+        selectedRoute,
+        profile,
+        expanded,
+        pillIconOnly,
+        blurEnabled: Boolean(layout?.modernSidebarBlur) && isModernSidebarBlurAvailable(),
+        layout
+      })
+    : renderLegacySidebar({ selectedRoute, profile, layout, expanded });
+  return `${menuTrigger}${sidebarMarkup}`;
+}
+
+export function bindRootSidebarEvents(
+  container,
+  { currentRoute = "", onExpandSidebar = null, onCollapseSidebar = null, onSelectedAction = null } = {}
+) {
   const focusables = Array.from(container?.querySelectorAll(".home-sidebar .focusable, .modern-sidebar-panel .focusable") || []);
 
   const moveSidebarFocus = (currentNode, delta) => {
@@ -94,6 +117,26 @@ export function bindRootSidebarEvents(container, { currentRoute = "", onExpandSi
       }
     };
   });
+
+  container
+    ?.querySelectorAll(".vidaa-sidebar-menu-trigger[data-action='toggleSidebar']")
+    .forEach((node) => {
+      node.onclick = async (event) => {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        event?.stopImmediatePropagation?.();
+        const expanded = Boolean(
+          container?.querySelector(
+            ".root-sidebar-legacy.expanded, .modern-sidebar-shell.expanded"
+          )
+        );
+        const handler = expanded ? onCollapseSidebar : onExpandSidebar;
+        if (typeof handler === "function") {
+          await handler(node);
+        }
+        syncSidebarStateClasses(container);
+      };
+    });
 
   scheduleRootSidebarTextFit(container);
   syncSidebarStateClasses(container);

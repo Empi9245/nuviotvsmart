@@ -16,6 +16,9 @@ function buildNormalizedEvent(event) {
     metaKey: Boolean(event?.metaKey),
     repeat: Boolean(event?.repeat),
     defaultPrevented: Boolean(event?.defaultPrevented),
+    isArrow: Boolean(normalizedKey.isArrow),
+    isEnter: Boolean(normalizedKey.isEnter),
+    isBack: Boolean(normalizedKey.isBack),
     keyCode: normalizedCode,
     which: normalizedCode,
     originalKeyCode: Number(normalizedKey.originalKeyCode || event?.keyCode || 0),
@@ -43,6 +46,7 @@ function hasActiveModal() {
 }
 
 const BACK_DEBOUNCE_MS = 250;
+const VIDAA_SELECT_KEY_CODE = 13;
 
 export const FocusEngine = {
   lastBackHandledAt: 0,
@@ -59,12 +63,17 @@ export const FocusEngine = {
     this.boundHandlePointerClick = this.handlePointerClick.bind(this);
     document.addEventListener("keydown", this.boundHandleKey, true);
     document.addEventListener("keyup", this.boundHandleKeyUp, true);
-    if (Platform.isWebOS()) {
+    if (Platform.isWebOS() || Platform.isVidaa()) {
       document.addEventListener("mousemove", this.boundHandlePointerMove, true);
       document.addEventListener("pointermove", this.boundHandlePointerMove, true);
       document.addEventListener("click", this.boundHandlePointerClick, true);
-      document.documentElement?.classList?.add("webos-pointer-remote");
-      document.body?.classList?.add("webos-pointer-remote");
+      if (Platform.isWebOS()) {
+        document.documentElement?.classList?.add("webos-pointer-remote");
+        document.body?.classList?.add("webos-pointer-remote");
+      } else {
+        document.documentElement?.classList?.add("vidaa-pointer-remote");
+        document.body?.classList?.add("vidaa-pointer-remote");
+      }
     }
   },
 
@@ -117,8 +126,18 @@ export const FocusEngine = {
 
     const normalizedEvent = buildNormalizedEvent(event);
     const keyIdentity = this.getKeyIdentity(normalizedEvent);
-    if (keyIdentity && (!normalizedEvent.repeat || !this.activeKeyDownStartedAt.has(keyIdentity))) {
-      this.activeKeyDownStartedAt.set(keyIdentity, Date.now());
+    const isVidaaSelectKey =
+      Platform.isVidaa() && normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE;
+    if (keyIdentity) {
+      if (isVidaaSelectKey) {
+        if (this.activeKeyDownStartedAt.has(keyIdentity)) {
+          normalizedEvent.repeat = true;
+        } else {
+          this.activeKeyDownStartedAt.set(keyIdentity, Date.now());
+        }
+      } else if (!normalizedEvent.repeat || !this.activeKeyDownStartedAt.has(keyIdentity)) {
+        this.activeKeyDownStartedAt.set(keyIdentity, Date.now());
+      }
     }
 
     if (
@@ -153,6 +172,31 @@ export const FocusEngine = {
       return;
     }
 
+    const isArrowKey =
+      normalizedEvent.isArrow || (normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40);
+
+    if (Platform.isVidaa() && (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)) {
+      normalizedEvent.preventDefault();
+      normalizedEvent.stopPropagation();
+      normalizedEvent.stopImmediatePropagation();
+      this.lastPointerFocusTarget = null;
+      if (normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE && normalizedEvent.repeat) {
+        return;
+      }
+    }
+
+    if (isArrowKey) {
+      const targetTag = String(event?.target?.tagName || "").toUpperCase();
+      const isEditable =
+        Boolean(event?.target?.isContentEditable) ||
+        targetTag === "INPUT" ||
+        targetTag === "TEXTAREA" ||
+        targetTag === "SELECT";
+      if (!isEditable) {
+        normalizedEvent.preventDefault();
+      }
+    }
+
     const currentScreen = Router.getCurrentScreen();
 
     if (currentScreen?.onKeyDown) {
@@ -177,18 +221,24 @@ export const FocusEngine = {
     ) {
       this.activeBackKeyIdentities.delete("back");
     }
-    if (event?.target && !document.contains(event.target)) return;
-    if (hasActiveModal()) {
-      if (keyIdentity) {
-        this.activeKeyDownStartedAt.delete(keyIdentity);
-      }
-      return;
-    }
-
     if (keyIdentity) {
       const startedAt = Number(this.activeKeyDownStartedAt.get(keyIdentity) || 0);
       normalizedEvent.keyDownDurationMs = startedAt > 0 ? Math.max(0, Date.now() - startedAt) : 0;
       this.activeKeyDownStartedAt.delete(keyIdentity);
+    }
+
+    const isArrowKey =
+      normalizedEvent.isArrow || (normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40);
+    if (Platform.isVidaa() && (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)) {
+      normalizedEvent.preventDefault();
+      normalizedEvent.stopPropagation();
+      normalizedEvent.stopImmediatePropagation();
+      this.lastPointerFocusTarget = null;
+    }
+
+    if (event?.target && !document.contains(event.target) && !Platform.isVidaa()) return;
+    if (hasActiveModal()) {
+      return;
     }
 
     const currentScreen = Router.getCurrentScreen();
@@ -272,7 +322,7 @@ export const FocusEngine = {
   },
 
   handlePointerMove(event) {
-    if (!Platform.isWebOS()) {
+    if (!Platform.isWebOS() && !Platform.isVidaa()) {
       return;
     }
     this.pendingPointerMoveEvent = event;
@@ -293,8 +343,12 @@ export const FocusEngine = {
   },
 
   processPointerMove(event) {
-    if (!Platform.isWebOS()) {
+    if (!Platform.isWebOS() && !Platform.isVidaa()) {
       return;
+    }
+    if (Platform.isVidaa()) {
+      document.documentElement?.classList?.add("vidaa-pointer-active");
+      document.body?.classList?.add("vidaa-pointer-active");
     }
     const currentScreen = Router.getCurrentScreen();
     currentScreen?.onPointerMove?.(event);
@@ -309,7 +363,7 @@ export const FocusEngine = {
   },
 
   handlePointerClick(event) {
-    if (!Platform.isWebOS()) {
+    if (!Platform.isWebOS() && !Platform.isVidaa()) {
       return;
     }
     const target = this.getPointerFocusable(event);

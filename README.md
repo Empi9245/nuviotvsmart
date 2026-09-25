@@ -12,12 +12,27 @@
 
 </div>
 
+> [!IMPORTANT]
+>
+> ### 📺 Hisense VIDAA OS Port (Experimental / AI-Assisted)
+>
+> This fork introduces initial support for **Hisense VIDAA OS** (Smart TVs and Projectors).
+>
+> - 🤖 **Development:** Built with AI assistance.
+> - 🧪 **Testing Status:** Currently experimental — real-device testing on actual Hisense hardware is in progress.
+> - 🙏 **Special Thanks:** Huge thanks to **[@loggie86](https://github.com/loggie86)** for hands-on hardware testing and invaluable feedback!
+> - 💬 **Early Feedback & Testers:** If you have a Hisense TV running VIDAA and want to test it out or report issues, please feel free to open an issue or reach out!
+
+---
+
 ## Get Nuvio TV
 
-Nuvio TV supports **Samsung Tizen TVs from 2018 onward (Tizen 4+)** and **LG webOS TVs from 2020 onward (webOS 5+)**.
-The startup compatibility baseline is Samsung Tizen 4.0 / Chromium 56 and LG webOS 5.0 / Chromium 68 when the platform reports those versions.
+Nuvio TV supports **Samsung Tizen TVs from 2018 onward (Tizen 4+)**, **LG webOS TVs from 2020 onward (webOS 5+)**, and **Hisense VIDAA OS (Experimental Port)**.
+The startup compatibility baseline is Samsung Tizen 4.0 / Chromium 56, LG webOS 5.0 / Chromium 68, and Hisense VIDAA OS (Chromium / WebKit runtime).
 
 Platform capabilities are intentionally version-dependent:
+
+- **Hisense VIDAA OS (New Port)** — Full TV remote control navigation (D-pad, Back, Exit, media keys), TV viewport scaling, native hardware video playback, and a dedicated local web installer (`installer/`).
 
 - **Samsung Tizen 4.x** — the app and direct playback are supported, but torrent/P2P playback is unavailable by design. Some advanced audio and subtitle features may also be limited.
 - **Samsung Tizen 5.x, including 5.5** — torrent/P2P playback is supported through the bundled local EngineFS service only. The PluginService, plugin execution, and remote plugin pull/push synchronization are disabled; the Plugins screen is not available.
@@ -28,15 +43,64 @@ Platform capabilities are intentionally version-dependent:
 
 On Tizen 5+ and LG webOS, torrent/P2P uses only the bundled local companion service; no external torrent streaming server is configured or required.
 
+- [Hisense VIDAA Web Installer](./installer) for local network installation
 - [Nuvio TV Installer](https://github.com/NuvioMedia/NuvioTVSmart/releases/latest) for Windows, macOS, and Linux
 - [Samsung Tizen WGT](https://github.com/NuvioMedia/NuvioTVSmart/releases/latest) for manual installation
 - [LG webOS Homebrew repository](https://raw.githubusercontent.com/NuvioMedia/NuvioTVWebOS/main/webosbrew/apps.json)
 - [LG webOS IPK](https://github.com/NuvioMedia/NuvioTVSmart/releases/latest) for manual installation
 
+## Experimental: Running on Hisense VIDAA OS (Preliminary Guide)
+
+> [!NOTE]
+> **Disclaimer:** This is an experimental, work-in-progress port and **not a guaranteed guide** for every Hisense TV. VIDAA OS behaviors and browser capabilities vary across versions (VIDAA U4, U5, U6, U7, U8) and regions. Hardware testing is in progress. If you try this, please report your experience or issues!
+
+### Method 1: Local Network Serving (Recommended for testing)
+
+The easiest way to test Nuvio on a VIDAA TV without developer tools:
+
+1. **Connect both devices:** Ensure your computer (PC/Mac/Linux) and your Hisense TV are connected to the same local Wi-Fi/LAN network.
+2. **Build and start the server:**
+   ```bash
+   git clone https://github.com/derpwinnie/NuvioTVSmart.git
+   cd NuvioTVSmart
+   npm install
+   npm run build:vidaa
+   npm run serve:vidaa
+   ```
+   _(Alternatively, run the included installer helper: `python3 installer/server.py` or double-click `installer/start-windows.bat` on Windows)._
+3. **Open the TV browser:**
+   - The server terminal will output a local network URL (e.g. `http://192.168.1.50:8080`).
+   - On your Hisense TV, launch the built-in **Web Browser**.
+   - Navigate to `http://<YOUR-PC-IP>:8080/`.
+4. **Navigation & Controls:**
+   - The app automatically detects VIDAA OS and maps your TV remote control (D-pad arrows, OK/Enter, Back, Play/Pause).
+   - D-pad input snaps focus instantly across lists with native scroll prevention, eliminating mouse-pointer drag and scroll lag.
+   - Pointer mode (via air-mouse or the VIDAA mobile remote touchpad) is also supported seamlessly.
+   - Tip: Bookmark the page in your TV browser or pin it to your browser speed-dial for quick 1-click access (recommended method for VIDAA U6/U7/U8).
+
+### Method 2: Package Deployment (Advanced / Developer Mode)
+
+For users with developer mode enabled or who wish to package the app:
+
+1. **Build the VIDAA package:**
+   ```bash
+   npm run package:vidaa
+   ```
+   This generates `dist/nuvio-vidaa.zip` containing the packaged app, `manifest.json`, and service worker.
+2. **Sideloading & Security Note:**
+   - On newer VIDAA firmware versions (VIDAA U6, U7, U8, U9+), Hisense has locked down file permissions (`websdk/Appinfo.json` returns `permission check error`) and enforces cryptographic signatures on launcher packages, silently dropping unsigned third-party registrations.
+   - ⚠️ **Brick Risk Warning:** Never attempt forced low-level file writes, raw JSON corruption, or dangerous service menu (`1969`) modifications. Independent security researchers warn that corrupting internal launcher files can easily soft-brick/boot-loop the TV with no public recovery method.
+   - **Recommended Approach:** Pinning the browser shortcut / PWA to your TV speed-dial (Method 1) is the official community-recommended standard: it is 100% safe, risk-free, update-proof, and runs in full-screen with native hardware decoding.
+
+### Feedback & Troubleshooting
+
+- **Codecs & Playback:** While desktop browsers might fail playing MKV or AC-3 audio streams due to missing browser codecs, VIDAA Smart TVs utilize hardware media decoders.
+- **Remote Keys:** Standard VIDAA remote codes are mapped. If any key on your specific Hisense remote model does not respond as expected, please open an issue with your TV model and VIDAA version.
+
 ## Build from source
 
 ```bash
-git clone https://github.com/NuvioMedia/NuvioTVSmart.git NuvioTVSmart
+git clone https://github.com/derpwinnie/NuvioTVSmart.git NuvioTVSmart
 cd NuvioTVSmart
 npm install
 npm run build
@@ -48,9 +112,21 @@ Build TV packages with:
 npm run package:tizen
 npm run package:tizen:store
 npm run package:webos
+npm run package:vidaa
+```
+
+To test and run the VIDAA version locally:
+
+```bash
+npm run test:vidaa   # Run VIDAA adapter & platform test suite
+npm run serve:vidaa  # Start local VIDAA development server
 ```
 
 `package:tizen` creates the unsigned WGT used by development and the Nuvio TV Installer. The installer signs it locally for the target TV before installation. `package:tizen:store` is a separate Seller Office build: it requires Tizen Studio/Web CLI and a configured security profile, and creates the signed Store package with the local EngineFS service included so Tizen 5+ retains torrent/P2P playback. Tizen 4 still reports P2P as unsupported at runtime. Nuvio TV is built with JavaScript, HTML, CSS, and platform TV APIs. Building requires Node.js and npm; package installation additionally requires the relevant Tizen or webOS tools.
+
+## Acknowledgements
+
+Special thanks to **[@loggie86](https://github.com/loggie86)** for testing this VIDAA port on real Hisense TV hardware and providing crucial insights on navigation, launcher installation, and backend setup.
 
 ## License
 

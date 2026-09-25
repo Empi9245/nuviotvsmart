@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <title>Nuvio TV VIDAA Installer</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #0a0a14;
+        color: #ffffff;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
+          sans-serif;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        overflow-x: hidden;
+      }
+
+      .container {
+        text-align: center;
+        max-width: 860px;
+        width: 100%;
+      }
+
+      .logo {
+        width: 160px;
+        height: auto;
+        margin-bottom: 24px;
+        filter: drop-shadow(0 4px 16px rgba(123, 91, 245, 0.4));
+      }
+
+      h1 {
+        font-size: 46px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+      }
+
+      .subtitle {
+        font-size: 22px;
+        color: #8c8ea8;
+        margin-bottom: 40px;
+      }
+
+      .status-area {
+        min-height: 64px;
+        margin-bottom: 32px;
+      }
+
+      .status-message {
+        font-size: 22px;
+        color: #d1d3e2;
+        line-height: 1.5;
+        transition: opacity 0.3s ease;
+      }
+
+      .status-message.success {
+        color: #4cdf7f;
+      }
+      .status-message.error {
+        color: #ff5f6f;
+      }
+      .status-message.warning {
+        color: #f5a623;
+      }
+      .status-message.working {
+        color: #8e74ff;
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(142, 116, 255, 0.3);
+        border-top-color: #8e74ff;
+        border-radius: 50%;
+        margin-right: 12px;
+        vertical-align: middle;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .progress-bar-wrap {
+        width: 340px;
+        height: 8px;
+        background: #18192a;
+        border-radius: 4px;
+        margin: 16px auto 0;
+        overflow: hidden;
+        display: none;
+      }
+
+      .progress-bar {
+        height: 100%;
+        width: 0%;
+        background: #7b5bf5;
+        border-radius: 4px;
+        transition: width 0.4s ease;
+      }
+
+      .buttons {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 30px;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 18px 48px;
+        font-size: 24px;
+        font-weight: 600;
+        font-family: inherit;
+        border: 3px solid transparent;
+        border-radius: 14px;
+        cursor: pointer;
+        outline: none;
+        transition: all 0.2s ease;
+        user-select: none;
+      }
+
+      .btn:focus {
+        border-color: #ffffff;
+        box-shadow: 0 0 0 4px rgba(123, 91, 245, 0.6);
+        transform: scale(1.04);
+      }
+
+      .btn-install {
+        background: #7b5bf5;
+        color: #ffffff;
+      }
+
+      .btn-install:hover,
+      .btn-install:focus {
+        background: #6a4ae0;
+      }
+
+      .btn-uninstall {
+        background: transparent;
+        color: #8888aa;
+        border-color: #333355;
+      }
+
+      .btn-uninstall:hover,
+      .btn-uninstall:focus {
+        color: #ff5f6f;
+        border-color: #ff5f6f;
+        background: rgba(255, 95, 111, 0.08);
+      }
+
+      .btn-web {
+        background: #1f2038;
+        color: #cfd2ef;
+        border-color: #3a3b5c;
+      }
+
+      .btn-web:hover,
+      .btn-web:focus {
+        background: #2b2d4f;
+        color: #ffffff;
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: default;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 20px 24px;
+        text-align: left;
+        margin-top: 24px;
+        line-height: 1.6;
+        font-size: 16px;
+        color: #b0b2ce;
+      }
+
+      .card strong {
+        color: #ffffff;
+      }
+
+      .diag-panel {
+        margin-top: 24px;
+        text-align: left;
+      }
+
+      .diag-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .diag-text {
+        width: 100%;
+        height: 140px;
+        background: #06060c;
+        border: 1px solid #23243a;
+        border-radius: 8px;
+        color: #a1a3c0;
+        font-family: monospace;
+        font-size: 13px;
+        padding: 12px;
+        resize: none;
+      }
+
+      .footer {
+        margin-top: 40px;
+        font-size: 14px;
+        color: #5d5f7a;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <img
+        class="logo"
+        src="/shared/logo.png"
+        alt="Nuvio TV"
+        onerror="this.src = '/shared/icon.png'"
+      />
+      <h1>Nuvio TV for VIDAA OS</h1>
+      <p class="subtitle">Hisense U7Q &amp; VIDAA Smart TV Platform Port</p>
+
+      <div class="status-area">
+        <p id="statusMsg" class="status-message">Ready to install Nuvio TV</p>
+        <div id="progressWrap" class="progress-bar-wrap">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button id="btnInstall" class="btn btn-install" tabindex="1">Install to TV Launcher</button>
+        <button id="btnLaunchWeb" class="btn btn-web" tabindex="2">Open Web App</button>
+        <button id="btnUninstall" class="btn btn-uninstall" tabindex="3">Uninstall</button>
+      </div>
+
+      <div class="card">
+        <strong>Installation Notes:</strong>
+        <ul style="margin-left: 20px; margin-top: 6px">
+          <li>
+            <strong>Method 1 (Universal Bookmark)</strong>: Open the TV Internet Browser, go to your
+            Nuvio URL, and bookmark it. Nuvio caches offline via Service Worker and boots instantly.
+          </li>
+          <li>
+            <strong>Method 2 (Launcher Icon)</strong>: Clicking "Install to TV Launcher" registers
+            Nuvio on your TV home screen. After install, revert DNS to automatic and power-cycle
+            your TV.
+          </li>
+        </ul>
+      </div>
+
+      <div class="diag-panel">
+        <div class="diag-header">
+          <strong>Diagnostics:</strong>
+          <span id="vidaaDetected" style="color: #f5a623">Checking VIDAA APIs...</span>
+        </div>
+        <textarea id="diagText" class="diag-text" readonly></textarea>
+      </div>
+
+      <div class="footer">Nuvio TV &bull; VIDAA OS Port</div>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var APP_ID = "space.nuvio.tv";
+        var APP_NAME = "Nuvio TV";
+        var INSTALL_ORIGIN = window.location.origin;
+        var ICON_URL = INSTALL_ORIGIN + "/shared/icon.png";
+        var APP_URL = INSTALL_ORIGIN + "/?wrapper=vidaa";
+        var STORE_TYPE = "store";
+
+        var statusMsg = document.getElementById("statusMsg");
+        var progressWrap = document.getElementById("progressWrap");
+        var progressBar = document.getElementById("progressBar");
+        var btnInstall = document.getElementById("btnInstall");
+        var btnLaunchWeb = document.getElementById("btnLaunchWeb");
+        var btnUninstall = document.getElementById("btnUninstall");
+        var diagText = document.getElementById("diagText");
+        var vidaaDetected = document.getElementById("vidaaDetected");
+
+        var isVidaa = typeof Hisense_installApp === "function";
+        vidaaDetected.textContent = isVidaa ? "VIDAA APIs Active" : "Non-VIDAA Browser Mode";
+        vidaaDetected.style.color = isVidaa ? "#4cdf7f" : "#8888aa";
+
+        var diagState = {
+          appId: APP_ID,
+          appName: APP_NAME,
+          origin: window.location.origin,
+          userAgent: navigator.userAgent,
+          hasInstallApp: typeof Hisense_installApp === "function",
+          hasUninstallApp: typeof Hisense_uninstallApp === "function",
+          hasAddInsecureDomain: typeof Hisense_AddInsecureDomain === "function",
+          hasOmiPlatform:
+            typeof window.omi_platform?.sendPlatformMessage === "function" ||
+            typeof window.opera_omi?.sendPlatformMessage === "function"
+        };
+
+        function updateDiag() {
+          diagText.value = JSON.stringify(diagState, null, 2);
+        }
+        updateDiag();
+
+        function setStatus(text, type) {
+          var prefix = type === "working" ? '<span class="spinner"></span>' : "";
+          statusMsg.innerHTML = prefix + text;
+          statusMsg.className = "status-message" + (type ? " " + type : "");
+        }
+
+        function showProgress(pct) {
+          progressWrap.style.display = "block";
+          progressBar.style.width = pct + "%";
+        }
+
+        function hideProgress() {
+          progressWrap.style.display = "none";
+          progressBar.style.width = "0%";
+        }
+
+        function refreshAppsOnHisenseUI(appId) {
+          var msg = {
+            type: "APPMessage",
+            MsgType: "appControl",
+            action: "updateAppState",
+            source: "browser",
+            startAppType: 0x2,
+            param: {
+              event: "AllAppsUpdate",
+              SubModuleName: "AllApps",
+              startFrom: "",
+              appInfo: appId
+            }
+          };
+          try {
+            if (
+              window.omi_platform &&
+              typeof window.omi_platform.sendPlatformMessage === "function"
+            ) {
+              window.omi_platform.sendPlatformMessage(JSON.stringify(msg));
+            } else if (
+              window.opera_omi &&
+              typeof window.opera_omi.sendPlatformMessage === "function"
+            ) {
+              window.opera_omi.sendPlatformMessage(JSON.stringify(msg));
+            }
+          } catch (_) {}
+        }
+
+        btnLaunchWeb.addEventListener("click", function () {
+          window.location.href = APP_URL;
+        });
+
+        btnInstall.addEventListener("click", function () {
+          if (!isVidaa) {
+            setStatus(
+              "Hisense VIDAA APIs not detected on this browser. You can still use 'Open Web App' directly!",
+              "warning"
+            );
+            return;
+          }
+
+          btnInstall.disabled = true;
+          setStatus("Registering trusted domains...", "working");
+          showProgress(25);
+
+          try {
+            if (typeof Hisense_AddInsecureDomain === "function") {
+              Hisense_AddInsecureDomain(window.location.hostname);
+            }
+          } catch (_) {}
+
+          setTimeout(function () {
+            setStatus("Installing Nuvio TV into TV launcher...", "working");
+            showProgress(60);
+
+            try {
+              Hisense_installApp(
+                APP_ID,
+                APP_NAME,
+                ICON_URL,
+                ICON_URL,
+                ICON_URL,
+                APP_URL,
+                STORE_TYPE,
+                function (code) {
+                  showProgress(100);
+                  diagState.installCode = code;
+                  updateDiag();
+
+                  if (code === 0) {
+                    refreshAppsOnHisenseUI(APP_ID);
+                    setStatus(
+                      "Installation successful! Revert your TV DNS to Automatic and restart your TV.",
+                      "success"
+                    );
+                  } else {
+                    setStatus(
+                      "Install returned code " +
+                        code +
+                        ". You can use Method 1 (Bookmark in TV Browser) instead!",
+                      "error"
+                    );
+                  }
+                  btnInstall.disabled = false;
+                }
+              );
+            } catch (e) {
+              setStatus("Install call failed: " + e.message, "error");
+              btnInstall.disabled = false;
+            }
+          }, 600);
+        });
+
+        btnUninstall.addEventListener("click", function () {
+          if (typeof Hisense_uninstallApp !== "function") {
+            setStatus("Uninstall API unavailable on this device", "warning");
+            return;
+          }
+          try {
+            Hisense_uninstallApp(APP_ID, function (code) {
+              refreshAppsOnHisenseUI(APP_ID);
+              setStatus("Uninstall complete (code " + code + ")", "success");
+            });
+          } catch (e) {
+            setStatus("Uninstall error: " + e.message, "error");
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

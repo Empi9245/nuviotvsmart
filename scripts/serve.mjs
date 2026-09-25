@@ -250,9 +250,24 @@ server.listen(port, host, async () => {
       ? `Local media tracks endpoint: http://${localHost}:${port}/tracks/<media-url> -> 127.0.0.1:${mediaPort}`
       : "Local media tracks endpoint unavailable. Install/enable the media runtime to inspect internal tracks."
   );
-  console.log(
-    "Use one of the URLs above if you want to test the app over http(s) during development."
-  );
+  const isVidaa = process.argv.includes("--vidaa");
+  if (isVidaa) {
+    console.log("\n=======================================================");
+    console.log("  Nuvio TV - VIDAA OS Testing Server Ready!");
+    console.log("=======================================================");
+    console.log("  To test on your Hisense U7Q / VIDAA TV:");
+    console.log("  1. Connect your TV to the same Wi-Fi / LAN network.");
+    console.log("  2. Open the TV Internet Browser (Globe icon in Apps).");
+    for (const lanUrl of getLanUrls()) {
+      console.log(`  3. Navigate to: ${lanUrl}?wrapper=vidaa`);
+    }
+    console.log("  4. Bookmark the page on your TV for 1-click access!");
+    console.log("=======================================================\n");
+  } else {
+    console.log(
+      "Use one of the URLs above if you want to test the app over http(s) during development."
+    );
+  }
 });
 
 function stopMediaRuntime() {

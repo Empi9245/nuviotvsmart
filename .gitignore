@@ -6,7 +6,8 @@ nuvio.env.js
 local.properties
 local.example.properties
 node_modules/
-tests/
+tests/*
+!tests/test-vidaa-platform.mjs
 *.ipk
 *.wgt
 dist/
@@ -17,3 +18,7 @@ app.bundle.js
 ecosystem.config.cjs
 scripts/commit-build-poller.mjs
 .DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
