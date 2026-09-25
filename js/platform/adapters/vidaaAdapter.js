@@ -9,13 +9,29 @@ function syncVidaaBrowserViewportFit() {
   if (!documentRef || !screens?.length) return;
 
   const visualViewport = globalThis.visualViewport;
-  const viewportWidth = Math.max(
-    1,
-    Number(visualViewport?.width || globalThis.innerWidth || documentRef.documentElement?.clientWidth || VIDAA_LOGICAL_WIDTH)
+  const smallestPositive = (values, fallback) => {
+    const candidates = values
+      .map((value) => Number(value || 0))
+      .filter((value) => Number.isFinite(value) && value > 0);
+    return candidates.length ? Math.min(...candidates) : fallback;
+  };
+  const viewportWidth = smallestPositive(
+    [
+      visualViewport?.width,
+      globalThis.innerWidth,
+      globalThis.outerWidth,
+      documentRef.documentElement?.clientWidth
+    ],
+    VIDAA_LOGICAL_WIDTH
   );
-  const viewportHeight = Math.max(
-    1,
-    Number(visualViewport?.height || globalThis.innerHeight || documentRef.documentElement?.clientHeight || VIDAA_LOGICAL_HEIGHT)
+  const viewportHeight = smallestPositive(
+    [
+      visualViewport?.height,
+      globalThis.innerHeight,
+      globalThis.outerHeight,
+      documentRef.documentElement?.clientHeight
+    ],
+    VIDAA_LOGICAL_HEIGHT
   );
 
   // A packaged VIDAA WebApp normally exposes the full 1920x1080 canvas.
