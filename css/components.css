@@ -27426,6 +27426,13 @@ html.vidaa-tv .debug-console-back .material-icons {
   font-size: 28px;
 }
 
+/* The player UI root intentionally disables pointer hit-testing. The source
+   picker is an interactive child, so VIDAA hosted-browser mode must opt the
+   visible side panel back in without changing the player surface itself. */
+html.vidaa-tv .player-sources-panel:not(.hidden) {
+  pointer-events: auto;
+}
+
 /* VIDAA hosted-browser controls: explicit pointer-friendly navigation chrome. */
 html.vidaa-tv .vidaa-sidebar-menu-trigger {
   position: absolute;

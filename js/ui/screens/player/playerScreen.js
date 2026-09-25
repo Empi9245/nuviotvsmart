@@ -66,6 +66,7 @@ import { orderStreamsByAddonOrder } from "../../../core/streams/streamOrdering.j
 import { metaRepository } from "../../../data/repository/metaRepository.js";
 import { I18n } from "../../../i18n/index.js";
 import { Environment } from "../../../platform/environment.js";
+import { Platform } from "../../../platform/index.js";
 import { TizenCapabilities } from "../../../platform/tizen/tizenCapabilities.js";
 import { Router } from "../../navigation/router.js";
 import { renderLoadingIndicator } from "../../components/loadingIndicator.js";
@@ -22332,10 +22333,33 @@ export const PlayerScreen = {
     this.moreActionsVisible = false;
 
     const filters = this.getSourceFilters();
-    this.sourcesFocus = {
-      zone: "filter",
-      index: clamp(filters.indexOf(this.sourceFilter), 0, Math.max(0, filters.length - 1))
-    };
+    const filteredSources = this.getFilteredSources();
+    if (Platform.isVidaa() && filteredSources.length) {
+      const currentStream = this.getCurrentStreamCandidate();
+      const currentKey = currentStream ? streamMergeKey(currentStream) : "";
+      const activePlaybackUrl = String(this.activePlaybackUrl || "").trim();
+      const currentIndex = filteredSources.findIndex((stream) => {
+        if (stream === currentStream) {
+          return true;
+        }
+        const streamKey = streamMergeKey(stream);
+        if (currentKey && streamKey && streamKey === currentKey) {
+          return true;
+        }
+        return Boolean(
+          activePlaybackUrl && streamDirectPlaybackUrl(stream) === activePlaybackUrl
+        );
+      });
+      this.sourcesFocus = {
+        zone: "list",
+        index: currentIndex >= 0 ? currentIndex : 0
+      };
+    } else {
+      this.sourcesFocus = {
+        zone: "filter",
+        index: clamp(filters.indexOf(this.sourceFilter), 0, Math.max(0, filters.length - 1))
+      };
+    }
 
     this.renderControlButtons();
     this.renderSubtitleDialog();
@@ -22370,6 +22394,9 @@ export const PlayerScreen = {
     this.sourcesError = "";
     this.renderSourcesPanel();
     this.updateModalBackdrop();
+    if (Platform.isVidaa() && this.controlsVisible) {
+      this.syncControlFocusDom();
+    }
     this.resetControlsAutoHide();
   },
 
@@ -22514,6 +22541,7 @@ export const PlayerScreen = {
     const badgeSettings = StreamBadgeSettingsStore.snapshot();
     const showAddonLogo = badgeSettings.showAddonLogo === true;
     const badgePlacement = resolvePlayerSourceBadgePlacement(badgeSettings);
+    const vidaaSourceFocusAttributes = Platform.isVidaa() ? ' tabindex="-1" role="button"' : "";
     this.ensureSourcesFocus(filters, filtered);
 
     const nextMarkup = `
@@ -22540,7 +22568,7 @@ export const PlayerScreen = {
             const focused =
               this.sourcesFocus.zone === "filter" && this.sourcesFocus.index === index;
             return `
-            <div class="player-sources-filter focusable${selected ? " selected" : ""}${focused ? " focused" : ""}" data-sources-zone="filter" data-sources-index="${index}">
+            <div class="player-sources-filter focusable${selected ? " selected" : ""}${focused ? " focused" : ""}" data-sources-zone="filter" data-sources-index="${index}"${vidaaSourceFocusAttributes}>
               ${escapeHtml(filter === "all" ? t("subtitle_all", {}, "All") : filter)}
             </div>
           `;
@@ -22584,7 +22612,7 @@ export const PlayerScreen = {
                 </div>`
                     : "";
                   return `
-              <article class="player-source-card${sourceSide ? "" : " no-side"} focusable${focused ? " focused" : ""}${isCurrent ? " selected" : ""}" data-sources-zone="list" data-sources-index="${index}">
+              <article class="player-source-card${sourceSide ? "" : " no-side"} focusable${focused ? " focused" : ""}${isCurrent ? " selected" : ""}" data-sources-zone="list" data-sources-index="${index}"${vidaaSourceFocusAttributes}>
                 <div class="player-source-main">
                   ${topBadges}
                   ${mainTitle}
@@ -22610,9 +22638,13 @@ export const PlayerScreen = {
       this.renderedSourcesMarkup = nextMarkup;
     }
 
-    const focusedCard = panel.querySelector(".player-source-card.focused");
-    if (focusedCard) {
-      this.scrollSourcesCardIntoView(focusedCard);
+    if (Platform.isVidaa()) {
+      this.syncSourcesFocusDom();
+    } else {
+      const focusedCard = panel.querySelector(".player-source-card.focused");
+      if (focusedCard) {
+        this.scrollSourcesCardIntoView(focusedCard);
+      }
     }
   },
 
@@ -22641,6 +22673,13 @@ export const PlayerScreen = {
       }
     });
     focusedNode.classList.add("focused");
+    if (Platform.isVidaa() && document.activeElement !== focusedNode) {
+      try {
+        focusedNode.focus({ preventScroll: true });
+      } catch (_) {
+        focusedNode.focus?.();
+      }
+    }
     if (focusedNode.classList.contains("player-source-card")) {
       this.scrollSourcesCardIntoView(focusedNode);
     }
