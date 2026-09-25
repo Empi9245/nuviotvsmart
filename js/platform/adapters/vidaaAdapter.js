@@ -155,6 +155,9 @@ export function launchVidaaNativePlayer(url, title = "Nuvio TV") {
   return false;
 }
 
+// VIDAA's official WebApp mapping is VK_BACK_SPACE = 8. The remaining
+// values are compatibility fallbacks seen in hosted-browser/TV firmware paths
+// and are intentionally kept so Back remains usable outside a packaged app.
 const VIDAA_BACK_CODES = [8, 461, 10009, 27];
 
 export const vidaaAdapter = {
