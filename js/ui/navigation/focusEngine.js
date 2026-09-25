@@ -47,23 +47,6 @@ function hasActiveModal() {
 
 const BACK_DEBOUNCE_MS = 250;
 const VIDAA_SELECT_KEY_CODE = 13;
-const VIDAA_POINTER_EVENT_TYPES = [
-  "pointermove",
-  "pointerdown",
-  "pointerup",
-  "pointerover",
-  "pointerenter",
-  "mousemove",
-  "mousedown",
-  "mouseup",
-  "mouseover",
-  "mouseenter",
-  "click",
-  "dblclick",
-  "contextmenu",
-  "wheel",
-  "dragstart"
-];
 
 export const FocusEngine = {
   lastBackHandledAt: 0,
@@ -79,37 +62,24 @@ export const FocusEngine = {
     this.boundHandleTizenHardwareKey = this.handleTizenHardwareKey.bind(this);
     this.boundHandlePointerMove = this.handlePointerMove.bind(this);
     this.boundHandlePointerClick = this.handlePointerClick.bind(this);
-    this.boundHandleVidaaPointerInput = this.handleVidaaPointerInput.bind(this);
     document.addEventListener("keydown", this.boundHandleKey, true);
     document.addEventListener("keyup", this.boundHandleKeyUp, true);
     if (Platform.isTizen()) {
       document.addEventListener("tizenhwkey", this.boundHandleTizenHardwareKey, true);
       window.addEventListener("tizenhwkey", this.boundHandleTizenHardwareKey, true);
     }
-    if (Platform.isVidaa()) {
-      VIDAA_POINTER_EVENT_TYPES.forEach((eventName) => {
-        document.addEventListener(eventName, this.boundHandleVidaaPointerInput, true);
-      });
-      document.documentElement?.classList?.add("vidaa-remote-input");
-      document.body?.classList?.add("vidaa-remote-input");
-    }
-    if (Platform.isWebOS()) {
+    if (Platform.isWebOS() || Platform.isVidaa()) {
       document.addEventListener("mousemove", this.boundHandlePointerMove, true);
       document.addEventListener("pointermove", this.boundHandlePointerMove, true);
       document.addEventListener("click", this.boundHandlePointerClick, true);
-      document.documentElement?.classList?.add("webos-pointer-remote");
-      document.body?.classList?.add("webos-pointer-remote");
+      if (Platform.isWebOS()) {
+        document.documentElement?.classList?.add("webos-pointer-remote");
+        document.body?.classList?.add("webos-pointer-remote");
+      } else {
+        document.documentElement?.classList?.add("vidaa-pointer-remote");
+        document.body?.classList?.add("vidaa-pointer-remote");
+      }
     }
-  },
-
-  handleVidaaPointerInput(event) {
-    if (!Platform.isVidaa() || event?.isTrusted === false) {
-      return;
-    }
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    event?.stopImmediatePropagation?.();
-    this.lastPointerFocusTarget = null;
   },
 
   handleTizenHardwareKey(event) {

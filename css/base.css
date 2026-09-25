@@ -144,10 +144,11 @@ html.vidaa-tv #app > .screen:not(#player) {
   overflow: hidden;
 }
 
-/* VIDAA is remote-first: keep the browser cursor hidden at all times. */
+/* Hosted VIDAA Browser can use its pointer layer as part of remote navigation.
+   Keep it usable instead of hiding an input path we cannot replace reliably. */
 .vidaa-tv,
 .vidaa-tv * {
-  cursor: none !important;
+  cursor: auto !important;
 }
 
 .row {

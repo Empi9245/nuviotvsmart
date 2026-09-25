@@ -26666,96 +26666,175 @@ html.vidaa-tv .server-connection-dialog {
   max-height: 900px;
 }
 
-/* Profile selection: retain TV readability while fitting the whole choice set. */
+/* VIDAA profile selection: compact fixed-1080p composition. */
 html.vidaa-tv .profile-main-layer {
-  padding: 64px 80px;
+  padding: 42px 64px 44px;
 }
 
 html.vidaa-tv .profile-logo {
-  width: 300px;
-  height: 70px;
+  width: 230px;
+  height: 54px;
 }
 
 html.vidaa-tv .profile-brand-lockup {
-  margin-bottom: 36px;
+  margin-bottom: 22px;
 }
 
 html.vidaa-tv .profile-brand-lockup .member-brand-suffix {
-  font-size: 24px;
+  margin-left: 10px;
+  font-size: 19px;
+  transform: translateY(-2px);
 }
 
 html.vidaa-tv .profile-title {
-  font-size: 64px;
+  font-size: 48px;
+  line-height: 1.04;
+  letter-spacing: -0.5px;
 }
 
 html.vidaa-tv .profile-subtitle {
-  margin-top: 16px;
-  font-size: 26px;
+  margin-top: 10px;
+  font-size: 20px;
+  line-height: 1.25;
 }
 
 html.vidaa-tv .profile-grid {
-  gap: 36px;
-  min-height: 356px;
+  gap: 24px;
+  min-height: 286px;
+  margin-top: 34px;
+  align-items: flex-start;
 }
 
 html.vidaa-tv .profile-grid-compact {
-  gap: 20px;
-  min-height: 312px;
+  gap: 14px;
+  min-height: 238px;
+  flex-wrap: nowrap;
 }
 
 html.vidaa-tv .profile-card {
-  width: 244px;
-  padding: 12px 14px;
+  width: 196px;
+  padding: 8px 10px;
 }
 
 html.vidaa-tv .profile-grid-compact .profile-card {
-  width: 214px;
-  padding: 10px 12px;
+  width: 164px;
+  padding: 7px 8px;
 }
 
 html.vidaa-tv .profile-avatar-ring {
-  width: 180px;
-  height: 180px;
+  width: 142px;
+  height: 142px;
+  margin: 8px auto;
 }
 
 html.vidaa-tv .profile-card.focused .profile-avatar-ring {
-  width: 192px;
-  height: 192px;
+  width: 150px;
+  height: 150px;
   border-width: 4px;
 }
 
 html.vidaa-tv .profile-avatar {
-  width: 152px;
-  height: 152px;
-  font-size: 60px;
+  width: 120px;
+  height: 120px;
+  font-size: 47px;
 }
 
 html.vidaa-tv .profile-card.focused .profile-avatar {
-  width: 162px;
-  height: 162px;
-  font-size: 64px;
+  width: 126px;
+  height: 126px;
+  font-size: 50px;
 }
 
 html.vidaa-tv .profile-grid-compact .profile-avatar-ring {
-  width: 156px;
-  height: 156px;
+  width: 116px;
+  height: 116px;
 }
 
 html.vidaa-tv .profile-grid-compact .profile-card.focused .profile-avatar-ring {
-  width: 166px;
-  height: 166px;
+  width: 124px;
+  height: 124px;
 }
 
 html.vidaa-tv .profile-grid-compact .profile-avatar {
-  width: 132px;
-  height: 132px;
-  font-size: 52px;
+  width: 98px;
+  height: 98px;
+  font-size: 39px;
 }
 
 html.vidaa-tv .profile-grid-compact .profile-card.focused .profile-avatar {
-  width: 140px;
-  height: 140px;
-  font-size: 56px;
+  width: 104px;
+  height: 104px;
+  font-size: 42px;
+}
+
+html.vidaa-tv .profile-avatar-add::before {
+  width: 34px;
+  height: 4px;
+}
+
+html.vidaa-tv .profile-avatar-add::after {
+  width: 4px;
+  height: 34px;
+}
+
+html.vidaa-tv .profile-name {
+  margin-top: 12px;
+  font-size: 22px;
+}
+
+html.vidaa-tv .profile-grid-compact .profile-name {
+  margin-top: 9px;
+  font-size: 18px;
+}
+
+html.vidaa-tv .profile-badge,
+html.vidaa-tv .profile-badge-slot {
+  min-height: 22px;
+  margin-top: 8px;
+}
+
+html.vidaa-tv .profile-badge {
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+html.vidaa-tv .profile-grid-compact .profile-badge,
+html.vidaa-tv .profile-grid-compact .profile-badge-slot {
+  min-height: 18px;
+  margin-top: 6px;
+}
+
+html.vidaa-tv .profile-grid-compact .profile-badge {
+  font-size: 12px;
+  letter-spacing: 0.7px;
+}
+
+html.vidaa-tv .profile-primary-dot {
+  right: -7px;
+  bottom: -7px;
+  width: 32px;
+  height: 32px;
+  border-width: 2px;
+  font-size: 17px;
+}
+
+html.vidaa-tv .profile-grid-compact .profile-primary-dot {
+  right: -5px;
+  bottom: -5px;
+  width: 26px;
+  height: 26px;
+  border-width: 2px;
+  font-size: 14px;
+}
+
+html.vidaa-tv .profile-hint {
+  margin-top: auto;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+html.vidaa-tv .profile-screen-compact-grid .profile-main-layer {
+  padding: 42px 52px 44px;
 }
 
 /* Onboarding/licences: remove viewport math from the primary composition. */
