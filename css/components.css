@@ -26117,7 +26117,17 @@ html.vidaa-tv .modern-sidebar-profile-avatar {
 }
 
 html.vidaa-tv .modern-sidebar-nav-list {
-  transform: translateY(-12px);
+  justify-content: flex-start;
+  transform: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 0 18px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html.vidaa-tv .modern-sidebar-nav-list::-webkit-scrollbar {
+  display: none;
 }
 
 html.vidaa-tv .modern-sidebar-nav-item {
