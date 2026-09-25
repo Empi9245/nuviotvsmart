@@ -33,8 +33,15 @@ function scheduleVidaaViewportRestore() {
   } catch (_) {}
 }
 
-function focusWithoutDocumentScroll(node) {
+function focusWithoutDocumentScroll(node, { preventScroll = true } = {}) {
   if (!node || typeof node.focus !== "function") {
+    return;
+  }
+  const vidaa = isVidaaViewportLocked();
+  if (!vidaa && !preventScroll) {
+    try {
+      node.focus();
+    } catch (_) {}
     return;
   }
   try {
@@ -94,7 +101,7 @@ export const ScreenUtils = {
       return;
     }
     first.classList.add("focused");
-    focusWithoutDocumentScroll(first);
+    focusWithoutDocumentScroll(first, { preventScroll: false });
   },
 
   moveFocus(container, direction, selector = ".focusable") {
