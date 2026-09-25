@@ -85,11 +85,19 @@ body {
   height: 100vh;
 }
 
-/* Samsung and VIDAA TV apps render on a fixed 1920x1080 logical CSS canvas. */
+/* Samsung keeps its existing fixed-height TV canvas behavior. */
 .tizen-tv #app,
-.tizen-tv .screen,
-.vidaa-tv #app,
-.vidaa-tv .screen {
+.tizen-tv .screen {
+  height: 1080px;
+}
+
+/* VIDAA runs inside a browser even on 4K panels. Keep one explicit 1920x1080
+   CSS canvas so nested 100vw/100vh calculations cannot grow to panel pixels. */
+html.vidaa-tv,
+html.vidaa-tv body,
+html.vidaa-tv #app,
+html.vidaa-tv .screen {
+  width: 1920px;
   height: 1080px;
 }
 

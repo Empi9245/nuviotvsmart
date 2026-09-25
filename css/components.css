@@ -26012,9 +26012,333 @@ html.tizen-tv #player.post-play-visible .tizen-avplay-object {
 
 /* VIDAA QR LOGIN LAYOUT */
 /*
- * Keep authentication deterministic on older VIDAA Chromium/WebKit builds.
- * The player is intentionally untouched: only the QR/account surface is
- * overridden here. Avoid CSS Grid and CSS math functions on this screen.
+ * VIDAA 9 layout contract
+ *
+ * The VIDAA web runtime uses a fixed 1920x1080 logical canvas. Keep layout
+ * measurements deterministic inside that canvas rather than depending on the
+ * physical panel's vw/vh values. These overrides intentionally exclude the
+ * player: playback already has the correct sizing on VIDAA.
+ */
+html.vidaa-tv .home-shell,
+html.vidaa-tv .home-screen-shell,
+html.vidaa-tv .search-screen-shell,
+html.vidaa-tv .discover-shell,
+html.vidaa-tv .settings-shell,
+html.vidaa-tv .addons-shell,
+html.vidaa-tv .home-shell.library-shell {
+  width: 1920px;
+  height: 1080px;
+}
+
+html.vidaa-tv .home-shell,
+html.vidaa-tv .home-main,
+html.vidaa-tv .home-sidebar {
+  height: 100%;
+}
+
+/* The base web skin mirrors Android-TV dp values at 2x. That makes the
+   navigation oversized when VIDAA is already rendering a real 1920px CSS
+   canvas. Use TV-distance dimensions sized directly for 1080p instead. */
+html.vidaa-tv .home-shell {
+  --legacy-sidebar-rail-width: 104px;
+  --legacy-sidebar-open-width: 304px;
+  --legacy-sidebar-item-width: 72px;
+  --legacy-sidebar-item-expanded-width: 232px;
+  --legacy-sidebar-item-height: 76px;
+  --legacy-sidebar-item-radius: 44px;
+  --legacy-sidebar-padding: 16px;
+  --legacy-sidebar-item-gap: 12px;
+  --legacy-sidebar-leading-offset: 18px;
+  --legacy-sidebar-label-start: 74px;
+  --legacy-sidebar-label-end: 18px;
+  --legacy-sidebar-profile-top-gap: 36px;
+  --legacy-sidebar-profile-bottom-gap: 14px;
+  --sidebar-leading-visual-size: 52px;
+  --sidebar-icon-size: 32px;
+  --legacy-sidebar-focus-scale: 1.06;
+  --modern-sidebar-collapsed-width: 244px;
+  --modern-sidebar-open-width: 380px;
+  --modern-sidebar-surface-width: 348px;
+  --modern-sidebar-surface-top: 22px;
+  --modern-sidebar-surface-left: 18px;
+  --modern-sidebar-surface-bottom: 18px;
+  --modern-sidebar-panel-padding-x: 18px;
+  --modern-sidebar-panel-padding-y: 20px;
+  --modern-sidebar-button-width: 92%;
+  --modern-sidebar-button-height: 76px;
+  --modern-sidebar-button-gap: 16px;
+  --modern-sidebar-list-gap: 8px;
+  --modern-sidebar-pill-top: 22px;
+  --modern-sidebar-pill-left: 18px;
+  --modern-sidebar-pill-height: 64px;
+  --modern-sidebar-pill-chevron-width: 12px;
+  --modern-sidebar-pill-chevron-height: 22px;
+  --modern-sidebar-pill-chip-start: 8px;
+  --modern-sidebar-pill-chip-end: 16px;
+  --modern-sidebar-pill-chip-gap: 10px;
+}
+
+html.vidaa-tv .home-nav-item,
+html.vidaa-tv .home-nav-label,
+html.vidaa-tv .home-profile-name,
+html.vidaa-tv .modern-sidebar-nav-label,
+html.vidaa-tv .modern-sidebar-pill-label,
+html.vidaa-tv .modern-sidebar-profile-name {
+  font-size: 26px;
+  line-height: 34px;
+}
+
+html.vidaa-tv .modern-sidebar-panel {
+  min-height: 1040px;
+  border-width: 1px;
+  border-radius: 36px;
+}
+
+html.vidaa-tv .modern-sidebar-profile {
+  min-height: 76px;
+  margin: 14px auto 20px;
+  padding: 12px 18px;
+  gap: 18px;
+  border-width: 2px;
+}
+
+html.vidaa-tv .modern-sidebar-profile-avatar,
+html.vidaa-tv .modern-sidebar-nav-icon-circle,
+html.vidaa-tv .modern-sidebar-pill-icon-wrap {
+  width: 52px;
+  height: 52px;
+}
+
+html.vidaa-tv .modern-sidebar-profile-avatar {
+  font-size: 22px;
+}
+
+html.vidaa-tv .modern-sidebar-nav-list {
+  transform: translateY(-12px);
+}
+
+html.vidaa-tv .modern-sidebar-nav-item {
+  min-height: 76px;
+  padding: 12px 18px;
+  gap: 16px;
+  border-width: 2px;
+}
+
+html.vidaa-tv .modern-sidebar-profile.focused,
+html.vidaa-tv .modern-sidebar-nav-item.focused {
+  transform: scale(1.04);
+}
+
+html.vidaa-tv .modern-sidebar-nav-icon-circle,
+html.vidaa-tv .modern-sidebar-pill-icon-wrap {
+  padding: 10px;
+}
+
+html.vidaa-tv .modern-sidebar-nav-icon,
+html.vidaa-tv .modern-sidebar-pill-icon {
+  width: 32px;
+  height: 32px;
+}
+
+@keyframes vidaaModernSidebarShellOpen {
+  from {
+    width: 244px;
+  }
+  48% {
+    width: 396px;
+  }
+  to {
+    width: 380px;
+  }
+}
+
+@keyframes vidaaModernSidebarPanelOpen {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+html.vidaa-tv .modern-sidebar-shell.opening {
+  animation: vidaaModernSidebarShellOpen 350ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+html.vidaa-tv .modern-sidebar-shell.opening .modern-sidebar-panel {
+  animation: vidaaModernSidebarPanelOpen 300ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+/* Base Home dimensions for Classic/Grid on the 1080p logical canvas. */
+html.vidaa-tv .home-screen-shell {
+  --home-content-start: 56px;
+  --home-row-gap: 16px;
+  --home-track-end: 56px;
+  --home-continue-track-end: 56px;
+  --home-poster-width: 184px;
+  --home-poster-height: 276px;
+  --home-landscape-poster-width: 276px;
+  --home-landscape-poster-height: 155px;
+  --home-poster-radius: 18px;
+  --home-continue-width: 348px;
+  --home-continue-height: 196px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-classic,
+html.vidaa-tv .home-screen-shell.home-layout-grid {
+  --home-poster-width: 184px;
+  --home-poster-height: 276px;
+  --home-landscape-poster-width: 276px;
+  --home-landscape-poster-height: 155px;
+  --home-continue-width: 348px;
+  --home-continue-height: 196px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-classic .home-hero-card,
+html.vidaa-tv .home-screen-shell.home-layout-grid .home-hero-card,
+html.vidaa-tv .home-screen-shell.home-layout-classic .home-hero-copy,
+html.vidaa-tv .home-screen-shell.home-layout-grid .home-hero-copy {
+  min-height: 360px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-classic .home-hero-copy {
+  padding: 36px 40px 36px 56px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-grid .home-hero-copy {
+  width: 600px;
+  padding: 36px 40px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-classic .home-hero-logo,
+html.vidaa-tv .home-screen-shell.home-layout-grid .home-hero-logo {
+  max-width: 340px;
+  max-height: 80px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-classic .home-hero-title-text,
+html.vidaa-tv .home-screen-shell.home-layout-grid .home-hero-title-text {
+  max-width: 520px;
+  font-size: 42px;
+}
+
+/* Modern Home: use fixed 1080p measurements instead of viewport math. */
+html.vidaa-tv .home-screen-shell.home-layout-modern {
+  --home-content-start: 76px;
+  --home-row-gap: 18px;
+  --home-track-end: 76px;
+  --home-continue-track-end: 76px;
+  --modern-track-peek-extension: 76px;
+  --modern-rows-viewport-height: 518px;
+  --modern-rows-viewport-padding-bottom: 518px;
+  --modern-rows-page-height: 560px;
+  --modern-hero-media-width: 1344px;
+  --modern-hero-media-height: 670px;
+  --modern-hero-copy-top-safe: 32px;
+  --modern-hero-copy-bottom-gap: 28px;
+  --modern-hero-copy-right: 44px;
+  --modern-hero-copy-max-width: 560px;
+  --modern-hero-logo-max-width: 360px;
+  --modern-hero-logo-max-height: 150px;
+  --modern-hero-title-size: 54px;
+  --modern-hero-title-max-width: 560px;
+  --modern-hero-meta-size: 17px;
+  --modern-hero-meta-max-width: 500px;
+  --modern-hero-secondary-size: 15px;
+  --modern-hero-description-size: 18px;
+  --modern-hero-description-max-width: 500px;
+  --home-modern-portrait-poster-width: 168px;
+  --home-modern-portrait-poster-height: 252px;
+  --home-modern-portrait-expanded-width: 447px;
+  --home-poster-width: 168px;
+  --home-poster-height: 252px;
+  --home-landscape-poster-width: 252px;
+  --home-landscape-poster-height: 142px;
+  --home-poster-expanded-width: 447px;
+  --home-poster-copy-height: 58px;
+  --home-poster-radius: 18px;
+  --home-continue-width: 336px;
+  --home-continue-height: 189px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern.home-modern-landscape-posters {
+  --home-row-gap: 18px;
+  --modern-rows-viewport-height: 508px;
+  --modern-rows-viewport-padding-bottom: 508px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-modern-hero-media {
+  right: -28px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-modern-hero-copy {
+  left: 76px;
+  top: 32px;
+  right: auto;
+  bottom: 546px;
+  width: 560px;
+  max-width: 560px;
+  gap: 12px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern.home-modern-landscape-posters
+  .home-modern-hero-copy {
+  bottom: 536px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-hero-logo {
+  width: 360px;
+  max-width: 360px;
+  height: 150px;
+  max-height: 150px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-hero-title-text {
+  max-width: 560px;
+  font-size: 54px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-modern-hero-meta-line,
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-modern-hero-secondary,
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-hero-description {
+  width: 500px;
+  max-width: 500px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-modern-rows-scroll,
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-modern-catalogs {
+  gap: 18px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-row-head {
+  margin-bottom: 10px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-row-title {
+  font-size: 22px;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-track {
+  --home-track-gap: 18px;
+  padding-right: 44px;
+}
+
+html.vidaa-tv .home-screen-shell .home-poster-card.focused .home-poster-frame {
+  border-color: #fff !important;
+  box-shadow: 0 0 0 3px #fff !important;
+}
+
+html.vidaa-tv .home-screen-shell .home-continue-card.focused .home-continue-media {
+  box-shadow:
+    inset 0 0 0 2px #fff,
+    0 0 0 3px #fff !important;
+}
+
+/*
+ * Authentication fallback for older VIDAA Chromium/WebKit builds.
+ * Avoid CSS Grid, CSS math functions and viewport-relative sizing here.
  */
 html.vidaa-tv .qr-layout {
   display: flex;
@@ -26022,129 +26346,201 @@ html.vidaa-tv .qr-layout {
   align-items: stretch;
   width: 1920px;
   height: 1080px;
-  padding: 32px 56px;
+  padding: 48px 64px;
   gap: 0;
 }
 
 html.vidaa-tv .qr-left-panel {
-  flex: 0 0 760px;
-  width: 760px;
-  margin-right: 40px;
+  flex: 0 0 680px;
+  width: 680px;
+  margin-right: 48px;
 }
 
 html.vidaa-tv .qr-card-panel {
   flex: 1 1 auto;
-  width: 1008px;
+  width: 1064px;
   min-width: 0;
 }
 
 html.vidaa-tv .qr-brand-lockup {
-  margin-bottom: 26px;
+  margin-bottom: 22px;
 }
 
 html.vidaa-tv .qr-logo {
-  height: 86px;
-  max-width: 680px;
+  height: 72px;
+  max-width: 600px;
 }
 
 html.vidaa-tv .qr-copy-block {
-  width: 680px;
-  max-width: 680px;
+  width: 600px;
+  max-width: 600px;
 }
 
 html.vidaa-tv .qr-title {
-  font-size: 46px;
+  font-size: 40px;
   line-height: 1.12;
 }
 
 html.vidaa-tv .qr-description {
-  margin-top: 18px;
-  max-width: 680px;
-  font-size: 26px;
-  line-height: 1.38;
+  margin-top: 16px;
+  width: 600px;
+  max-width: 600px;
+  font-size: 22px;
+  line-height: 1.36;
 }
 
 html.vidaa-tv .qr-card {
-  width: 860px;
-  height: 960px;
-  max-width: 860px;
-  max-height: 960px;
-  padding: 34px 32px 28px;
-  gap: 10px;
+  width: 760px;
+  height: 820px;
+  max-width: 760px;
+  max-height: 820px;
+  padding: 28px 28px 24px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 html.vidaa-tv .qr-card-header {
-  gap: 8px;
+  gap: 6px;
 }
 
 html.vidaa-tv .qr-card-title {
-  font-size: 34px;
-  line-height: 1.24;
+  font-size: 30px;
+  line-height: 1.2;
 }
 
 html.vidaa-tv .qr-card-subtitle {
-  font-size: 19px;
-  line-height: 1.3;
+  font-size: 18px;
+  line-height: 1.28;
 }
 
 html.vidaa-tv .qr-login-instruction {
-  font-size: 18px;
-  line-height: 1.3;
+  font-size: 17px;
+  line-height: 1.28;
 }
 
 html.vidaa-tv .qr-code-frame {
-  width: 320px;
-  height: 320px;
-  min-width: 320px;
-  min-height: 320px;
-  flex: 0 0 320px;
-  padding: 14px;
+  width: 280px;
+  height: 280px;
+  min-width: 280px;
+  min-height: 280px;
+  flex: 0 0 280px;
+  padding: 12px;
   border-radius: 16px;
 }
 
 html.vidaa-tv .qr-code-text {
-  font-size: 19px;
-  line-height: 1.3;
+  font-size: 17px;
+  line-height: 1.25;
 }
 
 html.vidaa-tv .qr-manual-text,
 html.vidaa-tv .qr-expiry {
-  font-size: 16px;
-  line-height: 1.25;
+  font-size: 14px;
+  line-height: 1.22;
 }
 
 html.vidaa-tv .qr-status {
-  padding: 12px 18px;
-  border-radius: 18px;
-  font-size: 18px;
-  line-height: 1.25;
+  padding: 10px 16px;
+  border-radius: 16px;
+  font-size: 16px;
+  line-height: 1.22;
 }
 
 html.vidaa-tv .qr-actions {
-  gap: 14px;
-  padding-top: 10px;
+  gap: 12px;
+  padding-top: 8px;
 }
 
 html.vidaa-tv .qr-action-btn {
-  height: 64px;
-  padding: 0 28px;
-  font-size: 22px;
+  height: 58px;
+  padding: 0 22px;
+  font-size: 19px;
+}
+
+html.vidaa-tv .qr-action-btn.focused {
+  transform: scale(1.025);
 }
 
 html.vidaa-tv .qr-terms {
   margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+html.vidaa-tv .qr-server-menu-trigger {
+  top: 32px;
+  left: 40px;
+  width: 50px;
+  height: 50px;
+  font-size: 28px;
+}
+
+html.vidaa-tv .qr-server-menu {
+  top: 88px;
+  left: 40px;
+  width: 330px;
+  padding: 12px;
+}
+
+html.vidaa-tv .qr-server-menu-title {
+  font-size: 16px;
+}
+
+html.vidaa-tv .qr-server-menu-item {
+  min-height: 56px;
+  padding: 10px 14px;
+  font-size: 18px;
+}
+
+html.vidaa-tv .qr-email-form {
+  width: 500px;
+  max-width: 500px;
+  gap: 8px;
+}
+
+html.vidaa-tv .qr-input-label {
+  font-size: 15px;
+}
+
+html.vidaa-tv .qr-auth-input {
+  min-height: 58px;
+  padding: 0 18px;
+  border-radius: 14px;
+  font-size: 19px;
+}
+
+html.vidaa-tv .qr-connected-identity {
+  gap: 4px;
+  margin-top: 16px;
+}
+
+html.vidaa-tv .qr-connected-email {
+  font-size: 18px;
+}
+
+html.vidaa-tv .qr-connected-user-id {
   font-size: 13px;
-  line-height: 1.25;
+}
+
+html.vidaa-tv .qr-connected-stats {
+  gap: 10px;
+}
+
+html.vidaa-tv .qr-connected-stat strong {
+  font-size: 19px;
+}
+
+html.vidaa-tv .qr-connected-stat span {
+  font-size: 13px;
 }
 
 /* Older VIDAA engines may support flex without flex-gap. */
 html.vidaa-tv.no-flex-gap .qr-card-header > * + * {
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 html.vidaa-tv.no-flex-gap .qr-actions > * + * {
-  margin-left: 14px;
+  margin-left: 12px;
 }
 
 html.vidaa-tv.no-flex-gap .qr-terms > * + * {
