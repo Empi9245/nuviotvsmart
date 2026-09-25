@@ -26089,9 +26089,12 @@ html.vidaa-tv .modern-sidebar-profile-name {
 }
 
 html.vidaa-tv .modern-sidebar-panel {
-  min-height: 1040px;
+  height: 1036px;
+  min-height: 0;
+  max-height: 1036px;
   border-width: 1px;
   border-radius: 36px;
+  overflow: hidden;
 }
 
 html.vidaa-tv .modern-sidebar-profile {
@@ -27489,18 +27492,18 @@ html.vidaa-tv .vidaa-sidebar-menu-trigger[aria-expanded="true"] .vidaa-sidebar-m
   transform: translateY(-7px) rotate(-45deg);
 }
 
-/* Leave room for the explicit VIDAA Menu button without changing the rest of
-   the modern-sidebar geometry. Search has no native pill, so the same control
-   becomes its primary sidebar entry point. */
+/* The explicit VIDAA Menu control replaces the app-only sidebar pill.
+   Keep it out of normal sidebar flow so it never creates a blank header area
+   or reduces the scrollable height of menus/settings. */
 html.vidaa-tv .modern-sidebar-pill {
-  top: 96px;
-  left: 18px;
+  display: none !important;
 }
 
 html.vidaa-tv .vidaa-sidebar-menu-trigger[aria-expanded="true"] {
-  left: 236px;
-  width: 58px;
-  min-width: 58px;
+  left: 378px;
+  width: 54px;
+  min-width: 54px;
+  height: 54px;
   padding: 0;
 }
 
