@@ -1,5 +1,7 @@
 import { isBackEvent, normalizeKeyEvent } from "../sharedKeys.js";
 
+// VIDAA WebApps should follow the device viewport so both 1280x720 and 1920x1080
+// panels render the complete UI without browser-level zoom/cropping.
 function applyVidaaViewport() {
   const documentRef = globalThis.document;
   if (!documentRef?.head) return;
