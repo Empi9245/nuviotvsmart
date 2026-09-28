@@ -1,3 +1,16 @@
+## 1.2.1
+
+### Improvements & Fixes
+
+- Improved constrained-Tizen navigation with faster menu transitions, lighter D-pad handling, and bounded Home image work (@agbabaumut, @WhiteGiso)
+- Added profile-synced custom theme colors and episode-rating visibility controls, and kept poster depth inside card shapes (@WhiteGiso)
+- Improved TV browsing with a CSS Grid fallback, short-screen entity layouts, normalized Continue Watching artwork, and correct handling of unnumbered live TV in episode details (@WhiteGiso)
+- Improved webOS subtitles by restoring addon tracks after source reopening, keeping usable embedded windows active, and shipping static fonts for HTML subtitle styles (@WhiteGiso)
+- Added Tizen AVPlay subtitle callback diagnostics to the console debug screen (@WhiteGiso)
+- Fixed manual Addons refresh to reload enabled manifests and clear catalog response data so Discovery reflects the updated definitions (@agbabaumut)
+- Preferred explicit audio language codes when they conflict with track labels, including Finnish aliases and legacy labels (@agbabaumut, @WhiteGiso)
+- Refreshed Smart TV app icons (@WhiteGiso)
+
 ## 1.2.0
 
 ### Improvements & Fixes
