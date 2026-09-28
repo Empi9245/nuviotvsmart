@@ -1,5 +1,9 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./libraryScreen.js";
+import { calculateAdaptivePosterGridMetrics } from "./libraryPosterGridLayout.js";
+
+const LIBRARY_POSTER_GRID_COLUMN_GAP = 24;
+const LIBRARY_POSTER_GRID_ROW_GAP = 32;
 
 export function createLibraryScreenMethods03() {
   const {
@@ -16,6 +20,49 @@ export function createLibraryScreenMethods03() {
   } = internals;
 
   return {
+    applyNoCssGridPosterLayout() {
+      const grid = this.container?.querySelector(".library-poster-grid");
+      if (!(grid instanceof HTMLElement) || !document.documentElement.classList.contains("no-css-grid")) {
+        return;
+      }
+
+      const cards = Array.from(grid.children).filter((node) => node.classList.contains("library-grid-card"));
+      if (!cards.length) {
+        return;
+      }
+
+      const posterWidthValue = getComputedStyle(grid).getPropertyValue("--library-poster-width");
+      const parsedPosterWidth = Number.parseFloat(posterWidthValue);
+      const minPosterWidth = Number.isFinite(parsedPosterWidth) && parsedPosterWidth > 0 ? parsedPosterWidth : 252;
+      const css = globalThis.CSS;
+      const supportsGridTemplate =
+        typeof css?.supports === "function" &&
+        css.supports("display", "grid") &&
+        css.supports("grid-template-columns", `repeat(auto-fill, minmax(${minPosterWidth}px, 1fr))`);
+      if (supportsGridTemplate) {
+        return;
+      }
+
+      const layout = calculateAdaptivePosterGridMetrics(grid.getBoundingClientRect().width, minPosterWidth, LIBRARY_POSTER_GRID_COLUMN_GAP);
+      if (!layout) {
+        return;
+      }
+
+      grid.classList.add("library-poster-grid-flex-fallback");
+      const lastRow = Math.floor((cards.length - 1) / layout.columns);
+      cards.forEach((card, index) => {
+        const row = Math.floor(index / layout.columns);
+        const column = index % layout.columns;
+        const cardsInRow = Math.min(layout.columns, cards.length - row * layout.columns);
+        const width = `${layout.cardWidth}px`;
+
+        card.style.flex = `0 0 ${width}`;
+        card.style.width = width;
+        card.style.maxWidth = width;
+        card.style.marginRight = column < cardsInRow - 1 ? `${LIBRARY_POSTER_GRID_COLUMN_GAP}px` : "0";
+        card.style.marginBottom = row < lastRow ? `${LIBRARY_POSTER_GRID_ROW_GAP}px` : "0";
+      });
+    },
     updateRenderedLibraryContent(state, { preservePickerRow = true, preserveFocus = null } = {}) {
       if (!this.container || !this.container.querySelector(".library-shell")) {
         this.requestRender();
@@ -55,6 +102,7 @@ export function createLibraryScreenMethods03() {
         }
       }
 
+      this.applyNoCssGridPosterLayout();
       this.buildGridRows();
       ScreenUtils.indexFocusables(this.container);
       bindRootSidebarEvents(this.container, {
@@ -86,7 +134,7 @@ export function createLibraryScreenMethods03() {
       const state = this.controller.getState();
       return `
           <section class="library-grid-wrap">
-            <div class="library-grid">
+            <div class="library-grid library-poster-grid">
               ${items
                 .map((item) => {
                   const focusKey = `${item.type}:${item.id}`;

@@ -69,6 +69,7 @@ export function createLibraryScreenMethods04() {
         `;
       this.libraryRouteEnterPending = false;
 
+      this.applyNoCssGridPosterLayout();
       this.buildGridRows();
       ScreenUtils.indexFocusables(this.container);
       bindRootSidebarEvents(this.container, {

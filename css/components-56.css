@@ -424,6 +424,19 @@ html.no-css-grid.no-flex-gap .home-screen-shell.home-layout-grid .home-grid-trac
   margin-bottom: 16px;
 }
 
+.library-grid.library-poster-grid-flex-fallback {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  grid-gap: 0;
+  gap: 0;
+}
+
+.library-grid.library-poster-grid-flex-fallback > .library-grid-card {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
 /* The player uses three Android TV rail columns; preserve those columns when
    the legacy engine ignores the authored grid declarations. */
 
