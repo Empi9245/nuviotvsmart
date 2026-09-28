@@ -437,21 +437,39 @@
   aspect-ratio: 2 / 3;
 }
 
-.home-card-depth.depth-posters .poster-card,
-.home-card-depth.depth-posters .home-content-card:not(.home-continue-card),
-.home-card-depth.depth-continue-watching .home-continue-card {
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, var(--card-depth-edge, 0.28)),
-    inset 0 18px 28px rgba(255, 255, 255, var(--card-depth-sheen, 0.1));
+.home-card-depth.depth-posters .home-poster-frame,
+.home-card-depth.depth-posters .home-seeall-card-inner {
+  position: relative;
 }
 
-html[data-card-depth="true"][data-card-depth-episodes="true"] .series-episode-card,
-html[data-card-depth="true"][data-card-depth-cast="true"] .movie-cast-card,
-html[data-card-depth="true"][data-card-depth-trailers="true"] .detail-trailer-card {
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, var(--card-depth-edge, 0.28)),
-    inset 0 var(--card-depth-coverage-size, 12px) 28px
-      rgba(255, 255, 255, var(--card-depth-sheen, 0.1));
+.home-card-depth.depth-posters .home-poster-frame::after,
+.home-card-depth.depth-posters .home-seeall-card-inner::after,
+.home-card-depth.depth-continue-watching .home-continue-media::before,
+html[data-card-depth="true"][data-card-depth-episodes="true"] .series-episode-thumb::after,
+html[data-card-depth="true"][data-card-depth-cast="true"] .movie-cast-avatar::after,
+html[data-card-depth="true"][data-card-depth-trailers="true"]
+  .detail-trailer-card
+  .detail-morelike-poster-wrap::after {
+  content: "";
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-top-color: rgba(255, 255, 255, var(--card-depth-edge, 0.28));
+  border-right-color: rgba(255, 255, 255, var(--card-depth-edge-side, 0));
+  border-bottom-color: rgba(255, 255, 255, var(--card-depth-edge-bottom, 0));
+  border-left-color: rgba(255, 255, 255, var(--card-depth-edge-side, 0));
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, var(--card-depth-sheen, 0.1)) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 100% 22%;
+  background-clip: padding-box;
+  pointer-events: none;
 }
 
 .home-classic-focus-gradient .home-screen-main {

@@ -175,7 +175,14 @@ function applyCardDepthPresentation(settings) {
     settings.cardDepthEpisodeCardsEnabled !== false ? "true" : "false";
   root.dataset.cardDepthCast = settings.cardDepthCastEnabled !== false ? "true" : "false";
   root.dataset.cardDepthTrailers = settings.cardDepthTrailersEnabled !== false ? "true" : "false";
-  root.style.setProperty("--card-depth-edge", String(settings.cardDepthEdgeStrength / 100));
+  const edgeStrength = settings.cardDepthEdgeStrength / 100;
+  const edgeCoverage = settings.cardDepthEdgeCoverage / 100;
+  root.style.setProperty("--card-depth-edge", String(edgeStrength));
+  root.style.setProperty(
+    "--card-depth-edge-side",
+    String(edgeStrength * (0.33 + 0.67 * edgeCoverage))
+  );
+  root.style.setProperty("--card-depth-edge-bottom", String(edgeStrength * edgeCoverage));
   root.style.setProperty("--card-depth-sheen", String(settings.cardDepthSheenStrength / 100));
   root.style.setProperty("--card-depth-coverage", String(settings.cardDepthEdgeCoverage / 100));
   root.style.setProperty(
