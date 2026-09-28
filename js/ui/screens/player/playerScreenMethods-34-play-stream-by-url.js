@@ -30,6 +30,9 @@ export function createPlayerScreenMethods34() {
       if (!this.isActiveMountToken(mountToken)) {
         return;
       }
+      const webOsAddonSubtitleRestoreRequestId = Number(this.webOsAddonSubtitleRestoreRequestId || 0) + 1;
+      this.webOsAddonSubtitleRestoreRequestId = webOsAddonSubtitleRestoreRequestId;
+      this.pendingWebOsAddonSubtitleRestore = null;
       if (!preserveTizenAvPlayConnectionRetryState) {
         if (this.tizenAvPlayConnectionRetryTimer) {
           clearTimeout(this.tizenAvPlayConnectionRetryTimer);
@@ -64,6 +67,22 @@ export function createPlayerScreenMethods34() {
           reason: "stream-url-expired"
         });
         return;
+      }
+      const selectedAddonSubtitleId = String(this.selectedAddonSubtitleId || "").trim();
+      if (preserveWebOsTrackSelections && selectedAddonSubtitleId) {
+        this.subtitleSelectionToken = Number(this.subtitleSelectionToken || 0) + 1;
+        this.pendingWebOsAddonSubtitleRestore = {
+          requestId: webOsAddonSubtitleRestoreRequestId,
+          subtitleId: selectedAddonSubtitleId,
+          subtitleSelectionToken: Number(this.subtitleSelectionToken || 0),
+          playbackUrl: normalizedStreamUrl,
+          mountToken,
+          previousControllerPlayRequestToken: Number(PlayerController.playRequestToken || 0),
+          previousNativeMediaIdLookupToken: Number(PlayerController.nativeMediaIdLookupToken || 0),
+          previousSubtitleLoadToken: Number(this.subtitleLoadToken || 0),
+          nativeMetadataReady: false,
+          expectedControllerPlayRequestToken: 0
+        };
       }
 
       const selectedIndex = this.streamCandidates.findIndex((entry) => entry.url === normalizedStreamUrl);
@@ -226,10 +245,22 @@ export function createPlayerScreenMethods34() {
         forceEngine,
         preserveTrackSelections: preserveWebOsTrackSelections
       };
+      const startPlayback = (url, context, options) => {
+        const playbackPromise = this.startPlayerControllerPlayback(url, context, options);
+        const pendingRestore = this.pendingWebOsAddonSubtitleRestore;
+        const controllerPlayRequestToken = Number(PlayerController.playRequestToken || 0);
+        if (
+          pendingRestore?.requestId === webOsAddonSubtitleRestoreRequestId &&
+          controllerPlayRequestToken > pendingRestore.previousControllerPlayRequestToken
+        ) {
+          pendingRestore.expectedControllerPlayRequestToken = controllerPlayRequestToken;
+        }
+        return playbackPromise;
+      };
       if (prioritizeWebOsRemoteMkvPlayback) {
         // Claim the remote media request before the companion service probes the
         // same URL. Some providers rate-limit simultaneous Range requests.
-        await this.startPlayerControllerPlayback(this.activePlaybackUrl, playbackContext, {
+        await startPlayback(this.activePlaybackUrl, playbackContext, {
           mountToken,
           sourceCandidate
         });
@@ -262,7 +293,7 @@ export function createPlayerScreenMethods34() {
       this.renderAudioDialog();
       this.renderSpeedDialog();
       if (!prioritizeWebOsRemoteMkvPlayback) {
-        this.startPlayerControllerPlayback(this.activePlaybackUrl, playbackContext, {
+        startPlayback(this.activePlaybackUrl, playbackContext, {
           mountToken,
           sourceCandidate
         });

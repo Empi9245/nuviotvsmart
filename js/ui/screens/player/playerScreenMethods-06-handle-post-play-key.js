@@ -240,16 +240,25 @@ export function createPlayerScreenMethods06() {
       if (!Environment.isWebOS() || !PlayerController.playbackSessionActive) {
         return false;
       }
-      if (!PlayerController.webOsAudioSelectionExplicit && !PlayerController.webOsSubtitleSelectionExplicit) {
+      const playbackEngine = String(PlayerController.playbackEngine || "");
+      const sameForcedEngine = Boolean(forceEngine && playbackEngine && String(forceEngine) === playbackEngine);
+      const hasSelectedAddonSubtitle = Boolean(this.selectedAddonSubtitleId);
+      if (hasSelectedAddonSubtitle && !sameForcedEngine) {
         return false;
       }
-      if (forceEngine && PlayerController.playbackEngine && String(forceEngine) !== String(PlayerController.playbackEngine)) {
-        return false;
-      }
-      // Addon/manifest/sidecar and bitmap selections have separate lifecycles;
-      // preserve only the native embedded-track state handled by the controller.
       if (
-        this.selectedAddonSubtitleId ||
+        !PlayerController.webOsAudioSelectionExplicit &&
+        !PlayerController.webOsSubtitleSelectionExplicit &&
+        !(hasSelectedAddonSubtitle && sameForcedEngine)
+      ) {
+        return false;
+      }
+      if (forceEngine && playbackEngine && String(forceEngine) !== playbackEngine) {
+        return false;
+      }
+      // The caller re-applies an addon subtitle after a same-engine, same-source
+      // reopen. Other subtitle types still have separate lifecycles.
+      if (
         this.selectedManifestSubtitleTrackId ||
         this.externalTrackNodes.length > 0 ||
         this.bitmapSubtitleTrack ||

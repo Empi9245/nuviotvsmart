@@ -5,6 +5,71 @@ export function createPlayerScreenMethods54() {
   const { PlayerController, Environment, isTizenEmbeddedTextSubtitleFallbackTrack } = internals;
 
   return {
+    reapplyPendingWebOsAddonSubtitle(nativeMetadataReady = false) {
+      const pendingRestore = this.pendingWebOsAddonSubtitleRestore;
+      if (!pendingRestore) {
+        return false;
+      }
+      if (nativeMetadataReady) {
+        pendingRestore.nativeMetadataReady = true;
+      }
+
+      const clearPendingRestore = () => {
+        if (this.pendingWebOsAddonSubtitleRestore === pendingRestore) {
+          this.pendingWebOsAddonSubtitleRestore = null;
+        }
+      };
+      const playbackRequestIsCurrent = () =>
+        pendingRestore.requestId === Number(this.webOsAddonSubtitleRestoreRequestId || 0) &&
+        String(this.activePlaybackUrl || "").trim() === pendingRestore.playbackUrl &&
+        String(this.selectedAddonSubtitleId || "").trim() === pendingRestore.subtitleId &&
+        Number(this.subtitleSelectionToken || 0) === pendingRestore.subtitleSelectionToken &&
+        this.isActiveMountToken(pendingRestore.mountToken);
+
+      if (!Environment.isWebOS() || !playbackRequestIsCurrent()) {
+        clearPendingRestore();
+        return false;
+      }
+
+      if (!pendingRestore.nativeMetadataReady) {
+        return false;
+      }
+
+      const expectedPlayRequestToken = Number(pendingRestore.expectedControllerPlayRequestToken || 0);
+      if (
+        !expectedPlayRequestToken ||
+        Number(PlayerController.playRequestToken || 0) !== expectedPlayRequestToken ||
+        Number(PlayerController.nativeMediaIdLookupToken || 0) <= pendingRestore.previousNativeMediaIdLookupToken ||
+        this.subtitleLoading ||
+        Number(this.subtitleLoadToken || 0) <= pendingRestore.previousSubtitleLoadToken
+      ) {
+        return false;
+      }
+
+      const subtitleIndex = this.subtitles.findIndex((subtitle, index) => {
+        const subtitleId = String(subtitle?.id || subtitle?.url || `subtitle-${index}`).trim();
+        return subtitleId === pendingRestore.subtitleId;
+      });
+      const subtitle = subtitleIndex >= 0 ? this.subtitles[subtitleIndex] : null;
+      if (!subtitle?.url) {
+        clearPendingRestore();
+        this.selectedAddonSubtitleId = null;
+        this.invalidateTrackDialogCaches();
+        this.refreshTrackDialogs();
+        this.renderControlButtons();
+        this.renderSubtitleDialog();
+        return false;
+      }
+
+      clearPendingRestore();
+      this.applySubtitleEntry({
+        fallbackAddonSubtitle: true,
+        subtitleId: pendingRestore.subtitleId,
+        subtitleIndex,
+        track: subtitle
+      });
+      return true;
+    },
     applySubtitleEntry(entry) {
       if (!entry || entry.disabled) {
         return;

@@ -245,6 +245,7 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
       return;
     }
     PlayerController.reapplyWebOsNativeTrackSelections?.();
+    this.reapplyPendingWebOsAddonSubtitle?.(true);
     this.attemptPendingPlaybackRestore({ force: true });
 
     this.startupTrackPreferenceReady = true;
@@ -275,6 +276,7 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
       this.clearBufferingSpinnerTimer();
       this.updateLoadingVisibility();
     }
+    this.reapplyPendingWebOsAddonSubtitle?.(true);
     this.attemptPendingPlaybackRestore();
     this.completeSeekLoadingIfReady();
     this.startupTrackPreferenceReady = true;

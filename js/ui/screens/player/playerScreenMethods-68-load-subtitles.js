@@ -84,6 +84,7 @@ export function createPlayerScreenMethods68() {
         if (requestToken === this.subtitleLoadToken) {
           this.subtitleLoading = false;
           this.refreshTrackDialogs();
+          this.reapplyPendingWebOsAddonSubtitle?.();
         }
       }
     },
