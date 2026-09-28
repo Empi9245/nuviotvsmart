@@ -1,6 +1,41 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
 
+// The issue reproduced successful windows up to 22.4 s late; include another retry interval.
+const WEBOS_EMBEDDED_TEXT_SUBTITLE_HTML_RECOVERY_GRACE_SECONDS = 30;
+
+export function shouldPreserveWebOsEmbeddedHtmlSubtitleRenderer({
+  hasExistingWebOsRenderer,
+  isRangeUnavailable,
+  transientFailureCount,
+  maxTransientFailures,
+  usingHtml,
+  windowStartSeconds,
+  windowEndSeconds,
+  subtitleTimeSeconds
+}) {
+  if (!hasExistingWebOsRenderer || isRangeUnavailable) {
+    return false;
+  }
+  if (transientFailureCount < maxTransientFailures) {
+    return true;
+  }
+
+  const windowStart = Number(windowStartSeconds);
+  const windowEnd = Number(windowEndSeconds);
+  const subtitleTime = Number(subtitleTimeSeconds);
+  const hasReusableHtmlWindow =
+    usingHtml &&
+    Number.isFinite(windowStart) &&
+    Number.isFinite(windowEnd) &&
+    Number.isFinite(subtitleTime) &&
+    windowEnd > windowStart &&
+    subtitleTime >= windowStart &&
+    subtitleTime < windowEnd + WEBOS_EMBEDDED_TEXT_SUBTITLE_HTML_RECOVERY_GRACE_SECONDS;
+
+  return hasReusableHtmlWindow;
+}
+
 export function createPlayerScreenMethods44() {
   const {
     PlayerController,
@@ -199,12 +234,30 @@ export function createPlayerScreenMethods44() {
             !windowRequestCompleted &&
             (this.webOsEmbeddedTextSubtitleUsingAss || this.webOsEmbeddedTextSubtitleUsingHtml);
           const transientFailureCount = hasExistingWebOsRenderer ? Number(this.webOsEmbeddedTextSubtitleWindowFailureCount || 0) + 1 : 0;
-          const preserveExistingWebOsRenderer =
-            hasExistingWebOsRenderer && !isRangeUnavailable && transientFailureCount < WEBOS_EMBEDDED_TEXT_SUBTITLE_MAX_TRANSIENT_FAILURES;
+          const playbackTime = Number(this.getPlaybackCurrentSeconds?.());
+          const subtitleDelaySeconds = Number(this.subtitleDelayMs || 0) / 1000;
+          const currentSubtitleTime = Math.max(
+            0,
+            (Number.isFinite(playbackTime) ? playbackTime : subtitleTime) -
+              (Number.isFinite(subtitleDelaySeconds) ? subtitleDelaySeconds : 0)
+          );
+          const preserveExistingWebOsRenderer = shouldPreserveWebOsEmbeddedHtmlSubtitleRenderer({
+            hasExistingWebOsRenderer,
+            isRangeUnavailable,
+            transientFailureCount,
+            maxTransientFailures: WEBOS_EMBEDDED_TEXT_SUBTITLE_MAX_TRANSIENT_FAILURES,
+            usingHtml: this.webOsEmbeddedTextSubtitleUsingHtml,
+            windowStartSeconds: this.webOsEmbeddedTextSubtitleWindowStart,
+            windowEndSeconds: this.webOsEmbeddedTextSubtitleWindowEnd,
+            subtitleTimeSeconds: currentSubtitleTime
+          });
           if (hasExistingWebOsRenderer) {
             this.webOsEmbeddedTextSubtitleWindowFailureCount = transientFailureCount;
           }
-          if (isRangeUnavailable || transientFailureCount >= WEBOS_EMBEDDED_TEXT_SUBTITLE_MAX_TRANSIENT_FAILURES) {
+          if (
+            isRangeUnavailable ||
+            (transientFailureCount >= WEBOS_EMBEDDED_TEXT_SUBTITLE_MAX_TRANSIENT_FAILURES && !preserveExistingWebOsRenderer)
+          ) {
             this.webOsEmbeddedTextSubtitleFallbackUnavailable = true;
           }
           if (Environment.isWebOS() && !preserveExistingWebOsRenderer) {
