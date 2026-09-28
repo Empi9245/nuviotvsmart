@@ -200,6 +200,79 @@
   left: var(--tmdb-entity-safe-x);
 }
 
+/* Keep the entity header and first catalog labels in view on short Tizen
+   viewports, matching Android's fixed header and compact poster rows. */
+
+@media (max-height: 1140px) {
+  .tizen-tv .tmdb-entity-hero,
+  .tizen-tv .tmdb-entity-hero-copy {
+    min-height: 35vh;
+  }
+
+  .tizen-tv .tmdb-entity-hero-copy {
+    padding-top: 32px;
+    padding-bottom: 32px;
+  }
+
+  .tizen-tv .tmdb-entity-title {
+    font-size: 56px;
+    line-height: 1.07;
+  }
+
+  .tizen-tv .tmdb-entity-description {
+    font-size: 20px;
+    line-height: 1.3;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+
+  .tizen-tv .tmdb-entity-card {
+    flex-basis: 20vh;
+    width: 20vh;
+    min-width: 20vh;
+  }
+
+  .tizen-tv .tmdb-entity-card-poster-wrap,
+  .tizen-tv .tmdb-entity-rail-loading {
+    height: 30vh;
+  }
+}
+
+@media (max-height: 760px) {
+  .tizen-tv .tmdb-entity-hero,
+  .tizen-tv .tmdb-entity-hero-copy {
+    min-height: 30vh;
+  }
+
+  .tizen-tv .tmdb-entity-hero-copy {
+    padding-top: 24px;
+    padding-bottom: 24px;
+  }
+
+  .tizen-tv .tmdb-entity-title {
+    font-size: 48px;
+    line-height: 1.05;
+  }
+
+  .tizen-tv .tmdb-entity-description {
+    font-size: 18px;
+    line-height: 1.25;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .tizen-tv .tmdb-entity-card {
+    flex-basis: 18.67vh;
+    width: 18.67vh;
+    min-width: 18.67vh;
+  }
+
+  .tizen-tv .tmdb-entity-card-poster-wrap,
+  .tizen-tv .tmdb-entity-rail-loading {
+    height: 28vh;
+  }
+}
+
 /* Tizen 4 uses Chromium M56, which does not implement CSS Grid. Keep the
    Android TV structures usable through flex fallbacks on that runtime only. */
 
