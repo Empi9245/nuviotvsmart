@@ -279,6 +279,12 @@ export function createPlayerScreenMethods24() {
           : `0 0 2px ${outlineColor}, 0 0 4px ${outlineColor}`
         : "";
       const subtitleShadow = [outlineShadow, boldShadow].filter(Boolean).join(", ") || "none";
+      const htmlSubtitleShadow = Environment.isWebOS() ? outlineShadow || "none" : subtitleShadow;
+      const htmlSubtitleFontFamily = Environment.isWebOS()
+        ? style.bold
+          ? '"NuvioSubtitleBold", "Roboto", Arial, sans-serif'
+          : '"NuvioSubtitleRegular", "Roboto", Arial, sans-serif'
+        : "";
       const subtitleFontSize = normalizeSubtitleFontSize(style.fontSize);
       const htmlSubtitleFontSize = formatHtmlSubtitleFontSize(subtitleFontSize);
       PlayerController.setWebOsSubtitleFontSize?.(subtitleFontSize);
@@ -296,8 +302,13 @@ export function createPlayerScreenMethods24() {
       uiRoot.style.setProperty("--player-subtitle-outline-color", outlineColor);
       uiRoot.style.setProperty("--player-subtitle-font-size", `${subtitleFontSize}%`);
       uiRoot.style.setProperty("--player-html-subtitle-font-size", htmlSubtitleFontSize);
+      if (Environment.isWebOS()) {
+        uiRoot.style.setProperty("--player-html-subtitle-font-family", htmlSubtitleFontFamily);
+      } else {
+        uiRoot.style.removeProperty("--player-html-subtitle-font-family");
+      }
       uiRoot.style.setProperty("--player-subtitle-font-weight", subtitleFontWeight);
-      uiRoot.style.setProperty("--player-subtitle-shadow", subtitleShadow);
+      uiRoot.style.setProperty("--player-subtitle-shadow", htmlSubtitleShadow);
       uiRoot.style.setProperty("--player-subtitle-offset", `${verticalOffsetVh.toFixed(2)}vh`);
       video.style.setProperty("--player-subtitle-color", subtitleColor);
       video.style.setProperty("--player-subtitle-background", String(style.backgroundColor || "#00000000"));
