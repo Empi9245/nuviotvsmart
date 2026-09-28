@@ -1,7 +1,7 @@
 import * as internals from "./homeScreenContext.js";
 
 export function createHomeScreenMethods10() {
-  const { MODERN_HOME_CONSTANTS, shouldEnrichModernHero, preloadHeroAssets, buildHeroIdentity } = internals;
+  const { MODERN_HOME_CONSTANTS, getTvRuntimePerformanceProfile, shouldEnrichModernHero, preloadHeroAssets, buildHeroIdentity } = internals;
 
   return {
     scheduleModernHeroUpdate(node, { deferUntilVerticalSettle = false, immediate = false } = {}) {
@@ -31,8 +31,10 @@ export function createHomeScreenMethods10() {
       if (isRapidNav || immediate) {
         this.container?.querySelector(".home-modern-hero-card")?.classList.add("is-hero-focus-pending");
       }
+      const canPreloadHeroDuringVerticalScroll =
+        deferUntilVerticalSettle && getTvRuntimePerformanceProfile().isTvRuntime && !this.isPerformanceConstrained();
       const waitForVerticalSettle = (callback) => {
-        if (deferUntilVerticalSettle && this.isModernVerticalScrollActive()) {
+        if (deferUntilVerticalSettle && !canPreloadHeroDuringVerticalScroll && this.isModernVerticalScrollActive()) {
           this.heroBackdropPreloadTimer = setTimeout(
             () => waitForVerticalSettle(callback),
             MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs
