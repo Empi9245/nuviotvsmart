@@ -1,4 +1,5 @@
 import { createProfileScopedStore } from "./profileScopedStore.js";
+import { encodeCustomThemeColors } from "../../core/util/customThemeColors.js";
 
 const KEY = "themeSettings";
 
@@ -10,7 +11,8 @@ const DEFAULT_THEME = {
   language: null,
   amoledMode: false,
   amoledSurfacesMode: false,
-  settingsUiStyle: "CLASSIC"
+  settingsUiStyle: "CLASSIC",
+  customThemeColors: encodeCustomThemeColors()
 };
 
 const THEME_BY_ACCENT = new Map([
@@ -63,9 +65,11 @@ function normalizeTheme(settings = {}) {
   const storedThemeName = String(settings?.themeName || DEFAULT_THEME.themeName).toUpperCase();
   const themeFromAccent = THEME_BY_ACCENT.get(accent);
   const themeName = String(
-    themeFromAccent && themeFromAccent !== storedThemeName
-      ? themeFromAccent
-      : storedThemeName || themeFromAccent || DEFAULT_THEME.themeName
+    storedThemeName === "CUSTOM"
+      ? "CUSTOM"
+      : themeFromAccent && themeFromAccent !== storedThemeName
+        ? themeFromAccent
+        : storedThemeName || themeFromAccent || DEFAULT_THEME.themeName
   ).toUpperCase();
   const normalizedAccent = ACCENT_BY_THEME[themeName]
     ? accentColorForTheme(themeName)
@@ -76,6 +80,7 @@ function normalizeTheme(settings = {}) {
     ...settings,
     themeName,
     accentColor: normalizedAccent,
+    customThemeColors: encodeCustomThemeColors(settings?.customThemeColors),
     settingsUiStyle: ["CLASSIC", "HORIZON", "ZEN"].includes(
       String(settings?.settingsUiStyle || "").toUpperCase()
     )

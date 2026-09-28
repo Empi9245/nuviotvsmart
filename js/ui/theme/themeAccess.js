@@ -25,7 +25,7 @@ export function availableThemeIds(access = null) {
   const supporterThemes = Object.entries(SUPPORTER_THEME_ENTITLEMENTS)
     .filter(([, entitlement]) => entitlements.has(entitlement))
     .map(([themeName]) => themeName);
-  return [...supporterThemes, ...STANDARD_THEME_IDS];
+  return [...supporterThemes, "CUSTOM", ...STANDARD_THEME_IDS];
 }
 
 export function isThemeAvailable(themeName, access = null) {

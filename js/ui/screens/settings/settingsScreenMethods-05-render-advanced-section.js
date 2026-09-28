@@ -6,7 +6,13 @@ export function createSettingsScreenMethods05() {
     LocalStore,
     ThemeStore,
     ThemeManager,
+    ThemeColors,
+    MemberAccessRepository,
     availableThemeIds,
+    areCustomThemeColorsSolid,
+    encodeCustomThemeColors,
+    parseCustomThemeColor,
+    resolveCustomThemeColors,
     LayoutPreferences,
     ExperienceModeStore,
     ProfileManager,
@@ -146,14 +152,150 @@ export function createSettingsScreenMethods05() {
           </div>
         `;
     },
+    openCustomThemeEditorDialog(model = {}) {
+      const theme = model.theme || ThemeStore.get();
+      const access = model.memberAccess || MemberAccessRepository.getCurrentAccess();
+      const allowGradient = Boolean(access?.tier);
+      const colors = resolveCustomThemeColors(theme.customThemeColors, allowGradient);
+      this.customThemeDraft = {
+        colors,
+        allowGradient,
+        gradientEnabled: allowGradient && !areCustomThemeColorsSolid(colors),
+        access
+      };
+      this.showCustomThemeEditorDialog();
+    },
+    showCustomThemeEditorDialog(focusId = null) {
+      const draft = this.customThemeDraft;
+      if (!draft) return;
+
+      const visibleColors = draft.gradientEnabled ? draft.colors : [draft.colors[1], draft.colors[1], draft.colors[1]];
+      const previewPalette = ThemeColors.getPalette("CUSTOM", visibleColors);
+      const gradient = areCustomThemeColorsSolid(visibleColors)
+        ? visibleColors[1]
+        : `linear-gradient(90deg, ${visibleColors[0]} 0%, ${visibleColors[1]} 50%, ${visibleColors[2]} 100%)`;
+      const title = draft.gradientEnabled
+        ? t("custom_theme_title", {}, "Your custom gradient")
+        : t("custom_theme_solid_title", {}, "Your custom color");
+      const subtitle = draft.gradientEnabled
+        ? t("custom_theme_subtitle", {}, "Choose three colors for your theme. Select a color to edit it.")
+        : t("custom_theme_solid_subtitle", {}, "Choose a color for your theme.");
+      const options = [];
+
+      if (draft.allowGradient) {
+        options.push({
+          id: "mode",
+          label: `${t("custom_theme_mode", {}, "Mode")}: ${t(
+            draft.gradientEnabled ? "custom_theme_mode_gradient" : "custom_theme_mode_solid",
+            {},
+            draft.gradientEnabled ? "Gradient" : "Single color"
+          )}`
+        });
+      }
+
+      const colorIndexes = draft.gradientEnabled ? [0, 1, 2] : [1];
+      colorIndexes.forEach((index) => {
+        const colorName = t(`custom_theme_color_${index + 1}`, {}, `Color ${index + 1}`);
+        options.push({ id: `color:${index}`, label: `${colorName}: ${draft.colors[index]}` });
+      });
+      options.push(
+        { id: "save", label: t("custom_theme_save", {}, "Save theme") },
+        { id: "cancel", label: t("common.cancel", {}, "Cancel") }
+      );
+
+      const previewLabel = escapeHtml(t("custom_theme_preview", {}, "PREVIEW"));
+      const messageHtml = `<div style="display:flex;flex-direction:column;gap:10px;padding:4px 0 8px;">
+        <span style="font-size:16px;letter-spacing:0.08em;opacity:0.75;">${previewLabel}</span>
+        <span style="display:block;height:20px;border-radius:999px;background:${gradient};"></span>
+        <span style="display:inline-block;align-self:flex-start;padding:8px 12px;border:2px solid ${
+          previewPalette["--focus-color"]
+        };border-radius:10px;background:${visibleColors[1]};color:${
+          previewPalette["--on-secondary"]
+        };">${escapeHtml(t("custom_theme_preview_ring", {}, "Focused Item"))}</span>
+      </div>`;
+
+      this.openOptionDialog({
+        title,
+        messageHtml: `${messageHtml}<div class="settings-text-dialog-message">${escapeHtml(subtitle)}</div>`,
+        options,
+        selectedId: focusId || (draft.allowGradient ? "mode" : "color:1"),
+        returnFocusKey: "appearance:theme:CUSTOM",
+        dialogClassName: "settings-theme-custom-dialog",
+        onSelect: (option) => {
+          if (option.id === "mode") {
+            draft.gradientEnabled = !draft.gradientEnabled;
+            this.showCustomThemeEditorDialog("mode");
+            return false;
+          }
+          if (String(option.id).startsWith("color:")) {
+            const index = Number(String(option.id).slice("color:".length));
+            this.openTextDialog({
+              title: t("custom_theme_hex_title", {}, "Hex color"),
+              value: draft.colors[index].slice(1),
+              placeholder: "RRGGBB",
+              returnFocusKey: "appearance:theme:CUSTOM",
+              saveLabel: t("custom_theme_use_color", {}, "Use color"),
+              onSubmit: (value) => {
+                const color = parseCustomThemeColor(value);
+                if (!color) {
+                  if (this.textDialog) {
+                    this.textDialog.statusMessage = t("custom_theme_hex_hint", {}, "Enter a six-character hex color (0–9, A–F).");
+                    this.textDialog.statusKind = "error";
+                  }
+                  return false;
+                }
+                draft.colors[index] = color;
+                this.showCustomThemeEditorDialog(`color:${index}`);
+                return false;
+              }
+            });
+            if (this.textDialog) this.textDialog.restoreCustomThemeEditor = true;
+            return false;
+          }
+          if (option.id === "save") {
+            const currentAccess = MemberAccessRepository.getCurrentAccess();
+            const colors = resolveCustomThemeColors(
+              draft.gradientEnabled ? draft.colors : [draft.colors[1], draft.colors[1], draft.colors[1]],
+              Boolean(currentAccess?.tier)
+            );
+            ThemeStore.set({
+              themeName: "CUSTOM",
+              accentColor: colors[1],
+              customThemeColors: encodeCustomThemeColors(colors)
+            });
+            ThemeManager.apply({ enforceAccess: true, access: currentAccess });
+          }
+          return true;
+        },
+        onClose: () => {
+          this.customThemeDraft = null;
+        }
+      });
+    },
     renderAppearanceSection(model) {
       const availableIds = new Set(availableThemeIds(model?.memberAccess));
       const themeOptions = THEME_OPTIONS.filter((theme) => availableIds.has(theme.id));
       themeOptions.forEach((theme) => {
         this.actionMap.set(`appearance:theme:${theme.id}`, () => {
+          if (theme.id === "CUSTOM") {
+            this.openCustomThemeEditorDialog(model);
+            return;
+          }
           ThemeStore.set({ themeName: theme.id, accentColor: theme.color });
           ThemeManager.apply({ enforceAccess: true, access: model?.memberAccess });
         });
+      });
+
+      const customColors = resolveCustomThemeColors(model.theme.customThemeColors, Boolean(model?.memberAccess?.tier));
+      const renderedThemeOptions = themeOptions.map((theme) => {
+        if (theme.id !== "CUSTOM") return theme;
+        const customPalette = ThemeColors.getPalette("CUSTOM", customColors);
+        return {
+          ...theme,
+          customThemeColors: customColors,
+          color: customPalette["--secondary-color"],
+          onColor: customPalette["--on-secondary"]
+        };
       });
 
       this.actionMap.set("appearance:font", () => {
@@ -220,7 +362,7 @@ export function createSettingsScreenMethods05() {
             </div>
             <div class="settings-horizontal-scroll-frame">
               <div class="settings-theme-row">
-                ${themeOptions
+                ${renderedThemeOptions
                   .map((theme) =>
                     this.renderThemeCard(theme, String(model.theme.themeName).toUpperCase() === theme.id, `appearance:theme:${theme.id}`)
                   )

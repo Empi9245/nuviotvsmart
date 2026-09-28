@@ -212,6 +212,12 @@ export const THEME_OPTIONS = [
     onColor: "#111111"
   },
   {
+    id: "CUSTOM",
+    labelKey: "settings.appearance.themes.custom",
+    color: "#ec70a9",
+    onColor: "#111111"
+  },
+  {
     id: "WHITE",
     labelKey: "settings.appearance.themes.white",
     color: "#f5f5f5",

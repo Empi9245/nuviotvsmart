@@ -3,6 +3,7 @@ import { accentColorForTheme, ThemeStore } from "../../data/local/themeStore.js"
 import { syncBrandWordmarks } from "../components/brandWordmark.js";
 import { resolveThemeName } from "./themeAccess.js";
 import { ThemeColors } from "./themeColors.js";
+import { resolveCustomThemeColors } from "../../core/util/customThemeColors.js";
 
 const FONT_STACKS = {
   INTER: '"Inter", "Segoe UI", Arial, sans-serif',
@@ -169,8 +170,9 @@ export const ThemeManager = {
   apply({ enforceAccess = false, access = null } = {}) {
     ensureMemberAccessSubscription();
     const storedTheme = ThemeStore.get();
+    const currentAccess = access || MemberAccessRepository.getCurrentAccess();
     const themeName = enforceAccess
-      ? resolveThemeName(storedTheme.themeName, access || MemberAccessRepository.getCurrentAccess())
+      ? resolveThemeName(storedTheme.themeName, currentAccess)
       : String(storedTheme.themeName || "WHITE").toUpperCase();
     const theme =
       themeName === storedTheme.themeName
@@ -180,8 +182,12 @@ export const ThemeManager = {
             themeName,
             accentColor: accentColorForTheme(themeName)
           };
+    const customColors =
+      theme.themeName === "CUSTOM"
+        ? resolveCustomThemeColors(theme.customThemeColors, Boolean(currentAccess?.tier))
+        : null;
     const colors = {
-      ...ThemeColors.getPalette(theme.themeName)
+      ...ThemeColors.getPalette(theme.themeName, customColors)
     };
     if (theme.amoledMode) {
       colors["--bg-color"] = "#000000";

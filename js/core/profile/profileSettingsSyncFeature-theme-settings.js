@@ -5,6 +5,7 @@ import { AuthManager } from "../auth/authManager.js";
 import { SupabaseApi } from "../../data/remote/supabase/supabaseApi.js";
 
 import { accentColorForTheme, ThemeStore } from "../../data/local/themeStore.js";
+import { encodeCustomThemeColors, parseCustomThemeColors } from "../util/customThemeColors.js";
 
 import { LayoutPreferences } from "../../data/local/layoutPreferences.js";
 
@@ -97,6 +98,7 @@ export const theme_settings = {
     const theme = ThemeStore.getForProfile(profileId);
     return {
       selected_theme: String(theme.themeName || "WHITE").toUpperCase(),
+      custom_theme_colors: encodeCustomThemeColors(theme.customThemeColors),
       selected_font: String(theme.fontFamily || "INTER").toUpperCase(),
       amoled_mode: Boolean(theme.amoledMode),
       amoled_surfaces_mode: Boolean(theme.amoledSurfacesMode),
@@ -109,6 +111,8 @@ export const theme_settings = {
     if (stringOrNull(raw.selected_theme)) {
       projected.selected_theme = String(raw.selected_theme).toUpperCase();
     }
+    const customColors = parseCustomThemeColors(raw.custom_theme_colors);
+    if (customColors) projected.custom_theme_colors = customColors.join(",");
     if (stringOrNull(raw.selected_font)) {
       projected.selected_font = String(raw.selected_font).toUpperCase();
     }
@@ -124,10 +128,18 @@ export const theme_settings = {
   import(profileId, rawFeature = {}) {
     const raw = normalizeFeaturePayload(rawFeature);
     const partial = {};
+    const currentTheme = ThemeStore.getForProfile(profileId);
+    const customColors = parseCustomThemeColors(raw.custom_theme_colors);
+    if (customColors) partial.customThemeColors = encodeCustomThemeColors(customColors);
     if (stringOrNull(raw.selected_theme)) {
       const selectedTheme = String(raw.selected_theme).toUpperCase();
       partial.themeName = selectedTheme;
-      partial.accentColor = accentColorForTheme(selectedTheme);
+      partial.accentColor =
+        selectedTheme === "CUSTOM"
+          ? customColors?.[1] || parseCustomThemeColors(currentTheme.customThemeColors)?.[1] || accentColorForTheme("WHITE")
+          : accentColorForTheme(selectedTheme);
+    } else if (customColors && String(currentTheme.themeName || "").toUpperCase() === "CUSTOM") {
+      partial.accentColor = customColors[1];
     }
     if (stringOrNull(raw.selected_font)) {
       partial.fontFamily = String(raw.selected_font).toUpperCase();
