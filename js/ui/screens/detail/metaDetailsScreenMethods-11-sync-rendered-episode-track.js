@@ -240,6 +240,13 @@ export function createMetaDetailsScreenMethods11() {
       (Array.isArray(episodes) ? episodes : []).forEach((episode) => {
         this.syncEpisodeCardWatchedDom(episode);
       });
+      if (
+        Array.isArray(episodes) &&
+        episodes.length > 0 &&
+        LayoutPreferences.get().detailImdbRatingsVisibility === "HIDE_UNWATCHED_EPISODES"
+      ) {
+        this.updateRenderedDetailSections(this.meta);
+      }
     },
     getEpisodeByVideoId(videoId) {
       const wanted = String(videoId || "").trim();

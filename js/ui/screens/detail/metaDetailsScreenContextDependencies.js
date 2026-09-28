@@ -28,7 +28,13 @@ import { normalizeTmdbBackdropUrl } from "../../../core/tmdb/tmdbImageUrl.js";
 
 import { LayoutPreferences } from "../../../data/local/layoutPreferences.js";
 
-import { showHomeRatings, showStandardDetailRatings } from "../../../core/util/imdbRatingVisibility.js";
+import {
+  filterEpisodeImdbRatings,
+  showEpisodeImdbRating,
+  showEpisodeRatings,
+  showHomeRatings,
+  showStandardDetailRatings
+} from "../../../core/util/imdbRatingVisibility.js";
 
 import { imdbEpisodeRatingsRepository } from "../../../data/repository/imdbEpisodeRatingsRepository.js";
 
@@ -319,6 +325,9 @@ export {
   TmdbMetadataService,
   normalizeTmdbBackdropUrl,
   LayoutPreferences,
+  filterEpisodeImdbRatings,
+  showEpisodeImdbRating,
+  showEpisodeRatings,
   showHomeRatings,
   showStandardDetailRatings,
   imdbEpisodeRatingsRepository,

@@ -1,6 +1,9 @@
 import { createProfileScopedStore } from "./profileScopedStore.js";
 import { LocalStore } from "../../core/storage/localStore.js";
-import { normalizeHomeImdbRatingsVisibility } from "../../core/util/imdbRatingVisibility.js";
+import {
+  normalizeDetailImdbRatingsVisibility,
+  normalizeHomeImdbRatingsVisibility
+} from "../../core/util/imdbRatingVisibility.js";
 
 const KEY = "layoutPreferences";
 
@@ -48,7 +51,8 @@ const DEFAULTS = {
   showUnairedNextUp: true,
   nextUpFromFurthestEpisode: true,
   continueWatchingSortMode: "default",
-  homeImdbRatingsVisibility: "SHOW_ALL"
+  homeImdbRatingsVisibility: "SHOW_ALL",
+  detailImdbRatingsVisibility: "SHOW_ALL"
 };
 
 function normalizeContinueWatchingSortMode(value) {
@@ -151,6 +155,9 @@ function normalizeLayoutPreferences(value = {}) {
     nextUpFromFurthestEpisode: merged.nextUpFromFurthestEpisode !== false,
     continueWatchingSortMode: normalizeContinueWatchingSortMode(merged.continueWatchingSortMode),
     homeImdbRatingsVisibility: normalizeHomeImdbRatingsVisibility(merged.homeImdbRatingsVisibility),
+    detailImdbRatingsVisibility: normalizeDetailImdbRatingsVisibility(
+      merged.detailImdbRatingsVisibility
+    ),
     collapseSidebar: modernSidebar ? false : Boolean(merged.collapseSidebar),
     modernSidebar,
     modernSidebarBlur: modernSidebar

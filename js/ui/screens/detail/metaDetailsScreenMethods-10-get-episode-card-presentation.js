@@ -9,6 +9,7 @@ export function createMetaDetailsScreenMethods10() {
     t,
     renderImdbBadge,
     resolveEpisodeImdbRating,
+    showEpisodeImdbRating,
     renderWatchedBadgeGlyph,
     escapeHtml,
     escapeAttribute,
@@ -24,12 +25,13 @@ export function createMetaDetailsScreenMethods10() {
       const duration = Number(progress?.durationMs || 0);
       const progressRatio = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
       const isWatched = this.isEpisodeMarkedWatched(episode);
-      // Tizen fast path: LayoutPreferences.get() does sync flash I/O per
-      // call. renderEpisodeCards reads it once per track render and passes
-      // it down; fall back to a live read for standalone callers.
-      const prefs = sharedPrefs || LayoutPreferences.get();
-      const shouldBlur = Boolean(prefs.blurUnwatchedEpisodes) && !isWatched;
-      const rating = resolveEpisodeImdbRating(episode, this.seriesRatingsBySeason);
+      // Read layout settings once per track render; this also supplies both
+      // episode blur and rating visibility without repeated flash I/O.
+      const layoutPreferences = sharedPrefs || LayoutPreferences.get();
+      const shouldBlur = Boolean(layoutPreferences.blurUnwatchedEpisodes) && !isWatched;
+      const rating = showEpisodeImdbRating(layoutPreferences.detailImdbRatingsVisibility, isWatched)
+        ? resolveEpisodeImdbRating(episode, this.seriesRatingsBySeason)
+        : null;
       const dateLabel = formatEpisodeCardDate(episode.released || "");
       const isUnavailable = episode.available === false;
       const metaParts = [

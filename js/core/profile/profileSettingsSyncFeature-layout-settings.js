@@ -142,6 +142,7 @@ export const layout_settings = {
       next_up_from_furthest_episode: layout.nextUpFromFurthestEpisode !== false,
       continue_watching_sort_mode: normalizeContinueWatchingSortModeForAndroid(layout.continueWatchingSortMode),
       home_imdb_ratings_visibility: String(layout.homeImdbRatingsVisibility || "SHOW_ALL").toUpperCase(),
+      detail_imdb_ratings_visibility: String(layout.detailImdbRatingsVisibility || "SHOW_ALL").toUpperCase(),
       fast_horizontal_navigation_enabled: isFastHorizontalNavigationEnabled()
     };
   },
@@ -349,6 +350,9 @@ export const layout_settings = {
     }
     if (stringOrNull(raw.home_imdb_ratings_visibility)) {
       partial.homeImdbRatingsVisibility = String(raw.home_imdb_ratings_visibility).trim().toUpperCase();
+    }
+    if (stringOrNull(raw.detail_imdb_ratings_visibility)) {
+      partial.detailImdbRatingsVisibility = String(raw.detail_imdb_ratings_visibility).trim().toUpperCase();
     }
     if (!Object.keys(partial).length) {
       return false;

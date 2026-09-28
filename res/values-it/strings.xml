@@ -2822,6 +2822,11 @@
     <string name="layout_overall_ratings">Valutazioni complessive</string>
     <string name="layout_overall_ratings_sub_on">Vengono mostrate le valutazioni standard e TMDB.</string>
     <string name="layout_overall_ratings_sub_off">Le valutazioni standard e TMDB sono nascoste. Nelle pagine dei dettagli hanno la priorità le impostazioni del provider MDBList.</string>
+    <string name="layout_episode_ratings">Valutazioni episodi</string>
+    <string name="layout_episode_ratings_sub">Scegli quali valutazioni degli episodi sono visibili.</string>
+    <string name="layout_ratings_show">Mostra</string>
+    <string name="layout_ratings_hide">Nascondi</string>
+    <string name="layout_ratings_hide_unwatched">Nascondi non viste</string>
     <string name="settings_p2p_unsupported_subtitle">Non supportato su questa TV.</string>
     <string name="player_audio_tizen_dash_unsupported">Il cambio delle tracce audio DASH non è supportato su questa TV.</string>
     <string name="player_subtitle_tizen_advanced_unsupported">Lo stile avanzato dei sottotitoli potrebbe non essere completamente supportato su questa TV.</string>

@@ -17,6 +17,13 @@ export function renderLayoutMarkup(model) {
         ? t("settings.layout.continueWatchingSort.streamingStyle", {}, "Streaming Style")
         : t("settings.layout.continueWatchingSort.default", {}, "Default");
   const homeRatingsShown = model.layout.homeImdbRatingsVisibility !== "HIDE_ALL";
+  const detailRatingsVisibility = String(model.layout.detailImdbRatingsVisibility || "SHOW_ALL");
+  const detailRatingsVisibilityLabel =
+    detailRatingsVisibility === "HIDE_UNWATCHED_EPISODES"
+      ? t("layout_ratings_hide_unwatched", {}, "Hide Unwatched")
+      : detailRatingsVisibility === "HIDE_EPISODES" || detailRatingsVisibility === "HIDE_ALL"
+        ? t("layout_ratings_hide", {}, "Hide")
+        : t("layout_ratings_show", {}, "Show");
 
   const homeLayoutBody = `
           <div class="settings-stack">
@@ -245,6 +252,12 @@ export function renderLayoutMarkup(model) {
               title: t("settings.layout.blurUnwatched.title"),
               subtitle: t("settings.layout.blurUnwatched.subtitle"),
               checked: Boolean(model.layout.blurUnwatchedEpisodes)
+            })}
+            ${this.renderActionRow({
+              focusKey: "layout:detail:episodeRatings",
+              title: t("layout_episode_ratings", {}, "Episode Ratings"),
+              subtitle: t("layout_episode_ratings_sub", {}, "Choose which episode ratings are visible."),
+              value: detailRatingsVisibilityLabel
             })}
             ${this.renderToggleRow({
               focusKey: "layout:detail:trailerButton",
