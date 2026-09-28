@@ -55,6 +55,21 @@ export function createPlayerScreenMethods46() {
       if (!Environment.isTizen() || typeof PlayerController.isUsingAvPlay !== "function" || !PlayerController.isUsingAvPlay()) {
         return;
       }
+      const diagnosticSelectionAt = Number(detail?.diagnosticSelectionAt || 0);
+      const logTizenSubtitleRendererDiagnostic = (stage, values = {}) => {
+        const captureStartedAt = Number(globalThis.__NUVIO_DEBUG_TIZEN_AVPLAY_STARTED_AT__ || 0);
+        if (diagnosticSelectionAt <= 0 || diagnosticSelectionAt < captureStartedAt || globalThis.__NUVIO_DEBUG_TIZEN_AVPLAY__ !== true) {
+          return;
+        }
+        console.info("Tizen AVPlay subtitle renderer", {
+          stage,
+          elapsedSinceSelectionMs: Math.max(0, Date.now() - diagnosticSelectionAt),
+          selectedTrackIndex: Number(PlayerController.selectedAvPlaySubtitleTrackIndex),
+          renderMode: String(PlayerController.avplaySubtitleRenderMode || ""),
+          nativeRendering: Boolean(PlayerController.avplayNativeSubtitleRendering),
+          ...values
+        });
+      };
       // SubRip is rendered from the bounded Matroska extractor below. Ignore a
       // late AVPlay callback only while that HTML overlay is active, so a failed
       // extractor can still fall back to native AVPlay rendering.
@@ -64,6 +79,7 @@ export function createPlayerScreenMethods46() {
         (typeof PlayerController.shouldRenderAvPlaySubtitleCallbacksInHtml !== "function" ||
           PlayerController.shouldRenderAvPlaySubtitleCallbacksInHtml())
       ) {
+        logTizenSubtitleRendererDiagnostic("delegated-to-embedded-extractor");
         return;
       }
       const subtitleOutputActive =
@@ -71,6 +87,7 @@ export function createPlayerScreenMethods46() {
           ? PlayerController.shouldRenderAvPlaySubtitleCallbacksInHtml()
           : Number(this.selectedSubtitleTrackIndex) >= 0;
       if (!subtitleOutputActive) {
+        logTizenSubtitleRendererDiagnostic("html-overlay-inactive");
         return;
       }
       if (this.avPlaySubtitleOverlayTimer) {
@@ -84,7 +101,13 @@ export function createPlayerScreenMethods46() {
       // Samsung AVPlay can expose SSA/ASS fields instead of dialogue text.
       // Never project that control payload into the video overlay.
       const text = this.parseSubtitleCueText(rawText);
-      if (!text || this.isAvPlaySubtitleControlPayload(rawText)) {
+      const isControlPayload = this.isAvPlaySubtitleControlPayload(rawText);
+      if (!text || isControlPayload) {
+        logTizenSubtitleRendererDiagnostic("cue-filtered", {
+          rawPayloadLength: rawText.length,
+          parsedTextLength: text.length,
+          isControlPayload
+        });
         this.renderHtmlSubtitleOverlayCue([]);
         return;
       }
@@ -96,6 +119,11 @@ export function createPlayerScreenMethods46() {
         line: null,
         align: "center"
       };
+      logTizenSubtitleRendererDiagnostic("cue-sent-to-html-overlay", {
+        rawPayloadLength: rawText.length,
+        parsedTextLength: text.length,
+        alignment
+      });
       this.renderHtmlSubtitleOverlayCue([{ start: 0, end: 0, text, ...layout }]);
       const durationMs = Number(detail?.duration || 0);
       const hideDelayMs = Number.isFinite(durationMs) && durationMs > 0 ? clamp(durationMs, 250, 12000) : 2500;

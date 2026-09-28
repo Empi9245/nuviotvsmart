@@ -265,6 +265,8 @@
     <string name="debug_console_empty_title">Nessun warning o errore</string>
     <string name="debug_console_empty_subtitle">Gli eventi warning/error della console appariranno qui finché l’app non viene chiusa.</string>
     <string name="debug_console_event_count">%d eventi</string>
+    <string name="debug_console_tizen_subtitle_capture_start">Avvia diagnostica sottotitoli Tizen</string>
+    <string name="debug_console_tizen_subtitle_capture_stop">Ferma diagnostica sottotitoli Tizen</string>
     <string name="settings_account">Account</string>
     <string name="settings_account_subtitle">Stato dell\'account e della sincronizzazione</string>
     <string name="settings_profiles">Profili</string>

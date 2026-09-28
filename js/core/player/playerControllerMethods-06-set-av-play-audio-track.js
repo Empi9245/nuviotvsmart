@@ -193,6 +193,12 @@ export function createPlayerControllerMethods06() {
         this.avplayNativeSubtitleRendering = false;
         this.selectedAvPlaySubtitleTrackIndex = -1;
         this.selectedWebOsEmbeddedSubtitleTrackIndex = -1;
+        this.avplaySubtitleDiagnosticCallbackPendingAt = 0;
+        logTizenAvPlayDebug("Tizen AVPlay subtitle track disabled", {
+          selectionToken,
+          outputDisabled: true,
+          renderMode: this.avplaySubtitleRenderMode
+        });
         this.logAvPlaySubtitleDiagnostic("disabled", {
           selectionToken
         });

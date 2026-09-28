@@ -115,6 +115,9 @@ export function createPlayerControllerMethods05() {
       // A hidden -> hidden reselect can leave affected TVs reporting the track
       // while never re-arming onsubtitlechange (the callback source for HTML).
       const preselectSilent = mode === "native";
+      const debugCaptureStartedAt = Number(globalThis.__NUVIO_DEBUG_TIZEN_AVPLAY_STARTED_AT__ || 0);
+      this.avplaySubtitleDiagnosticCallbackPendingAt =
+        globalThis.__NUVIO_DEBUG_TIZEN_AVPLAY__ === true ? Math.max(Date.now(), debugCaptureStartedAt) : 0;
       try {
         avplay.setSilentSubtitle?.(preselectSilent);
       } catch (_) {
@@ -128,6 +131,7 @@ export function createPlayerControllerMethods05() {
         });
         avplay.setSelectTrack("TEXT", targetIndex);
       } catch (error) {
+        this.avplaySubtitleDiagnosticCallbackPendingAt = 0;
         logTizenAvPlayDebug("Tizen AVPlay subtitle selection failed", {
           state,
           targetIndex,
@@ -144,6 +148,9 @@ export function createPlayerControllerMethods05() {
         return false;
       }
       this.applyAvPlaySubtitleRenderMode(mode);
+      const selectedTrack = this.avplaySubtitleTracks.find((track) => Number(track?.avplayTrackIndex) === targetIndex);
+      const selectedTrackExtraInfo = selectedTrack?.extraInfo || {};
+      const selectedTrackFourCC = this.pickAvPlayExtraValue(selectedTrackExtraInfo, ["fourCC", "fourcc"]);
       if (nudge) {
         this.nudgeAvPlayAfterTrackSwitch();
       }
@@ -151,7 +158,16 @@ export function createPlayerControllerMethods05() {
       this.reapplyTizenAvPlayDisplayRect(250);
       logTizenAvPlayDebug("Tizen AVPlay subtitle selection requested", {
         state: this.getAvPlayState(),
-        targetIndex
+        targetIndex,
+        selectedTrack: selectedTrack
+          ? {
+              index: Number(selectedTrack.avplayTrackIndex),
+              language: String(selectedTrack.language || ""),
+              fourCC: String(selectedTrackFourCC || selectedTrack.codec || ""),
+              trackNumber: this.pickAvPlayExtraValue(selectedTrackExtraInfo, ["track_num", "trackNumber", "track_number"]),
+              subtitleType: this.pickAvPlayExtraValue(selectedTrackExtraInfo, ["subtitle_type", "subtitleType"])
+            }
+          : null
       });
       this.logAvPlaySubtitleDiagnostic("select-issued", {
         targetIndex,

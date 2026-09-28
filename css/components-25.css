@@ -264,6 +264,33 @@
   gap: 12px;
 }
 
+.debug-console-capture {
+  appearance: none;
+  align-self: flex-start;
+  min-height: 56px;
+  padding: 0 20px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--card-bg, #181d25);
+  color: #fff;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.debug-console-capture .material-icons {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.debug-console-capture.focused {
+  border-color: var(--focus-color, #ffffff) !important;
+}
+
 .debug-console-back .material-icons {
   font-size: 34px;
   line-height: 1;
@@ -346,8 +373,15 @@
 html.legacy-tizen .debug-console-log-frame,
 html.legacy-webos .debug-console-log-frame {
   flex: 0 0 auto;
-  height: calc(100vh - 232px);
   min-height: 240px;
+}
+
+html.legacy-tizen .debug-console-log-frame {
+  height: calc(100vh - 296px);
+}
+
+html.legacy-webos .debug-console-log-frame {
+  height: calc(100vh - 232px);
 }
 
 .debug-console-log-list::-webkit-scrollbar {
@@ -454,6 +488,11 @@ html.legacy-webos .debug-console-log-frame {
 .debug-console-event-error .debug-console-level {
   background: rgba(244, 67, 54, 0.16);
   color: #ff8a80;
+}
+
+.debug-console-event-info .debug-console-level {
+  background: rgba(33, 150, 243, 0.16);
+  color: #90caf9;
 }
 
 .debug-console-time,

@@ -34,6 +34,10 @@ function eventCountLabel(count) {
   return t("debug_console_event_count", [count], `${count} events`);
 }
 
+function isTizenSubtitleDiagnosticsEnabled() {
+  return globalThis.__NUVIO_DEBUG_TIZEN_AVPLAY__ === true;
+}
+
 function focusNode(node) {
   if (!node || typeof node.focus !== "function") {
     return;
@@ -133,7 +137,7 @@ export const ConsoleDebugScreen = {
 
     return events
       .map((event) => {
-        const level = event.level === "error" ? "ERROR" : "WARN";
+        const level = event.level === "error" ? "ERROR" : event.level === "info" ? "INFO" : "WARN";
         const message = event.args?.length ? event.args.join("\n\n") : event.message || "";
         return `
           <article class="debug-console-event debug-console-event-${escapeHtml(event.level)}">
@@ -162,6 +166,24 @@ export const ConsoleDebugScreen = {
           <div class="debug-console-heading">
             <h1>${escapeHtml(t("about_debug_console_title", {}, "Console debug"))}</h1>
             <p>${escapeHtml(t("debug_console_subtitle", {}, "Last warnings and errors captured from this app session"))}</p>
+            ${
+              Platform.isTizen()
+                ? `<button class="debug-console-capture focusable" data-focus-key="diagnostics" data-action="toggle-tizen-diagnostics" aria-pressed="${isTizenSubtitleDiagnosticsEnabled() ? "true" : "false"}">
+                  <span class="material-icons" aria-hidden="true">${isTizenSubtitleDiagnosticsEnabled() ? "stop_circle" : "play_circle"}</span>
+                  <span>${escapeHtml(
+                    t(
+                      isTizenSubtitleDiagnosticsEnabled()
+                        ? "debug_console_tizen_subtitle_capture_stop"
+                        : "debug_console_tizen_subtitle_capture_start",
+                      {},
+                      isTizenSubtitleDiagnosticsEnabled()
+                        ? "Stop Tizen subtitle capture"
+                        : "Capture Tizen subtitle diagnostics"
+                    )
+                  )}</span>
+                </button>`
+                : ""
+            }
           </div>
           <div class="debug-console-count">${escapeHtml(eventCountLabel(events.length))}</div>
         </header>
@@ -257,7 +279,17 @@ export const ConsoleDebugScreen = {
     this.applyFocus();
     if (target.dataset.action === "back") {
       await Router.back();
+    } else if (target.dataset.action === "toggle-tizen-diagnostics") {
+      this.toggleTizenSubtitleDiagnostics();
     }
+  },
+
+  toggleTizenSubtitleDiagnostics() {
+    const enabled = !isTizenSubtitleDiagnosticsEnabled();
+    globalThis.__NUVIO_DEBUG_TIZEN_AVPLAY__ = enabled;
+    globalThis.__NUVIO_DEBUG_TIZEN_AVPLAY_STARTED_AT__ = enabled ? Date.now() : 0;
+    this.focusKey = "diagnostics";
+    void this.render({ stickToBottom: enabled });
   },
 
   scrollLog(direction) {
@@ -303,6 +335,8 @@ export const ConsoleDebugScreen = {
       event?.preventDefault?.();
       if (current?.dataset?.action === "back") {
         await Router.back();
+      } else if (current?.dataset?.action === "toggle-tizen-diagnostics") {
+        this.toggleTizenSubtitleDiagnostics();
       }
       return;
     }
@@ -314,8 +348,16 @@ export const ConsoleDebugScreen = {
     if (isUp || isDown) {
       event?.preventDefault?.();
       const direction = isUp ? -1 : 1;
+      const hasDiagnosticsToggle = Boolean(
+        this.container?.querySelector?.('[data-action="toggle-tizen-diagnostics"]')
+      );
       if (current?.dataset?.action === "back" && direction > 0) {
-        this.focusKey = "log";
+        this.focusKey = hasDiagnosticsToggle ? "diagnostics" : "log";
+        this.applyFocus();
+        return;
+      }
+      if (current?.dataset?.action === "toggle-tizen-diagnostics") {
+        this.focusKey = direction > 0 ? "log" : "back";
         this.applyFocus();
         return;
       }
@@ -323,7 +365,7 @@ export const ConsoleDebugScreen = {
         const list = this.getLogList();
         const atTop = Number(list?.scrollTop || 0) <= 1;
         if (direction < 0 && atTop) {
-          this.focusKey = "back";
+          this.focusKey = hasDiagnosticsToggle ? "diagnostics" : "back";
           this.applyFocus();
           return;
         }

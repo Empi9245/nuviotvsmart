@@ -340,6 +340,8 @@
     <string name="debug_console_empty_title">No warnings or errors</string>
     <string name="debug_console_empty_subtitle">Console warning/error events will appear here until the app is closed.</string>
     <string name="debug_console_event_count">%d events</string>
+    <string name="debug_console_tizen_subtitle_capture_start">Capture Tizen subtitle diagnostics</string>
+    <string name="debug_console_tizen_subtitle_capture_stop">Stop Tizen subtitle capture</string>
     <string name="about_licenses_attributions">Licenses &amp; Attribution</string>
     <string name="about_licenses_attributions_subtitle">Data sources, acknowledgements, and Android licenses</string>
     <string name="licenses_attributions_title">Licenses &amp; Attribution</string>

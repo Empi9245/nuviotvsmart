@@ -25,6 +25,7 @@ export function createPlayerControllerMethods09() {
       this.avplayEnded = false;
       this.avplayCurrentTimeMs = 0;
       this.avplayDurationMs = 0;
+      this.avplaySubtitleDiagnosticCallbackPendingAt = 0;
       this.lastPlaybackErrorCode = 0;
       this.playbackEngine = this.getPlatformAvplayEngineName();
       this.emitVideoEvent("waiting", { playbackEngine: this.playbackEngine });
@@ -126,8 +127,30 @@ export function createPlayerControllerMethods09() {
             if (!this.isPlaybackRequestActive(playToken, url)) {
               return;
             }
+            const diagnosticSelectionAt = Number(this.avplaySubtitleDiagnosticCallbackPendingAt || 0);
+            if (diagnosticSelectionAt > 0) {
+              this.avplaySubtitleDiagnosticCallbackPendingAt = 0;
+              const captureStartedAt = Number(globalThis.__NUVIO_DEBUG_TIZEN_AVPLAY_STARTED_AT__ || 0);
+              if (globalThis.__NUVIO_DEBUG_TIZEN_AVPLAY__ === true && diagnosticSelectionAt >= captureStartedAt) {
+                const subtitlePayload = String(subtitles || "");
+                logTizenAvPlayDebug("Tizen AVPlay subtitle callback received", {
+                  elapsedSinceSelectionMs: Math.max(0, Date.now() - diagnosticSelectionAt),
+                  durationMs: Number(duration || 0) || 0,
+                  type: String(type ?? ""),
+                  attributeCount: Array.isArray(attributes) ? attributes.length : attributes == null ? 0 : 1,
+                  hasPayload: subtitlePayload.length > 0,
+                  payloadLength: subtitlePayload.length,
+                  current: this.getAvPlaySubtitleDiagnosticSnapshot(),
+                  selectedTrackIndex: Number(this.selectedAvPlaySubtitleTrackIndex),
+                  outputDisabled: Boolean(this.avplaySubtitlesSilent),
+                  renderMode: this.avplaySubtitleRenderMode,
+                  nativeRendering: Boolean(this.avplayNativeSubtitleRendering)
+                });
+              }
+            }
             this.emitVideoEvent("avplaysubtitlechange", {
               playbackEngine: this.playbackEngine,
+              diagnosticSelectionAt,
               duration,
               subtitles,
               type,
