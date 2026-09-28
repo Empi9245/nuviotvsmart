@@ -194,6 +194,7 @@ import { normalizeCatalogItem } from "./homeScreenHelpers-08-partition-continue-
 import { normalizeContinueWatchingItem } from "./homeScreenHelpers-09-normalize-continue-watching-item.js";
 import { isSeriesTypeForContinueWatching } from "./homeScreenHelpers-06-resolve-trailer-source.js";
 import { buildLazyImageAttributes } from "./homeScreenHelpers-14-get-home-grid-column-count.js";
+import { normalizeTmdbBackdropUrl, normalizeTmdbPosterUrl } from "../../../core/tmdb/tmdbImageUrl.js";
 
 export function buildHeroIndicators(items = [], activeItem) {
   if (!Array.isArray(items) || items.length <= 1) {
@@ -281,7 +282,10 @@ export function renderContinueWatchingCard(item, index, options = {}) {
   const subtitle = normalized.episodeTitle || "";
   const isNextUp = Boolean(normalized?.isNextUp);
   const hasAired = normalized?.hasAired !== false;
-  const cardStyle = options?.cardStyle;
+  const requestedCardStyle = String(options?.cardStyle || "card")
+    .trim()
+    .toLowerCase();
+  const cardStyle = ["card", "wide", "poster"].includes(requestedCardStyle) ? requestedCardStyle : "card";
   const useEpisodeThumbnails = continueWatchingUsesEpisodeThumbnails(cardStyle, options?.useEpisodeThumbnails);
   const blurNextUp = Boolean(options?.blurNextUp && isNextUp && useEpisodeThumbnails);
   const rowKey = String(options?.rowKey || "continue_watching").trim() || "continue_watching";
@@ -300,7 +304,8 @@ export function renderContinueWatchingCard(item, index, options = {}) {
       hasAired
     }
   );
-  const uniqueCardImageSources = uniqueNonEmptyValues(cardImageSources);
+  const normalizeCardImageUrl = cardStyle === "card" ? normalizeTmdbBackdropUrl : normalizeTmdbPosterUrl;
+  const uniqueCardImageSources = uniqueNonEmptyValues(cardImageSources.map((source) => normalizeCardImageUrl(source)));
   const cardImage = uniqueCardImageSources[0] || "";
   const fallbackQueue = encodeHeroBackdropFallbacks(uniqueCardImageSources.slice(1));
   const deferContinueImage = getTvRuntimePerformanceProfile().isPerformanceConstrained;
