@@ -1,4 +1,4 @@
-var CACHE_NAME = "nuvio-vidaa-v3";
+var CACHE_NAME = "nuvio-vidaa-v4";
 var ASSETS = [
   "./",
   "./index.html",
