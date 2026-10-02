@@ -122,13 +122,13 @@ function forward(method, message) {
     }
     var payload =
       message && message.payload && typeof message.payload === "object" ? message.payload : {};
-    var url =
-      method === "cancel"
-        ? "http://127.0.0.1:" + PLUGIN_SERVICE_PORT + "/cancel"
-        : "http://127.0.0.1:" + PLUGIN_SERVICE_PORT + "/fetch";
+    // webOS 5/6 use Node 8: request accepts (options, callback), not
+    // (url, options, callback). Keep the loopback POST in that contract.
     var request = require("http").request(
-      url,
       {
+        hostname: "127.0.0.1",
+        port: PLUGIN_SERVICE_PORT,
+        path: method === "cancel" ? "/cancel" : "/fetch",
         method: "POST",
         headers: { "Content-Type": "application/json" }
       },
