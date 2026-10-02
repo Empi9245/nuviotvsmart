@@ -7,107 +7,131 @@ export function createPlayerScreenMethods29() {
 
   return {
     syncPostPlayPlayerSurface(state = this.getPostPlayState()) {
-      if (!Environment.isTizen() || !PlayerController.isUsingAvPlay?.()) {
-        return;
-      }
-      const avPlayObject = document.getElementById("avPlayerObject");
-      const viewport = PlayerController.getAvPlayViewportSize?.() || {
-        width: 1920,
-        height: 1080
-      };
-      const viewportWidth = Math.max(1, Math.round(Number(viewport.width || 1920)));
-      const viewportHeight = Math.max(1, Math.round(Number(viewport.height || 1080)));
-      const isTrailerSurfaceHidden = Boolean(state.isVisible && (state.isTrailerPlaying || state.hasAutoPlayedTrailer));
-      const isMiniSurface = Boolean(state.isVisible && !isTrailerSurfaceHidden);
-      const surfaceMode = isTrailerSurfaceHidden ? "hidden" : isMiniSurface ? "mini" : "normal";
-      const key = `${surfaceMode}:${viewportWidth}x${viewportHeight}:${document.documentElement?.dir || "ltr"}`;
-      if (key === this.postPlayNativeSurfaceStateKey) {
-        return;
-      }
-      this.postPlayNativeSurfaceStateKey = key;
-      this.cancelPostPlayNativeSurfaceAnimation();
-      const fullRect = {
-        x: 0,
-        y: 0,
-        width: viewportWidth,
-        height: viewportHeight
-      };
-      if (avPlayObject?.style) {
-        avPlayObject.style.visibility = isTrailerSurfaceHidden ? "hidden" : "visible";
-      }
-
-      if (surfaceMode === "hidden") {
-        // The Android implementation releases the player surface while the
-        // trailer owns the screen. Keep the native surface out of the way and
-        // reset its geometry so a later lifecycle cannot resurrect a stale mini
-        // rectangle.
-        this.postPlayNativeSurfaceRect = fullRect;
-        PlayerController.setAvPlayDisplayRect?.(fullRect, "PLAYER_DISPLAY_MODE_FULL_SCREEN");
-        return;
-      }
-
+      const usingAvPlay = Boolean(Environment.isTizen() && PlayerController.isUsingAvPlay?.());
       const video = PlayerController.video;
-      if (video?.style) {
-        // Tizen's AVPlay object is the visible surface; the HTML video element
-        // still needs the same fullscreen box when the mini-window is restored.
-        video.style.position = "fixed";
-        video.style.left = "0px";
-        video.style.top = "0px";
-        video.style.right = "auto";
-        video.style.bottom = "auto";
-        video.style.width = "100vw";
-        video.style.height = "100vh";
-        video.style.maxWidth = "100vw";
-        video.style.maxHeight = "100vh";
-        video.style.objectFit = "fill";
-        video.style.transform = "none";
+      const avPlayObject = document.getElementById("avPlayerObject");
+      const background = this.uiRefs?.postPlay?.querySelector(".player-post-play-background");
+      const viewportWidth = Math.max(1, Math.round(Number(window.innerWidth || 1920)));
+      const viewportHeight = Math.max(1, Math.round(Number(window.innerHeight || 1080)));
+      const fullRect = { x: 0, y: 0, width: viewportWidth, height: viewportHeight };
+      const hidden = Boolean(state.isVisible && (state.isTrailerPlaying || state.hasAutoPlayedTrailer));
+      const mode = hidden ? "hidden" : state.isVisible ? "mini" : "normal";
+      const key = `${mode}:${usingAvPlay}:${viewportWidth}x${viewportHeight}:${document.documentElement?.dir || "ltr"}`;
+
+      // The background is re-created when recommendations/focus change. Reapply
+      // its opening even when the playback surface is already in the right mode.
+      const syncBackground = (rect) => {
+        const background = this.uiRefs?.postPlay?.querySelector(".player-post-play-background");
+        const playerWindow = this.uiRefs?.postPlay?.querySelector(".player-post-play-player-window");
+        if (playerWindow?.style) {
+          Object.assign(playerWindow.style, {
+            left: `${rect.x}px`,
+            right: "auto",
+            top: `${rect.y}px`,
+            width: `${rect.width}px`,
+            height: `${rect.height}px`
+          });
+        }
+        if (!background) return;
+        const size = `100% 100%, ${rect.width}px ${rect.height}px`;
+        const position = `0px 0px, ${rect.x}px ${rect.y}px`;
+        background.style.webkitMaskSize = size;
+        background.style.maskSize = size;
+        background.style.webkitMaskPosition = position;
+        background.style.maskPosition = position;
+        background.classList.toggle("has-player-window", mode !== "hidden");
+      };
+      if (mode !== "hidden" && this.postPlayPlayerSurfaceRect) {
+        syncBackground(this.postPlayPlayerSurfaceRect);
+      } else {
+        background?.classList.remove("has-player-window");
+      }
+      if (avPlayObject?.style) {
+        avPlayObject.style.visibility = hidden ? "hidden" : "visible";
+      }
+      if (mode === "normal" && !this.postPlayPlayerSurfaceStateKey) {
+        // A previous trailer can leave the reused player element hidden/rounded.
+        if (video?.style) video.style.borderRadius = "";
+        return;
+      }
+      if (key === this.postPlayPlayerSurfaceStateKey) return;
+      this.postPlayPlayerSurfaceStateKey = key;
+      this.cancelPostPlayPlayerSurfaceAnimation();
+      if (hidden) {
+        this.postPlayPlayerSurfaceRect = null;
+        return;
       }
 
       const targetRect = { ...fullRect };
-      if (surfaceMode === "mini") {
-        const cssViewportWidth = Math.max(1, Number(window.innerWidth || viewportWidth));
-        const scale = viewportWidth / cssViewportWidth;
-        const gutter = Math.max(0, Math.round(32 * scale));
-        const width = Math.min(viewportWidth, Math.max(1, Math.round(cssViewportWidth * 0.32 * scale)));
-        targetRect.width = width;
-        targetRect.height = Math.min(viewportHeight, Math.max(1, Math.round(width * (9 / 16))));
-        targetRect.x = document.documentElement?.dir === "rtl" ? gutter : Math.max(0, viewportWidth - width - gutter);
-        targetRect.y = gutter;
+      if (mode === "mini") {
+        targetRect.width = Math.round(viewportWidth * 0.32);
+        targetRect.height = Math.round(targetRect.width * (9 / 16));
+        targetRect.x = document.documentElement?.dir === "rtl" ? 32 : viewportWidth - targetRect.width - 32;
+        targetRect.y = 32;
       }
-
-      const currentRect = this.postPlayNativeSurfaceRect || PlayerController.avplayDisplayRect || fullRect;
-      const sameRect = ["x", "y", "width", "height"].every((keyName) => Number(currentRect[keyName]) === Number(targetRect[keyName]));
-      if (sameRect) {
-        this.postPlayNativeSurfaceRect = { ...targetRect };
-        PlayerController.setAvPlayDisplayRect?.(targetRect, "PLAYER_DISPLAY_MODE_FULL_SCREEN");
+      const currentRect = this.postPlayPlayerSurfaceRect || fullRect;
+      const nativeViewport = PlayerController.getAvPlayViewportSize?.() || { width: 1920, height: 1080 };
+      const applyRect = (rect) => {
+        this.postPlayPlayerSurfaceRect = { ...rect };
+        if (usingAvPlay) {
+          // AVPlay uses 1920x1080 coordinates, independently of the CSS viewport.
+          PlayerController.setAvPlayDisplayRect?.(
+            {
+              x: (rect.x * nativeViewport.width) / viewportWidth,
+              y: (rect.y * nativeViewport.height) / viewportHeight,
+              width: (rect.width * nativeViewport.width) / viewportWidth,
+              height: (rect.height * nativeViewport.height) / viewportHeight
+            },
+            "PLAYER_DISPLAY_MODE_FULL_SCREEN"
+          );
+        } else if (video?.style) {
+          Object.assign(video.style, {
+            position: "fixed",
+            left: `${rect.x}px`,
+            top: `${rect.y}px`,
+            right: "auto",
+            bottom: "auto",
+            width: `${rect.width}px`,
+            height: `${rect.height}px`,
+            maxWidth: "none",
+            maxHeight: "none",
+            objectFit: "cover",
+            transform: "none",
+            borderRadius: mode === "mini" ? "12px" : "0px"
+          });
+        }
+        // Keep the native object, HTML player, transparent opening, and focus
+        // target in the same CSS rectangle throughout Android's 420ms tween.
+        syncBackground(rect);
+      };
+      const finish = () => {
+        this.postPlayPlayerSurfaceAnimationFrame = null;
+        if (mode === "normal") {
+          this.postPlayPlayerSurfaceRect = null;
+          background?.classList.remove("has-player-window");
+          this.applyAspectMode({ showToast: false });
+        }
+      };
+      if (["x", "y", "width", "height"].every((field) => currentRect[field] === targetRect[field])) {
+        applyRect(targetRect);
+        finish();
         return;
       }
-
       const startedAt = typeof globalThis.performance?.now === "function" ? globalThis.performance.now() : Date.now();
       const schedule = (callback) => {
-        if (typeof requestAnimationFrame === "function") {
-          this.postPlayNativeSurfaceAnimationUsesRaf = true;
-          return requestAnimationFrame(callback);
-        }
-        this.postPlayNativeSurfaceAnimationUsesRaf = false;
-        return setTimeout(callback, 16);
-      };
-      const applyRect = (rect) => {
-        this.postPlayNativeSurfaceRect = { ...rect };
-        PlayerController.setAvPlayDisplayRect?.(rect, "PLAYER_DISPLAY_MODE_FULL_SCREEN");
+        this.postPlayPlayerSurfaceAnimationUsesRaf = typeof requestAnimationFrame === "function";
+        return this.postPlayPlayerSurfaceAnimationUsesRaf ? requestAnimationFrame(callback) : setTimeout(callback, 16);
       };
       const animate = () => {
-        if (this.postPlayNativeSurfaceStateKey !== key) {
-          return;
-        }
+        if (this.postPlayPlayerSurfaceStateKey !== key) return;
         const now = typeof globalThis.performance?.now === "function" ? globalThis.performance.now() : Date.now();
         const progress = Math.max(0, Math.min(1, (now - startedAt) / 420));
         applyRect(interpolatePostPlayRect(currentRect, targetRect, progress));
         if (progress >= 1) {
-          this.postPlayNativeSurfaceAnimationFrame = null;
-          return;
+          finish();
+        } else {
+          this.postPlayPlayerSurfaceAnimationFrame = schedule(animate);
         }
-        this.postPlayNativeSurfaceAnimationFrame = schedule(animate);
       };
       animate();
     },
@@ -168,6 +192,15 @@ export function createPlayerScreenMethods29() {
       const overlay = this.uiRefs?.controlsOverlay;
       if (!overlay) {
         return;
+      }
+      if (this.controlsVisible) {
+        // Android hides the seek overlay when opening controls, keeping any pending seek.
+        if (this.seekOverlayTimer) {
+          clearTimeout(this.seekOverlayTimer);
+          this.seekOverlayTimer = null;
+        }
+        this.seekOverlayVisible = false;
+        this.renderSeekOverlay();
       }
       overlay.classList.toggle("hidden", !this.controlsVisible);
       this.syncPlayerOverlayLayoutState();

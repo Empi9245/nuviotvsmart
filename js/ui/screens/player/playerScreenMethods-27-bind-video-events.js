@@ -51,17 +51,16 @@ export function createPlayerScreenMethods27() {
       if (typeof window?.addEventListener === "function") {
         const onViewportResize = () => {
           this.applyAspectMode({ showToast: false });
-          // applyAspectMode() restores the native AVPlay surface to full screen.
-          // In post-play the same mode key may still be current, so invalidate it
-          // before re-applying the Android mini-window geometry.
-          this.cancelPostPlayNativeSurfaceAnimation();
-          const viewport = PlayerController.getAvPlayViewportSize?.() || {
+          // applyAspectMode() restores the playback surface. Invalidate the
+          // post-play mode before re-applying the Android mini-window geometry.
+          this.cancelPostPlayPlayerSurfaceAnimation();
+          const viewport = PlayerController.getCssPlayerViewportSize?.() || {
             width: 1920,
             height: 1080
           };
           if (this.isPostPlayVisible()) {
-            this.postPlayNativeSurfaceStateKey = "";
-            this.postPlayNativeSurfaceRect = {
+            this.postPlayPlayerSurfaceStateKey = "";
+            this.postPlayPlayerSurfaceRect = {
               x: 0,
               y: 0,
               width: Math.max(1, Math.round(Number(viewport.width || 1920))),

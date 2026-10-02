@@ -128,8 +128,14 @@ export function createSearchScreenMethods02() {
         })
         .filter((row) => row.items.length);
     },
+    cancelActiveSearchRequests() {
+      const controllers = this.activeSearchControllers;
+      this.activeSearchControllers = new Set();
+      controllers?.forEach((controller) => controller.abort());
+    },
     async searchRows(query, { token = this.loadToken, onFirstResults = null } = {}) {
       const addons = await addonRepository.getInstalledAddons();
+      if (token !== this.loadToken) return [];
       const searchableCatalogs = buildSearchTargets(addons);
       const scheduleIndices = buildSearchScheduleIndices(searchableCatalogs);
       const batchSize = getSearchCatalogBatchSize();
@@ -139,6 +145,8 @@ export function createSearchScreenMethods02() {
       let publishedFirstResults = false;
       const runCatalogSearch = async (catalog) => {
         const controller = typeof AbortController === "function" ? new AbortController() : null;
+        const controllers = (this.activeSearchControllers ||= new Set());
+        if (controller) controllers.add(controller);
         try {
           const result = await withTimeout(
             catalogRepository.getCatalog({
@@ -165,6 +173,8 @@ export function createSearchScreenMethods02() {
             catalog,
             result: { status: "error", message: "fetch_failed" }
           };
+        } finally {
+          if (controller) controllers.delete(controller);
         }
       };
 

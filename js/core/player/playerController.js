@@ -218,14 +218,23 @@ function syncTizenAvPlayObjectStyle(rect) {
 
   // Samsung renders AVPlay in the application/avplayer object, not in the
   // HTML video element. Keep the object CSS rectangle in lockstep with the
-  // native display rectangle as required by the AVPlay API.
+  // native display rectangle as required by the AVPlay API. Native coordinates
+  // always use 1920x1080; the object style must use the actual CSS viewport.
+  const cssWidth = Number(
+    globalThis.window?.innerWidth || globalThis.document?.documentElement?.clientWidth || 1920
+  );
+  const cssHeight = Number(
+    globalThis.window?.innerHeight || globalThis.document?.documentElement?.clientHeight || 1080
+  );
+  const scaleX = cssWidth / 1920;
+  const scaleY = cssHeight / 1080;
   object.style.position = "fixed";
-  object.style.left = `${rect.x}px`;
-  object.style.top = `${rect.y}px`;
+  object.style.left = `${rect.x * scaleX}px`;
+  object.style.top = `${rect.y * scaleY}px`;
   object.style.right = "auto";
   object.style.bottom = "auto";
-  object.style.width = `${rect.width}px`;
-  object.style.height = `${rect.height}px`;
+  object.style.width = `${rect.width * scaleX}px`;
+  object.style.height = `${rect.height * scaleY}px`;
   object.style.maxWidth = "none";
   object.style.maxHeight = "none";
   object.style.transform = "none";

@@ -301,6 +301,8 @@ export function createSearchScreenMethods06() {
       return this.closePosterOptionsMenu();
     },
     cleanup() {
+      this.loadToken = (this.loadToken || 0) + 1;
+      this.cancelActiveSearchRequests();
       resetDpadRepeat(this);
       this.cancelScheduledRender();
       this.cancelPendingPosterHold();

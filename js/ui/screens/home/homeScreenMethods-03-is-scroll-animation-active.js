@@ -297,12 +297,6 @@ export function createHomeScreenMethods03() {
       }
       return 0;
     },
-    shouldProgressivelyRenderDeferredRows() {
-      // Publish each deferred batch as soon as it resolves. Collections are part
-      // of the visible Home order too; waiting for every catalog request makes
-      // the rows below the first batch appear to be missing on webOS.
-      return !this.isPerformanceConstrained();
-    },
     getDirectionalRepeatThrottleMs(direction = null) {
       // Tizen fast path: the 48ms fast-horizontal gate passes nearly every
       // native hold-repeat (~50-100ms) and queues another full focus workload

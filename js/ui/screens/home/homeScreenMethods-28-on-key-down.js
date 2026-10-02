@@ -1,4 +1,5 @@
 import * as internals from "./homeScreenContext.js";
+import { registerHomeDomNodes } from "./homeDomUpdate.js";
 
 export function createHomeScreenMethods28() {
   const {
@@ -217,6 +218,7 @@ export function createHomeScreenMethods28() {
 
       const fragment = document.createRange().createContextualFragment(markup);
       const appendedCards = Array.from(fragment.querySelectorAll(".home-content-card.focusable"));
+      registerHomeDomNodes(appendedCards);
       const navigationRowIndex = (this.navModel?.rows || []).findIndex((rowNodes) => rowNodes[0]?.closest?.(".home-track") === track);
       appendedCards.forEach((card, index) => {
         card.dataset.navZone = "main";

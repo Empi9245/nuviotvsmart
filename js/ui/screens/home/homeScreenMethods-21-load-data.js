@@ -261,28 +261,25 @@ export function createHomeScreenMethods21() {
       });
 
       if (deferredDescriptors.length) {
-        const progressiveDeferredRows = this.shouldProgressivelyRenderDeferredRows();
         this.fetchCatalogRows(deferredDescriptors, {
           allowLoading: true,
           batchSize: this.getDeferredCatalogBatchSize(),
-          onBatch: progressiveDeferredRows
-            ? (batchRows) => {
-                if (token !== this.homeLoadToken || Router.getCurrent() !== "home" || !Array.isArray(batchRows) || !batchRows.length) {
-                  return;
-                }
-                const combinedByKey = new Map((this.rows || []).map((row) => [row.homeCatalogKey, row]));
-                batchRows.forEach((row) => {
-                  combinedByKey.set(row.homeCatalogKey, row);
-                });
-                this.rows = this.sortAndFilterRows(Array.from(combinedByKey.values()), this.collections);
-                this.heroCandidates = uniqueById(this.collectHeroCandidates(this.rows));
-                if (!this.heroItem) {
-                  this.heroItem = this.pickInitialHero();
-                }
-                void this.refreshWatchedTitleState({ token });
-                this.requestBackgroundRender();
-              }
-            : null
+          // Publish completed rows independently; requestBackgroundRender keeps
+          // the legacy-TV render delay and navigation deferral in effect.
+          onRow: (row) => {
+            if (token !== this.homeLoadToken || Router.getCurrent() !== "home") {
+              return;
+            }
+            const combinedByKey = new Map((this.rows || []).map((entry) => [entry.homeCatalogKey, entry]));
+            combinedByKey.set(row.homeCatalogKey, row);
+            this.rows = this.sortAndFilterRows(Array.from(combinedByKey.values()), this.collections);
+            this.heroCandidates = uniqueById(this.collectHeroCandidates(this.rows));
+            if (!this.heroItem) {
+              this.heroItem = this.pickInitialHero();
+            }
+            void this.refreshWatchedTitleState({ token });
+            this.requestBackgroundRender();
+          }
         })
           .then((extraRows) => {
             if (token !== this.homeLoadToken || Router.getCurrent() !== "home") {

@@ -508,6 +508,8 @@
     <string name="autoplay_stream_selection">Selezione automatica dello stream</string>
     <string name="autoplay_next_episode">Riproduci automaticamente il prossimo episodio</string>
     <string name="autoplay_next_episode_sub">Avvia automaticamente il prossimo episodio quando appare il prompt.</string>
+    <string name="next_episode_countdown_title">Conto alla rovescia per l’episodio successivo</string>
+    <string name="next_episode_countdown_sub">Mantieni i 3 secondi per poter annullare prima di passare all’episodio successivo. Disattiva per passare subito.</string>
     <string name="autoplay_prefer_binge_group">Continuità sorgente (Prossimo Episodio)</string>
     <string name="autoplay_prefer_binge_group_sub">Usa la stessa sorgente (stesso addon e qualità) prima di applicare le regole standard di riproduzione automatica.</string>
     <string name="autoplay_threshold_pct">Percentuale</string>

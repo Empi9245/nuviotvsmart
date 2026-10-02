@@ -217,6 +217,7 @@ export function createSearchScreenMethods01() {
         this.pillIconOnly = false;
       }
       this.loadToken = (this.loadToken || 0) + 1;
+      this.cancelActiveSearchRequests();
       const routeLoadToken = this.loadToken;
       const watchedTitleIdsPromise = this.refreshWatchedTitleIds();
       const hasExplicitQuery = Boolean(String(params.query || "").trim());
@@ -281,8 +282,9 @@ export function createSearchScreenMethods01() {
     },
     async reloadRows() {
       const token = this.loadToken;
+      let rows;
       if (this.mode === "search" && this.query.length >= 2) {
-        this.rows = await this.searchRows(this.query, {
+        rows = await this.searchRows(this.query, {
           token,
           onFirstResults: (rows) => {
             if (token !== this.loadToken) return;
@@ -295,13 +297,18 @@ export function createSearchScreenMethods01() {
           }
         });
       } else if (this.mode === "discover") {
-        this.rows = await this.loadDiscoverRows();
+        rows = await this.loadDiscoverRows();
       } else {
-        this.rows = [];
+        rows = [];
       }
       if (token !== this.loadToken) return;
+      this.rows = rows;
       void this.refreshWatchedTitleIds().then(() => {
         if (token === this.loadToken && Router.getCurrent() === "search") {
+          if (this.shouldPatchResultsWithoutReplacingInput()) {
+            this.renderResultsOnly();
+            return;
+          }
           this.requestRender();
         }
       });
@@ -322,7 +329,8 @@ export function createSearchScreenMethods01() {
         this.requestRender();
         return;
       }
-      const selectionSnapshot = getInputSelectionSnapshot(input);
+      const preserveInputEditing = document.activeElement === input;
+      const selectionSnapshot = preserveInputEditing ? null : getInputSelectionSnapshot(input);
 
       while (header.nextSibling) {
         header.nextSibling.remove();
@@ -334,9 +342,13 @@ export function createSearchScreenMethods01() {
       // Keep the live IME value untouched while only the result siblings are refreshed.
       // `this.query` is normalized for catalog requests and may omit a trailing space
       // that the user has just entered and is still editing.
-      input.focus?.();
-      this.focusNode(this.container?.querySelector(".focusable.focused") || null, input);
-      restoreInputSelection(input, selectionSnapshot);
+      // Re-focusing an input that is already being edited can interrupt the TV IME
+      // composition even though this results-only update leaves the input in place.
+      if (!preserveInputEditing) {
+        input.focus?.();
+        this.focusNode(this.container?.querySelector(".focusable.focused") || null, input);
+        restoreInputSelection(input, selectionSnapshot);
+      }
       this.pendingAutoFocusResults = false;
     }
   };

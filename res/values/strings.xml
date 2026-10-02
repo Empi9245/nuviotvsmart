@@ -761,6 +761,8 @@
     <string name="autoplay_stream_selection">Auto Stream Selection</string>
     <string name="autoplay_next_episode">Auto-play Next Episode</string>
     <string name="autoplay_next_episode_sub">Start next episode automatically when prompt appears.</string>
+    <string name="next_episode_countdown_title">Next Episode Countdown</string>
+    <string name="next_episode_countdown_sub">Leave 3 seconds to cancel before switching to the next episode. Turn this off to switch immediately.</string>
     <string name="autoplay_prefer_binge_group">Prefer Binge Group (Next Episode)</string>
     <string name="autoplay_prefer_binge_group_sub">Try the same source profile first (same addon/quality group) before normal auto-play rules.</string>
     <string name="autoplay_reuse_binge_group">Reuse Binge Group</string>

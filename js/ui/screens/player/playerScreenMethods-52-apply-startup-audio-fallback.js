@@ -99,6 +99,121 @@ export function createPlayerScreenMethods52() {
 
       return null;
     },
+    findRememberedInternalSubtitleOption(preference = {}, { languageOnly = false } = {}) {
+      const options = this.collectSubtitleOptionItems().filter(
+        (entry) => entry.sourceType === "internal" && !entry.disabled && entry.languageKey !== SUBTITLE_LANGUAGE_OFF_KEY
+      );
+      const normalizeTrackId = (value) =>
+        String(value ?? "")
+          .toLowerCase()
+          .replace(/\s+/g, " ")
+          .trim();
+      const targetId = normalizeTrackId(preference.trackId);
+      const targetName = normalizeComparableText(preference.name || "");
+      const targetLanguage = normalizeSubtitleLanguageKey(preference.language || "");
+      const describe = (option) => {
+        const current = this.getSubtitleTrackPreference(option);
+        return {
+          id: normalizeTrackId(current.trackId),
+          name: normalizeComparableText(current.name || ""),
+          language: normalizeSubtitleLanguageKey(current.language || "")
+        };
+      };
+      const languageMatches = (currentLanguage, { allowBase = false } = {}) => {
+        if (!targetLanguage || !currentLanguage) return false;
+        if (currentLanguage === targetLanguage) return true;
+        return Boolean(allowBase && currentLanguage.split("-")[0] === targetLanguage.split("-")[0]);
+      };
+
+      if (languageOnly) {
+        const match = options.find((option) => {
+          const current = describe(option);
+          return languageMatches(current.language, { allowBase: true }) && (preference.isForced !== true || option.isForced);
+        });
+        return match ? { option: match, strict: false } : null;
+      }
+
+      if (targetId) {
+        const exactId = options.find((option) => {
+          const current = describe(option);
+          return (
+            current.id === targetId &&
+            (!targetLanguage || current.language === targetLanguage) &&
+            (!targetName || current.name === targetName || current.name.includes(targetName))
+          );
+        });
+        if (exactId) return { option: exactId, strict: true };
+      }
+
+      if (targetName) {
+        const exactName = options.find((option) => {
+          const current = describe(option);
+          return current.name === targetName && (!targetLanguage || current.language === targetLanguage);
+        });
+        if (exactName) return { option: exactName, strict: true };
+        const containedName = options.find((option) => {
+          const current = describe(option);
+          return current.name.includes(targetName) && (!targetLanguage || current.language === targetLanguage);
+        });
+        if (containedName) return { option: containedName, strict: true };
+      }
+
+      if (!targetLanguage) return null;
+      const languageMatch = options.find((option) => {
+        const current = describe(option);
+        return languageMatches(current.language, { allowBase: true }) && (preference.isForced !== true || option.isForced);
+      });
+      return languageMatch ? { option: languageMatch, strict: false } : null;
+    },
+    findRememberedAddonSubtitleOption(preference = {}, { languageFallback = true } = {}) {
+      const options = this.collectSubtitleOptionItems().filter(
+        (entry) => entry.sourceType === "addon" && !entry.disabled && entry.languageKey !== SUBTITLE_LANGUAGE_OFF_KEY
+      );
+      const exactText = (value) => String(value ?? "").trim();
+      const targetId = exactText(preference.addonId);
+      const targetUrl = exactText(preference.addonUrl);
+      const targetAddon = exactText(preference.addonName);
+      const targetLanguage = normalizeSubtitleLanguageKey(preference.language || "");
+      const describe = (option) => {
+        const current = this.getSubtitleTrackPreference(option);
+        return {
+          id: exactText(current.addonId),
+          url: exactText(current.addonUrl),
+          addon: exactText(current.addonName),
+          language: normalizeSubtitleLanguageKey(current.language || "")
+        };
+      };
+      const exact = options.find((option) => {
+        const current = describe(option);
+        const idMatches = targetId ? current.id === targetId : targetUrl && current.url === targetUrl;
+        return Boolean(idMatches && (!targetAddon || current.addon === targetAddon));
+      });
+      if (exact || !languageFallback || !targetLanguage) return exact || null;
+
+      const languageMatches = (currentLanguage) =>
+        Boolean(currentLanguage && (currentLanguage === targetLanguage || currentLanguage.split("-")[0] === targetLanguage.split("-")[0]));
+      const sameAddon = targetAddon
+        ? options.find((option) => {
+            const current = describe(option);
+            return current.addon === targetAddon && languageMatches(current.language);
+          })
+        : null;
+      return sameAddon || options.find((option) => languageMatches(describe(option).language)) || null;
+    },
+    applyStartupRememberedSubtitleOption(option) {
+      if (!option?.entry) return false;
+      const selectedOption = this.collectSubtitleOptionItems().find((entry) => entry.selected);
+      if (selectedOption?.id !== option.id || selectedOption?.sourceType !== option.sourceType) {
+        this.startupSubtitlePreferenceApplying = true;
+        try {
+          this.selectSubtitleOption(option, { focusOptions: false });
+        } finally {
+          this.startupSubtitlePreferenceApplying = false;
+        }
+      }
+      const appliedOption = this.collectSubtitleOptionItems().find((entry) => entry.selected);
+      return appliedOption?.id === option.id && appliedOption?.sourceType === option.sourceType;
+    },
     matchesStartupSubtitleTarget(entry, target) {
       if (!entry || !target) {
         return false;
@@ -193,6 +308,75 @@ export function createPlayerScreenMethods52() {
         (this.trackDiscoveryInProgress && (this.canDiscoverEmbeddedSubtitleTracks() || this.isCurrentSourceAdaptiveManifest())) ||
         this.isWebOsEngineFsEmbeddedTrackDiscoveryPending()
       );
+      const rememberedSubtitle = this.rememberedSubtitleTrackPreference;
+      const rememberedType = String(rememberedSubtitle?.type || "")
+        .trim()
+        .toUpperCase();
+      if (rememberedType === "DISABLED") {
+        const offEntry = this.getSubtitleEntries("builtIn").find((entry) => entry.id === "subtitle-off") || { trackIndex: -1 };
+        this.startupSubtitlePreferenceApplying = true;
+        try {
+          this.applySubtitleEntry(offEntry);
+        } finally {
+          this.startupSubtitlePreferenceApplying = false;
+        }
+        this.startupSubtitlePreferenceApplied = true;
+        return true;
+      }
+
+      if (rememberedType === "ADDON") {
+        const exactRememberedAddonOption = this.findRememberedAddonSubtitleOption(rememberedSubtitle, {
+          languageFallback: false
+        });
+        if (exactRememberedAddonOption) {
+          const applied = this.applyStartupRememberedSubtitleOption(exactRememberedAddonOption);
+          this.startupSubtitlePreferenceApplied = applied;
+          return applied;
+        }
+
+        const addonDiscoveryPending = Boolean(this.subtitleLoading || (!this.subtitles?.length && this.trackDiscoveryInProgress));
+        if (addonDiscoveryPending) {
+          const provisionalOption =
+            this.findRememberedInternalSubtitleOption(rememberedSubtitle, { languageOnly: true })?.option || preferredOption;
+          if (provisionalOption && !provisionalOption.selected) {
+            this.applyStartupRememberedSubtitleOption(provisionalOption);
+          }
+          this.startupSubtitlePreferenceApplied = false;
+          return false;
+        }
+
+        const rememberedAddonOption = this.findRememberedAddonSubtitleOption(rememberedSubtitle);
+        if (rememberedAddonOption) {
+          const applied = this.applyStartupRememberedSubtitleOption(rememberedAddonOption);
+          this.startupSubtitlePreferenceApplied = applied;
+          return applied;
+        }
+      }
+
+      if (rememberedType === "INTERNAL") {
+        const rememberedInternalMatch = this.findRememberedInternalSubtitleOption(rememberedSubtitle);
+        if (rememberedInternalMatch) {
+          if (builtInSubtitleDiscoveryPending && !rememberedInternalMatch.strict) {
+            return false;
+          }
+          const applied = this.applyStartupRememberedSubtitleOption(rememberedInternalMatch.option);
+          this.startupSubtitlePreferenceApplied = applied;
+          return applied;
+        }
+        if (builtInSubtitleDiscoveryPending) {
+          return false;
+        }
+        const rememberedAddonFallback = this.findRememberedAddonSubtitleOption(rememberedSubtitle);
+        if (rememberedAddonFallback) {
+          const applied = this.applyStartupRememberedSubtitleOption(rememberedAddonFallback);
+          this.startupSubtitlePreferenceApplied = applied;
+          return applied;
+        }
+        if (this.isSubtitlePreferenceDiscoveryPending()) {
+          return false;
+        }
+      }
+
       // Android only reaches the addon fallback after its first internal text-track
       // scan. Smart-TV discovery is asynchronous, so do not latch an addon match
       // while a preferred embedded/manifest track can still be discovered.

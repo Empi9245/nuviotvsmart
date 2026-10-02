@@ -120,8 +120,11 @@ export const ScreenUtils = {
     if (globalThis?.document?.body?.classList?.contains("nuvio-modal-open")) {
       return;
     }
+    // Reuse geometry only within this event, before any focus classes change.
+    const rects = new Map();
     const list = Array.from(container?.querySelectorAll(selector) || []).filter((node) => {
       const rect = node.getBoundingClientRect();
+      rects.set(node, rect);
       return rect.width > 0 && rect.height > 0;
     });
     if (!list.length) {
@@ -140,14 +143,14 @@ export const ScreenUtils = {
       return;
     }
 
-    const currentRect = current.getBoundingClientRect();
+    const currentRect = rects.get(current) || current.getBoundingClientRect();
     const cx = currentRect.left + currentRect.width / 2;
     const cy = currentRect.top + currentRect.height / 2;
 
     const candidates = list
       .filter((node) => node !== current)
       .map((node) => {
-        const rect = node.getBoundingClientRect();
+        const rect = rects.get(node);
         const nx = rect.left + rect.width / 2;
         const ny = rect.top + rect.height / 2;
         const dx = nx - cx;

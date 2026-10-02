@@ -261,8 +261,14 @@ export function createPlayerScreenMethods22() {
     },
     async runNextEpisodeCountdown(token, selectedStream) {
       const sourceName = String(selectedStream?.name || selectedStream?.addonName || "").trim();
+      const countdownEnabled = PlayerSettingsStore.get().nextEpisodeCountdownEnabled !== false;
       this.nextEpisodeCardSearching = false;
-      this.nextEpisodeCardSourceName = sourceName;
+      this.nextEpisodeCardSourceName = countdownEnabled ? sourceName : "";
+      if (!countdownEnabled) {
+        this.nextEpisodeCardCountdownSec = null;
+        this.renderNextEpisodeCard();
+        return this.isNextEpisodeLaunchActive(token);
+      }
       for (let remaining = 3; remaining >= 1; remaining -= 1) {
         if (!this.isNextEpisodeLaunchActive(token)) {
           return false;

@@ -36,9 +36,9 @@ export function createPlayerScreenMethods73() {
         this.clearPostPlayLongPressTimer();
         this.clearPostPlaySynopsisScrollAnimation();
         this.postPlayLongPressTriggered = false;
-        this.cancelPostPlayNativeSurfaceAnimation();
-        this.postPlayNativeSurfaceStateKey = "";
-        this.postPlayNativeSurfaceRect = null;
+        this.cancelPostPlayPlayerSurfaceAnimation();
+        this.postPlayPlayerSurfaceStateKey = "";
+        this.postPlayPlayerSurfaceRect = null;
         if (this.postPlayDescriptionMeasureFrame) {
           cancelAnimationFrame(this.postPlayDescriptionMeasureFrame);
           this.postPlayDescriptionMeasureFrame = null;

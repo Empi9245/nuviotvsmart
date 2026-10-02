@@ -81,30 +81,10 @@ html[dir="rtl"] .player-post-play-synopsis-full-text {
   white-space: nowrap;
 }
 
-html:not(.tizen-tv)
-  #player.post-play-visible:not(.post-play-trailer):not(.post-play-trailer-consumed)
-  #videoPlayer {
-  top: 32px !important;
-  right: 32px !important;
-  bottom: auto !important;
-  left: auto !important;
-  width: 32% !important;
-  height: auto !important;
-  aspect-ratio: 16 / 9;
-  border-radius: 12px !important;
-  object-fit: cover !important;
-  transition:
-    top 420ms cubic-bezier(0.4, 0, 0.2, 1),
-    right 420ms cubic-bezier(0.4, 0, 0.2, 1),
-    width 420ms cubic-bezier(0.4, 0, 0.2, 1),
-    height 420ms cubic-bezier(0.4, 0, 0.2, 1),
-    border-radius 420ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 /* Once Android has consumed a trailer, the main playback surface stays
    released/hidden until the post-play flow navigates away. */
 
-html:not(.tizen-tv) #player.post-play-trailer-consumed #videoPlayer {
+#player.post-play-trailer-consumed #videoPlayer {
   opacity: 0;
   pointer-events: none;
 }
@@ -112,18 +92,6 @@ html:not(.tizen-tv) #player.post-play-trailer-consumed #videoPlayer {
 #player.post-play-trailer #videoPlayer {
   opacity: 0;
   transition: opacity 220ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-html.tizen-tv #player.post-play-visible #videoPlayer,
-html.tizen-tv #player.post-play-visible .tizen-avplay-object {
-  top: 0;
-  right: auto;
-  bottom: auto;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  border-radius: 0;
-  object-fit: fill;
 }
 
 #playerUiRoot.post-play-visible .player-controls-overlay,
@@ -134,15 +102,6 @@ html.tizen-tv #player.post-play-visible .tizen-avplay-object {
 #playerUiRoot.post-play-visible .player-pause-overlay {
   opacity: 0;
   pointer-events: none;
-}
-
-@media (max-width: 1100px) {
-  html:not(.tizen-tv)
-    #player.post-play-visible:not(.post-play-trailer):not(.post-play-trailer-consumed)
-    #videoPlayer {
-    width: 32% !important;
-    height: auto !important;
-  }
 }
 
 /* Android TV's FocusMarqueeText keeps episode card nodes stable and only

@@ -190,7 +190,7 @@ html.no-css-grid.legacy-tizen .player-subtitle-overlay-grid {
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
-  background: #000;
+  background: transparent;
   transition: opacity 360ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -204,6 +204,28 @@ html.no-css-grid.legacy-tizen .player-subtitle-overlay-grid {
   opacity: 0;
   pointer-events: none;
   transition-duration: 220ms;
+}
+
+/* The movie may be a hardware video plane below the web UI. Cut its live
+   window out of every opaque background layer instead of only raising a border. */
+.player-post-play-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #000;
+}
+
+.player-post-play-background.has-player-window {
+  -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-composite: xor;
+  mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+  mask-repeat: no-repeat;
+  mask-composite: exclude;
+}
+
+.player-post-play-recommendation.is-loading {
+  background: #000;
 }
 
 .player-post-play-backdrop,

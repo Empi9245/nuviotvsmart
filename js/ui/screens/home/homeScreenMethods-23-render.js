@@ -1,4 +1,5 @@
 import * as internals from "./homeScreenContext.js";
+import { hasMountedHomeDom, updateHomeDom } from "./homeDomUpdate.js";
 
 export function createHomeScreenMethods23() {
   const {
@@ -39,7 +40,17 @@ export function createHomeScreenMethods23() {
     render() {
       const renderStart = HOME_PERF_DEBUG ? homePerfNow() : 0;
       this.cancelScheduledRender();
-      this.cancelModernCameraFollow({ stopAnimations: true });
+      const liveFocusedNode = this.getCurrentFocusedNode();
+      if (this.hasUserInteractedSinceHomePaint) {
+        this.forceInitialContinueWatchingFocus = false;
+      }
+      const canUpdateInPlace = Boolean(
+        hasMountedHomeDom(this.container) &&
+        this.renderedLayoutMode === this.layoutMode &&
+        !this.homeRouteEnterPending &&
+        !this.isRestoringFocusFromBack &&
+        !this.pendingBackFocusState
+      );
       this.teardownModernTrackScrollPagination();
       this.teardownContinueWatchingProgressiveRendering();
       this.invalidateNavigationModel();
@@ -48,8 +59,6 @@ export function createHomeScreenMethods23() {
       const savedFocusState = this.savedFocusStates?.[this.layoutMode] || null;
       const rawRetainedFocusState = backFocusState || liveFocusState || savedFocusState || null;
       const retainedFocusState = rawRetainedFocusState;
-      this.cancelFocusedPosterFlow();
-      this.expandedPosterNode = null;
       const backFocusHero = backFocusState ? this.getHeroSourceFromFocusState(backFocusState) : null;
       const shouldHoldHeroForContinueWatching =
         this.layoutMode === "modern" &&
@@ -127,6 +136,7 @@ export function createHomeScreenMethods23() {
             );
       const focusedPosterFlowConfig = this.getFocusedPosterFlowConfig(this.layoutPrefs || {});
       const expandFocusedPoster =
+        !canUpdateInPlace &&
         this.layoutMode === "modern" &&
         Boolean(focusedPosterFlowConfig.shouldExpand) &&
         Number(this.layoutPrefs?.focusedPosterBackdropExpandDelaySeconds ?? 3) <= 0 &&
@@ -284,16 +294,35 @@ export function createHomeScreenMethods23() {
       const shellMounted = Boolean(this.container.querySelector(".home-shell"));
       const markupUnchanged = shellMounted && this.renderedMarkup === nextMarkup;
 
+      let updatedInPlace = canUpdateInPlace && markupUnchanged;
       if (!markupUnchanged) {
-        this.container.innerHTML = nextMarkup;
+        if (!canUpdateInPlace) {
+          this.cancelModernCameraFollow({ stopAnimations: true });
+          this.cancelFocusedPosterFlow();
+          this.expandedPosterNode = null;
+        }
+        updatedInPlace = updateHomeDom(this.container, nextMarkup, {
+          incremental: canUpdateInPlace,
+          focusedNode: liveFocusedNode
+        });
         this.renderedMarkup = nextMarkup;
       }
-
       if (this.layoutMode === "grid") {
         normalizeHomeGridCatalogSections(this.container, {
           maxDisplayItems: gridMaxDisplayItems,
           rowCount: homeGridRowCount
         });
+      }
+      const focusSurvived = Boolean(
+        updatedInPlace &&
+        liveFocusedNode?.isConnected &&
+        this.container.contains(liveFocusedNode) &&
+        liveFocusedNode.classList.contains("focused")
+      );
+      if (updatedInPlace && !focusSurvived && !this.homeHoldFocusLocked) {
+        this.cancelModernCameraFollow({ stopAnimations: true });
+        this.cancelFocusedPosterFlow();
+        this.expandedPosterNode = null;
       }
 
       if (modernLandscapePostersEnabled) {
@@ -317,52 +346,99 @@ export function createHomeScreenMethods23() {
         this.setupModernTrackScrollPagination();
       }
       const canAttemptRestore = Boolean(retainedFocusState);
-      let restoredFocus = false;
-      if (sidebarFocusLocked) {
-        restoredFocus = this.restoreSidebarFocusState(retainedFocusState?.focusKind === "sidebar" ? retainedFocusState : null);
-      }
-      if (!sidebarFocusLocked && !this.homeHoldFocusLocked && !backFocusState && this.pendingPosterHoldFocus) {
-        const pending = this.pendingPosterHoldFocus;
-        const target = this.resolvePosterHoldRestoreTarget(pending);
-        this.pendingPosterHoldFocus = null;
-        if (target) {
-          restoredFocus = true;
-          this.setFocusedNode(target);
-          this.lastMainFocus = target;
-          this.rememberMainRowFocus(target);
-          this.ensureTrackHorizontalVisibility(target);
-          this.ensureMainVerticalVisibility(target);
+      let restoredFocus = focusSurvived;
+      const hasPendingFocusAction = Boolean(
+        this.pendingPosterHoldFocus || Number.isFinite(this.pendingContinueWatchingFocusIndex) || this.forceInitialContinueWatchingFocus
+      );
+      if (!focusSurvived || hasPendingFocusAction) {
+        restoredFocus = false;
+        if (sidebarFocusLocked) {
+          restoredFocus = this.restoreSidebarFocusState(retainedFocusState?.focusKind === "sidebar" ? retainedFocusState : null);
         }
-      }
-      if (!restoredFocus && !sidebarFocusLocked && !this.homeHoldFocusLocked && this.isRestoringFocusFromBack && backFocusState) {
-        restoredFocus = this.restoreFocusState(backFocusState);
-        if (restoredFocus) {
-          this.isRestoringFocusFromBack = false;
+        if (!sidebarFocusLocked && !this.homeHoldFocusLocked && !backFocusState && this.pendingPosterHoldFocus) {
+          const pending = this.pendingPosterHoldFocus;
+          const target = this.resolvePosterHoldRestoreTarget(pending);
+          this.pendingPosterHoldFocus = null;
+          if (target) {
+            restoredFocus = true;
+            this.setFocusedNode(target);
+            this.lastMainFocus = target;
+            this.rememberMainRowFocus(target);
+            this.ensureTrackHorizontalVisibility(target);
+            this.ensureMainVerticalVisibility(target);
+          }
         }
-      }
-      if (
-        !restoredFocus &&
-        !sidebarFocusLocked &&
-        !this.homeHoldFocusLocked &&
-        !backFocusState &&
-        Number.isFinite(this.pendingContinueWatchingFocusIndex)
-      ) {
-        const pendingRowKey = String(this.pendingContinueWatchingFocusRowKey || "continue_watching");
-        const cards = this.getNavigationRowNodes(pendingRowKey);
-        const target =
-          cards[Math.max(0, Math.min(cards.length - 1, Number(this.pendingContinueWatchingFocusIndex || 0)))] ||
-          cards[cards.length - 1] ||
-          null;
-        this.pendingContinueWatchingFocusIndex = null;
-        this.pendingContinueWatchingFocusRowKey = null;
-        if (target) {
-          restoredFocus = true;
-          this.setFocusedNode(target);
-          this.lastMainFocus = target;
-          this.rememberMainRowFocus(target);
-          this.ensureTrackHorizontalVisibility(target);
-          this.ensureMainVerticalVisibility(target);
-        } else {
+        if (!restoredFocus && !sidebarFocusLocked && !this.homeHoldFocusLocked && this.isRestoringFocusFromBack && backFocusState) {
+          restoredFocus = this.restoreFocusState(backFocusState);
+          if (restoredFocus) {
+            this.isRestoringFocusFromBack = false;
+          }
+        }
+        if (
+          !restoredFocus &&
+          !sidebarFocusLocked &&
+          !this.homeHoldFocusLocked &&
+          !backFocusState &&
+          Number.isFinite(this.pendingContinueWatchingFocusIndex)
+        ) {
+          const pendingRowKey = String(this.pendingContinueWatchingFocusRowKey || "continue_watching");
+          const cards = this.getNavigationRowNodes(pendingRowKey);
+          const target =
+            cards[Math.max(0, Math.min(cards.length - 1, Number(this.pendingContinueWatchingFocusIndex || 0)))] ||
+            cards[cards.length - 1] ||
+            null;
+          this.pendingContinueWatchingFocusIndex = null;
+          this.pendingContinueWatchingFocusRowKey = null;
+          if (target) {
+            restoredFocus = true;
+            this.setFocusedNode(target);
+            this.lastMainFocus = target;
+            this.rememberMainRowFocus(target);
+            this.ensureTrackHorizontalVisibility(target);
+            this.ensureMainVerticalVisibility(target);
+          } else {
+            ScreenUtils.setInitialFocus(this.container, this.getInitialFocusSelector());
+            const current = this.container.querySelector(".home-main .focusable.focused");
+            if (current && this.isMainNode(current)) {
+              this.lastMainFocus = current;
+              this.scheduleModernHeroUpdate(current);
+              this.scheduleFocusedPosterFlow(current);
+            }
+          }
+        } else if (
+          !restoredFocus &&
+          !sidebarFocusLocked &&
+          !backFocusState &&
+          !this.isRestoringFocusFromBack &&
+          this.forceInitialContinueWatchingFocus &&
+          this.layoutMode === "modern"
+        ) {
+          this.forceInitialContinueWatchingFocus = false;
+          restoredFocus = this.focusInitialContinueWatchingCard();
+          this.hasAppliedInitialContinueWatchingFocus = restoredFocus;
+        } else if (!restoredFocus && !sidebarFocusLocked && canAttemptRestore && !this.homeHoldFocusLocked) {
+          restoredFocus = this.restoreFocusState(retainedFocusState);
+          if (restoredFocus) {
+            this.isRestoringFocusFromBack = false;
+          }
+        }
+        if (
+          !restoredFocus &&
+          !sidebarFocusLocked &&
+          !this.homeHoldFocusLocked &&
+          !backFocusState &&
+          !this.isRestoringFocusFromBack &&
+          shouldHoldHeroForContinueWatching &&
+          this.layoutMode === "modern"
+        ) {
+          const currentFocusedNode = this.getCurrentFocusedNode();
+          if (currentFocusedNode?.isConnected) {
+            currentFocusedNode.classList.remove("focused");
+          }
+          this.setCurrentFocusedNode(null);
+          this.lastMainFocus = null;
+          this.hasAppliedInitialContinueWatchingFocus = this.focusInitialContinueWatchingCard();
+        } else if (!restoredFocus && !sidebarFocusLocked && !this.homeHoldFocusLocked && !backFocusState) {
           ScreenUtils.setInitialFocus(this.container, this.getInitialFocusSelector());
           const current = this.container.querySelector(".home-main .focusable.focused");
           if (current && this.isMainNode(current)) {
@@ -370,48 +446,16 @@ export function createHomeScreenMethods23() {
             this.scheduleModernHeroUpdate(current);
             this.scheduleFocusedPosterFlow(current);
           }
-        }
-      } else if (
-        !sidebarFocusLocked &&
-        !backFocusState &&
-        !this.isRestoringFocusFromBack &&
-        this.forceInitialContinueWatchingFocus &&
-        this.layoutMode === "modern"
-      ) {
-        this.forceInitialContinueWatchingFocus = false;
-        restoredFocus = this.focusInitialContinueWatchingCard();
-        this.hasAppliedInitialContinueWatchingFocus = restoredFocus;
-      } else if (!sidebarFocusLocked && canAttemptRestore && !this.homeHoldFocusLocked) {
-        restoredFocus = this.restoreFocusState(retainedFocusState);
-        if (restoredFocus) {
           this.isRestoringFocusFromBack = false;
         }
       }
-      if (
-        !restoredFocus &&
-        !sidebarFocusLocked &&
-        !this.homeHoldFocusLocked &&
-        !backFocusState &&
-        !this.isRestoringFocusFromBack &&
-        shouldHoldHeroForContinueWatching &&
-        this.layoutMode === "modern"
-      ) {
-        const currentFocusedNode = this.getCurrentFocusedNode();
-        if (currentFocusedNode?.isConnected) {
-          currentFocusedNode.classList.remove("focused");
-        }
-        this.setCurrentFocusedNode(null);
-        this.lastMainFocus = null;
-        this.hasAppliedInitialContinueWatchingFocus = this.focusInitialContinueWatchingCard();
-      } else if (!restoredFocus && !sidebarFocusLocked && !this.homeHoldFocusLocked && !backFocusState) {
-        ScreenUtils.setInitialFocus(this.container, this.getInitialFocusSelector());
-        const current = this.container.querySelector(".home-main .focusable.focused");
-        if (current && this.isMainNode(current)) {
-          this.lastMainFocus = current;
-          this.scheduleModernHeroUpdate(current);
-          this.scheduleFocusedPosterFlow(current);
-        }
+      if (focusSurvived && !hasPendingFocusAction && this.isMainNode(liveFocusedNode)) {
+        this.lastMainFocus = liveFocusedNode;
+        this.rememberMainRowFocus(liveFocusedNode);
+      }
+      if (restoredFocus && (backFocusState || this.isRestoringFocusFromBack)) {
         this.isRestoringFocusFromBack = false;
+        this.clearStoredReturnFocusState();
       }
       if (!this.container?.querySelector(".home-poster-card.focused")) {
         this.clearFocusedPosterFlowState();
@@ -438,6 +482,8 @@ export function createHomeScreenMethods23() {
       logHomePerf("render", {
         ms: Number((homePerfNow() - renderStart).toFixed(2)),
         domWrite: !markupUnchanged,
+        domReplace: !markupUnchanged && !updatedInPlace,
+        focusPreserved: focusSurvived,
         layoutMode: this.layoutMode,
         rows: Number(this.rows?.length || 0),
         mountedRows,

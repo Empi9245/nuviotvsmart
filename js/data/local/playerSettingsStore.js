@@ -17,6 +17,7 @@ export const DEFAULT_POST_PLAY_MOVIE_THRESHOLD_PERCENT = 90;
 
 const DEFAULTS = {
   autoplayNextEpisode: false,
+  nextEpisodeCountdownEnabled: true,
   postPlayRecommendationsEnabled: true,
   postPlayMovieThresholdPercent: DEFAULT_POST_PLAY_MOVIE_THRESHOLD_PERCENT,
   // Legacy Web-only switch. Subtitle startup is controlled by the preferred
@@ -279,6 +280,9 @@ export function normalizePlayerSettings(settings = {}) {
   return {
     ...DEFAULTS,
     ...persistentSettings,
+    nextEpisodeCountdownEnabled: Boolean(
+      persistentSettings.nextEpisodeCountdownEnabled ?? DEFAULTS.nextEpisodeCountdownEnabled
+    ),
     postPlayRecommendationsEnabled: Boolean(
       persistentSettings.postPlayRecommendationsEnabled ?? DEFAULTS.postPlayRecommendationsEnabled
     ),

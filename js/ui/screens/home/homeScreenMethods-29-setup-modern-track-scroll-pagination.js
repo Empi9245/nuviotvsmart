@@ -1,4 +1,5 @@
 import * as internals from "./homeScreenContext.js";
+import { registerHomeDomNodes } from "./homeDomUpdate.js";
 
 export function createHomeScreenMethods29() {
   const { Router, catalogRepository, buildModernRowKey, MODERN_HOME_CONSTANTS, HOME_MAX_ITEMS_PER_ROW_DEFAULT, createPosterCardMarkup } =
@@ -67,7 +68,7 @@ export function createHomeScreenMethods29() {
           const preferLandscape = Boolean(layoutPrefs.modernLandscapePostersEnabled);
           const chunkSize = Math.max(1, Number(this.getRowItemLimit?.() || HOME_MAX_ITEMS_PER_ROW_DEFAULT));
           const appendItemsToTrack = (itemsToAppend = [], startIndex = 0) => {
-            if (!itemsToAppend.length || !track.isConnected) {
+            if (!itemsToAppend.length || !track.isConnected || this._trackScrollHandlers?.get(track) !== handler) {
               return false;
             }
             const newMarkup = itemsToAppend
@@ -92,6 +93,7 @@ export function createHomeScreenMethods29() {
             }
             const frag = document.createRange().createContextualFragment(newMarkup);
             const appendedCards = Array.from(frag.querySelectorAll(".home-content-card.focusable"));
+            registerHomeDomNodes(appendedCards);
             const navigationRowIndex = (this.navModel?.rows || []).findIndex((rowNodes) => rowNodes[0]?.closest?.(".home-track") === track);
             appendedCards.forEach((card, index) => {
               card.dataset.navZone = "main";
@@ -195,7 +197,9 @@ export function createHomeScreenMethods29() {
             .finally(() => {
               if (token === this.homeLoadToken) {
                 this._trackPaginationInFlight?.delete(rowKey);
-                if (!track.isConnected) {
+                // A refresh can now keep the track mounted while replacing its
+                // handler. Let the current handler append from its live count.
+                if (!track.isConnected || this._trackScrollHandlers?.get(track) !== handler) {
                   scheduleLiveTrackCatchUp();
                 } else if (shouldRequestAnotherPage) {
                   scheduleLiveTrackCatchUp(MODERN_HOME_CONSTANTS.trackPaginationPrefetchDelayMs);

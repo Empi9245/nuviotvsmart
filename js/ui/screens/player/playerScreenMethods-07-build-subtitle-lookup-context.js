@@ -128,6 +128,62 @@ export function createPlayerScreenMethods07() {
         trackId
       };
     },
+    getSubtitleTrackPreference(option = {}) {
+      const entry = option?.entry || {};
+      const track = entry?.track || entry;
+      const type = String(option?.sourceType || "")
+        .trim()
+        .toLowerCase();
+      if (type === "off") {
+        return { type: "DISABLED" };
+      }
+
+      const language =
+        [option?.languageKey, entry?.languageKey, track?.lang, track?.language, track?.languageCode]
+          .map((value) => cleanDisplayText(value))
+          .find(Boolean) || "";
+      if (type === "addon") {
+        return {
+          type: "ADDON",
+          language,
+          addonId:
+            [entry?.subtitleId, track?.id, track?.trackId, track?.raw?.id].map((value) => cleanDisplayText(value)).find(Boolean) || "",
+          addonUrl: cleanDisplayText(track?.url || track?.raw?.url || ""),
+          addonName: cleanDisplayText(track?.addonName || track?.raw?.addonName || "")
+        };
+      }
+
+      const sourceTrackId = Number(track?.sourceTrackId);
+      return {
+        type: "INTERNAL",
+        language,
+        name:
+          [track?.name, track?.label, track?.title, entry?.label, option?.title].map((value) => cleanDisplayText(value)).find(Boolean) ||
+          "",
+        trackId:
+          [
+            entry?.manifestSubtitleTrackId,
+            track?.trackId,
+            Number.isFinite(sourceTrackId) && sourceTrackId >= 0 ? sourceTrackId : null,
+            track?.raw?.id,
+            track?.id
+          ]
+            .map((value) => cleanDisplayText(value))
+            .find(Boolean) || "",
+        isForced: Boolean(option?.isForced)
+      };
+    },
+    rememberSubtitleTrackSelection(option = null) {
+      if (!option || !this.trackPreferenceContentId) {
+        return;
+      }
+      const preference = this.getSubtitleTrackPreference(option);
+      if (!preference) {
+        return;
+      }
+      TrackPreferencesStore.setSubtitle(this.trackPreferenceContentId, preference);
+      this.rememberedSubtitleTrackPreference = { ...preference };
+    },
     rememberAudioTrackSelection(preference = null) {
       if (!preference || !this.trackPreferenceContentId) {
         return;

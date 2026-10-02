@@ -276,6 +276,9 @@ export function createPlayerScreenMethods49() {
       }
 
       this.applySubtitleEntry(option.entry);
+      if (!this.startupSubtitlePreferenceApplying) {
+        this.rememberSubtitleTrackSelection(option);
+      }
       return true;
     },
     selectFirstSubtitleOptionForLanguage(languageKey, { focusOptions = true } = {}) {

@@ -27,6 +27,7 @@ export function createHomeScreenMethods20() {
       const mountStart = HOME_PERF_DEBUG ? homePerfNow() : 0;
       const isBackNavigation = Boolean(navigationContext?.isBackNavigation);
       this.container = document.getElementById("home");
+      this.hasUserInteractedSinceHomePaint = false;
       const restoredRouteFocusState =
         navigationContext?.isBackNavigation && navigationContext?.restoredState?.layoutMode ? navigationContext.restoredState : null;
       const storedReturnFocusState = navigationContext?.isBackNavigation
@@ -140,6 +141,7 @@ export function createHomeScreenMethods20() {
         const restoredFocus = this.restoreFocusState(returnFocusState);
         if (restoredFocus) {
           this.isRestoringFocusFromBack = false;
+          this.clearStoredReturnFocusState();
         } else {
           ScreenUtils.setInitialFocus(this.container, this.getInitialFocusSelector());
         }
@@ -202,7 +204,6 @@ export function createHomeScreenMethods20() {
 
       this.homeLoadToken = (this.homeLoadToken || 0) + 1;
       this.hasAppliedInitialContinueWatchingFocus = false;
-      this.hasUserInteractedSinceHomePaint = false;
       this.isInitialHomeLoading = true;
       this.ensureStartupSyncSubscription();
       this.layoutPrefs = LayoutPreferences.get();

@@ -264,12 +264,15 @@ export function createPlayerScreenMethods51() {
         return true;
       }
 
+      const getPreferredTargetIndex = (option) =>
+        option?.supported && !(isStillLoading && option.entry?.implicitAudioTrack)
+          ? preferredTargets.findIndex((target) => this.matchesStartupAudioTarget(option, target))
+          : -1;
+      const hasHigherPriorityPreferredOption = (targetIndex) =>
+        targetIndex > 0 && Boolean(this.findStartupPreferredAudioOption(preferredTargets.slice(0, targetIndex)));
       const selectedOption = this.collectAudioOptionItems().find((entry) => entry.selected);
-      if (
-        selectedOption?.supported &&
-        !(isStillLoading && selectedOption.entry?.implicitAudioTrack) &&
-        preferredTargets.some((target) => this.matchesStartupAudioTarget(selectedOption, target))
-      ) {
+      const selectedTargetIndex = getPreferredTargetIndex(selectedOption);
+      if (selectedTargetIndex >= 0 && !hasHigherPriorityPreferredOption(selectedTargetIndex)) {
         this.clearStartupAudioPreferenceRetry();
         this.startupAudioFallbackApplied = false;
         this.startupAudioPreferenceApplied = true;
@@ -303,9 +306,8 @@ export function createPlayerScreenMethods51() {
       }
 
       const appliedOption = this.collectAudioOptionItems().find((entry) => entry.selected);
-      const applied = Boolean(
-        appliedOption?.supported && preferredTargets.some((target) => this.matchesStartupAudioTarget(appliedOption, target))
-      );
+      const appliedTargetIndex = getPreferredTargetIndex(appliedOption);
+      const applied = appliedTargetIndex >= 0 && !hasHigherPriorityPreferredOption(appliedTargetIndex);
       this.startupAudioPreferenceApplied = applied;
       if (applied) {
         this.clearStartupAudioPreferenceRetry();

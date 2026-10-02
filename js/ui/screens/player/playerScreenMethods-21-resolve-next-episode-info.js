@@ -179,6 +179,9 @@ export function createPlayerScreenMethods21() {
         tmdbId: this.params?.tmdbId || this.params?.tmdb_id || null,
         traktId: this.params?.traktId || this.params?.trakt_id || null,
         returnToSearchOnBack: Boolean(this.params?.returnToSearchOnBack || streamRouteParams?.returnToSearchOnBack),
+        returnHomeOnBack: Boolean(
+          this.params?.returnHomeOnBack || streamRouteParams?.continueWatchingBackHome || streamRouteParams?.returnHomeOnBack
+        ),
         preferredSeason: preferredSeasonRaw != null && Number.isFinite(preferredSeason) && preferredSeason >= 0 ? preferredSeason : null
       };
     },

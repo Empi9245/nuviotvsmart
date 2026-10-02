@@ -40,6 +40,11 @@ export function registerPlaybackActionsPart01(model) {
       autoplayNextEpisode: !PlayerSettingsStore.get().autoplayNextEpisode
     });
   });
+  this.actionMap.set("playback:nextEpisodeCountdown", () => {
+    PlayerSettingsStore.set({
+      nextEpisodeCountdownEnabled: !PlayerSettingsStore.get().nextEpisodeCountdownEnabled
+    });
+  });
   this.actionMap.set("playback:postPlayRecommendations", () => {
     PlayerSettingsStore.set({
       postPlayRecommendationsEnabled: !PlayerSettingsStore.get().postPlayRecommendationsEnabled

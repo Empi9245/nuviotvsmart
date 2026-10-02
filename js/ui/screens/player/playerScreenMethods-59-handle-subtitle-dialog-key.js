@@ -109,11 +109,15 @@ export function createPlayerScreenMethods59() {
             return true;
           }
           if (language.key === SUBTITLE_LANGUAGE_OFF_KEY) {
-            this.applySubtitleEntry(
-              this.getSubtitleEntries("builtIn").find((entry) => entry.id === "subtitle-off") || {
-                trackIndex: -1
-              }
-            );
+            const offEntry = this.getSubtitleEntries("builtIn").find((entry) => entry.id === "subtitle-off") || {
+              trackIndex: -1
+            };
+            this.applySubtitleEntry(offEntry);
+            this.rememberSubtitleTrackSelection({
+              sourceType: "off",
+              languageKey: SUBTITLE_LANGUAGE_OFF_KEY,
+              entry: offEntry
+            });
           } else {
             const selected = this.selectFirstSubtitleOptionForLanguage(language.key, {
               focusOptions: true
@@ -132,7 +136,7 @@ export function createPlayerScreenMethods59() {
         if (this.subtitleFocusedRail === "options") {
           const option = options[this.subtitleOptionRailIndex];
           if (option?.entry) {
-            this.applySubtitleEntry(option.entry);
+            this.selectSubtitleOption(option);
           }
           return true;
         }

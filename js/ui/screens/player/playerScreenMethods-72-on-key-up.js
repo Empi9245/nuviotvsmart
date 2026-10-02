@@ -21,6 +21,23 @@ export function createPlayerScreenMethods72() {
   return {
     onKeyUp(event) {
       const keyCode = Number(event?.keyCode || 0);
+      if (keyCode === 37 || keyCode === 39) {
+        // Match Android TV: preview while holding a direction, seek on release.
+        if (
+          this.seekPreviewSeconds != null &&
+          (!this.controlsVisible || this.controlFocusZone === "progress") &&
+          !this.isExternalFrameMode() &&
+          !this.isStartupErrorVisible() &&
+          !this.isPostPlayVisible() &&
+          !this.isDialogOpen() &&
+          !this.pauseOverlayVisible &&
+          !PlayerController.avplaySeekInFlight
+        ) {
+          event?.preventDefault?.();
+          this.commitSeekPreview();
+        }
+        return;
+      }
       if (!isSelectKeyCode(keyCode) || !this.isPostPlayVisible()) {
         return;
       }

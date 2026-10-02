@@ -74,6 +74,7 @@ export function createPlayerScreenMethods01() {
       this.trackPreferenceContentId = this.getTrackPreferenceContentId();
       this.subtitleDelayPreferenceVideoId = this.getSubtitleDelayPreferenceVideoId();
       this.rememberedAudioTrackPreference = TrackPreferencesStore.getAudio(this.trackPreferenceContentId);
+      this.rememberedSubtitleTrackPreference = TrackPreferencesStore.getSubtitle(this.trackPreferenceContentId);
       if (Environment.isWebOS()) {
         const legacyForceAll = Boolean(PlayerSettingsStore.get().forceDtsTrueHdAudio);
         const audioCompatibility = WebOsAudioCompatibilityStore.get({ legacyForceAll });

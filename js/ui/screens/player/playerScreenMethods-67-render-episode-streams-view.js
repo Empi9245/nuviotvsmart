@@ -299,6 +299,7 @@ export function createPlayerScreenMethods67() {
             preferredStreamId: bestStreamCandidate.id || null,
             playbackSourceContext: this.getPlaybackSourceContext(bestStreamCandidate),
             returnToStreamOnBack: false,
+            returnHomeOnBack: this.buildDetailRouteParamsFromPlayer().returnHomeOnBack,
             nextEpisodeVideoId: nextEpisode?.id || null,
             nextEpisodeLabel: nextEpisode ? `S${nextEpisode.season}E${nextEpisode.episode}` : null,
             nextEpisodeSeason: nextEpisode?.season ?? null,

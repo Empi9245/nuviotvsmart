@@ -23,6 +23,16 @@ export function renderPlaybackGeneralBody(model) {
               checked: Boolean(model.player.autoplayNextEpisode)
             })}
             ${this.renderToggleRow({
+              focusKey: "playback:nextEpisodeCountdown",
+              title: t("next_episode_countdown_title", {}, "Next Episode Countdown"),
+              subtitle: t(
+                "next_episode_countdown_sub",
+                {},
+                "Leave 3 seconds to cancel before switching to the next episode. Turn this off to switch immediately."
+              ),
+              checked: model.player.nextEpisodeCountdownEnabled !== false
+            })}
+            ${this.renderToggleRow({
               focusKey: "playback:postPlayRecommendations",
               title: t("autoplay_post_play_recommendations", {}, "Post-play Recommendations"),
               subtitle: t("autoplay_post_play_recommendations_sub", {}, "Show recommendations near the end of movies and series."),

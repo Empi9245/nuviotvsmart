@@ -160,19 +160,19 @@ export function createMetaDetailsScreenMethods04() {
         path: `/${isSeries ? "shows" : "movies"}/${encodeURIComponent(directId)}/comments/likes`
       };
     },
-    async fetchTraktCommentsPage(page = 1) {
-      const target = this.resolveTraktCommentsTarget(this.meta);
+    async fetchTraktCommentsPage(page = 1, { target = this.resolveTraktCommentsTarget(this.meta), signal = null } = {}) {
       if (!target || !TRAKT_CLIENT_ID) {
         return { items: [], page: 0, pageCount: 0 };
       }
       const token = await TraktAuthService.getValidAccessToken().catch(() => null);
-      if (!token) {
+      if (!token || signal?.aborted) {
         return { items: [], page: 0, pageCount: 0 };
       }
       const url = new URL(`${String(TRAKT_API_URL || "https://api.trakt.tv").replace(/\/+$/, "")}${target.path}`);
       url.searchParams.set("page", String(page));
       url.searchParams.set("limit", String(TRAKT_COMMENTS_LIMIT));
       const response = await fetch(url.toString(), {
+        ...(signal ? { signal } : {}),
         headers: {
           "Content-Type": "application/json",
           "trakt-api-version": "2",
@@ -207,8 +207,14 @@ export function createMetaDetailsScreenMethods04() {
         pageCount: Number(response.headers.get("X-Pagination-Page-Count") || page || 0)
       };
     },
+    cancelTraktCommentsRequest() {
+      this.commentsRequestToken = (this.commentsRequestToken || 0) + 1;
+      this.commentsRequestController?.abort();
+      this.commentsRequestController = null;
+    },
     async loadTraktComments({ force: _force = false, append = false } = {}) {
       if (!TraktSettingsStore.get().showMetaComments || !TraktAuthService.isAuthenticated() || !this.supportsTraktComments(this.meta)) {
+        this.cancelTraktCommentsRequest();
         this.commentsItems = [];
         this.commentsPage = 0;
         this.commentsPageCount = 0;
@@ -219,12 +225,27 @@ export function createMetaDetailsScreenMethods04() {
       }
       const page = append ? Number(this.commentsPage || 0) + 1 : 1;
       if (append && this.commentsPageCount > 0 && page > this.commentsPageCount) return;
+      this.cancelTraktCommentsRequest();
+      const requestToken = this.commentsRequestToken;
+      const detailToken = this.detailLoadToken;
+      const target = this.resolveTraktCommentsTarget(this.meta);
+      const mode = this.commentsMode;
+      const controller = typeof AbortController === "function" ? new AbortController() : null;
+      this.commentsRequestController = controller;
+      const isCurrent = () =>
+        requestToken === this.commentsRequestToken &&
+        detailToken === this.detailLoadToken &&
+        mode === this.commentsMode &&
+        target?.path === this.resolveTraktCommentsTarget(this.meta)?.path;
+      this.commentsLoading = false;
+      this.commentsLoadingMore = false;
       if (append) this.commentsLoadingMore = true;
       else this.commentsLoading = true;
       this.commentsError = "";
       this.updateRenderedDetailSections(this.meta);
       try {
-        const result = await this.fetchTraktCommentsPage(page);
+        const result = await this.fetchTraktCommentsPage(page, { target, signal: controller?.signal || null });
+        if (!isCurrent()) return;
         const existingIds = new Set((append ? this.commentsItems : []).map((item) => Number(item.id || 0)));
         const nextItems = result.items.filter((item) => !existingIds.has(Number(item.id || 0)));
         this.commentsItems = append ? [...this.commentsItems, ...nextItems] : nextItems;
@@ -232,12 +253,16 @@ export function createMetaDetailsScreenMethods04() {
         this.commentsPageCount = result.pageCount;
         this.commentsError = "";
       } catch (error) {
+        if (!isCurrent()) return;
         console.warn("Trakt comments load failed", error);
         this.commentsError = t("detail_comments_error", {}, "Could not load Trakt comments.");
       } finally {
-        this.commentsLoading = false;
-        this.commentsLoadingMore = false;
-        this.updateRenderedDetailSections(this.meta);
+        if (isCurrent()) {
+          this.commentsRequestController = null;
+          this.commentsLoading = false;
+          this.commentsLoadingMore = false;
+          this.updateRenderedDetailSections(this.meta);
+        }
       }
     },
     hasAvailableSeason(season, episodes = this.episodes) {

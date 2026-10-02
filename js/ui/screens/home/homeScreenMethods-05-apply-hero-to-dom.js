@@ -278,6 +278,11 @@ export function createHomeScreenMethods05() {
     },
     markUserInteractionSinceHomePaint() {
       this.hasUserInteractedSinceHomePaint = true;
+      this.forceInitialContinueWatchingFocus = false;
+      if (this.isRestoringFocusFromBack || this.pendingBackFocusState) {
+        this.isRestoringFocusFromBack = false;
+        this.clearStoredReturnFocusState();
+      }
     },
     getInitialFocusSelector() {
       if (this.layoutMode === "grid") {

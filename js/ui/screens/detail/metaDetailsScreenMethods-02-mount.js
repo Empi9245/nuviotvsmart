@@ -32,6 +32,7 @@ export function createMetaDetailsScreenMethods02() {
       this.streamChooserLoadToken = 0;
       this.isLoadingDetail = true;
       this.detailLoadToken = (this.detailLoadToken || 0) + 1;
+      this.cancelTraktCommentsRequest();
       this.libraryMembershipMutationToken = 0;
       this.libraryTogglePending = false;
       this.seriesInsightTab = "cast";

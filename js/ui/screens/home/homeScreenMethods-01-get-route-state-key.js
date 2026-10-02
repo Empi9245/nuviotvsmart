@@ -178,6 +178,7 @@ export function createHomeScreenMethods01() {
     },
     clearStoredReturnFocusState() {
       this.pendingBackFocusState = null;
+      this.homeReturnFocusRestoreToken = Number(this.homeReturnFocusRestoreToken || 0) + 1;
       try {
         globalThis.sessionStorage?.removeItem?.(HOME_RETURN_FOCUS_STATE_KEY);
       } catch (_) {}
@@ -220,11 +221,19 @@ export function createHomeScreenMethods01() {
       if (!focusState?.layoutMode) {
         return;
       }
+      const restoreToken = (this.homeReturnFocusRestoreToken = Number(this.homeReturnFocusRestoreToken || 0) + 1);
+      let completed = false;
       const restore = () => {
-        if (Router.getCurrent() !== "home") {
+        if (
+          completed ||
+          restoreToken !== this.homeReturnFocusRestoreToken ||
+          this.hasUserInteractedSinceHomePaint ||
+          Router.getCurrent() !== "home"
+        ) {
           return;
         }
         if (this.applyReturnFocusStateNow(focusState)) {
+          completed = true;
           this.clearStoredReturnFocusState();
         }
       };

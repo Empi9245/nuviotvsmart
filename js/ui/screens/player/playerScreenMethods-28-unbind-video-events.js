@@ -282,16 +282,16 @@ export function createPlayerScreenMethods28() {
       this.syncPostPlayPlayerSurface(postPlayState);
       this.syncPlayerActionOverlayOffset();
     },
-    cancelPostPlayNativeSurfaceAnimation() {
-      if (this.postPlayNativeSurfaceAnimationFrame == null) {
+    cancelPostPlayPlayerSurfaceAnimation() {
+      if (this.postPlayPlayerSurfaceAnimationFrame == null) {
         return;
       }
-      if (this.postPlayNativeSurfaceAnimationUsesRaf) {
-        globalThis.cancelAnimationFrame?.(this.postPlayNativeSurfaceAnimationFrame);
+      if (this.postPlayPlayerSurfaceAnimationUsesRaf) {
+        globalThis.cancelAnimationFrame?.(this.postPlayPlayerSurfaceAnimationFrame);
       } else {
-        clearTimeout(this.postPlayNativeSurfaceAnimationFrame);
+        clearTimeout(this.postPlayPlayerSurfaceAnimationFrame);
       }
-      this.postPlayNativeSurfaceAnimationFrame = null;
+      this.postPlayPlayerSurfaceAnimationFrame = null;
     }
   };
 }

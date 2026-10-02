@@ -157,6 +157,7 @@ export function createSearchScreenMethods05() {
       this.pendingAutoFocusResults = Boolean(autoFocusResults && nextMode === "search");
       this.lastSubmittedQuery = nextQuery;
       this.loadToken = (this.loadToken || 0) + 1;
+      this.cancelActiveSearchRequests();
       this.captureLiveViewState();
       await this.reloadRows();
       if (rememberToHistory) {

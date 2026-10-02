@@ -145,11 +145,13 @@ export function createPlayerScreenMethods04() {
       const trailerVisibilityChanged = Boolean(previousTrailerSlot) && initialTrailerVisible !== trailerAvailable;
       this.postPlayRenderedSignature = signature;
       mount.innerHTML = `
+          <div class="player-post-play-background" aria-hidden="true">
           <div class="player-post-play-backdrop" data-recommendation-id="${escapeAttribute(recommendation.id)}" aria-hidden="true">
             ${backdrop ? `<img class="player-post-play-backdrop-image is-current" src="${escapeAttribute(backdrop)}" alt="" decoding="async" />` : ""}
           </div>
           <div class="player-post-play-trailer-media" aria-hidden="true"></div>
           <div class="player-post-play-scrim" aria-hidden="true"></div>
+          </div>
           ${this.renderPostPlayPlayerWindow(state)}
           <div class="player-post-play-content${state.isChangingRecommendation ? " is-changing" : ""}">
             <div class="player-post-play-summary">
