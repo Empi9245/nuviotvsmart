@@ -1,3 +1,17 @@
+## 1.2.2
+
+### Improvements & Fixes
+
+- Improved Home catalog refreshes with incremental row updates that preserve focused cards, artwork, expanded posters, trailers, and scroll position; deferred rows now appear progressively on constrained TVs too (@WhiteGiso)
+- Fixed delayed Home focus restoration overriding remote navigation, and kept catalog pagination attached to the current row state (@WhiteGiso)
+- Preserved active TV keyboard composition during search updates, cancelled superseded searches, and prevented stale results from replacing the current query (@WhiteGiso)
+- Cancelled outdated Trakt comment requests when changing titles or leaving Details, preventing comments from a previous title from appearing (@WhiteGiso)
+- Added profile-synced subtitle preferences per title, including embedded tracks, addon subtitles, and subtitles turned off; restored saved selections after track discovery and respected preferred audio-language priority (@WhiteGiso)
+- Improved post-play mini-player positioning and animation across TV playback surfaces, including Tizen viewport scaling and visibility through the recommendation background (@WhiteGiso)
+- Added a next-episode countdown toggle, preserved Home return navigation across episode transitions, and committed seek previews when releasing the remote direction key (@WhiteGiso)
+- Fixed plugin HTTP forwarding on webOS 5/6 by using the Node 8 request contract for fetch and cancellation (@WhiteGiso)
+- Improved legacy TV layout compatibility by guarding modern CSS math in custom properties and retaining supported fallback values (@WhiteGiso)
+
 ## 1.2.1
 
 ### Improvements & Fixes
