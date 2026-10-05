@@ -1,3 +1,17 @@
+## 1.2.3
+
+### Improvements & Fixes
+
+- Fixed Tizen AIOStreams playback through the local proxy, including redirects, relative HLS segment and key URLs, non-default ports, declared playback headers, and upstream connection cleanup (@O1Abdulrahman, @WhiteGiso)
+- Improved discovery of late AVPlay tracks and prevented outdated audio-selection callbacks from affecting newer selections or playback sessions; retained native buffering defaults and supported audio-selection states (@O1Abdulrahman, @WhiteGiso)
+- Kept focus changes immediate for additional legacy Tizen detail and sidebar controls (@O1Abdulrahman)
+- Improved Home poster loading when catalog rows scroll and retained the four-line Modern Home synopsis limit on constrained TVs (@WhiteGiso)
+- Reduced repeated stream badge matching work while preserving filter semantics (@WhiteGiso)
+- Fixed Library updates arriving before the content mount is ready (@WhiteGiso)
+- Applied the Continue Watching recent-title limit after series deduplication and aligned marking previous episodes as watched with the current-season Android behavior (@WhiteGiso)
+- Displayed episode sources progressively while preserving source focus and ignoring results after the panel closes (@WhiteGiso)
+- Allowed slower address connection attempts for embedded subtitle range requests while preserving larger configured timeouts and older Node runtime compatibility (@WhiteGiso)
+
 ## 1.2.2
 
 ### Improvements & Fixes
