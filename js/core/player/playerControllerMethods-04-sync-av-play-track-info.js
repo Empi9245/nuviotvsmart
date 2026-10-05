@@ -33,11 +33,16 @@ export function createPlayerControllerMethods04() {
       const totalTracks = (() => {
         try {
           const value = avplay.getTotalTrackInfo?.();
-          return Array.isArray(value) ? value : [];
+          return Array.isArray(value) ? value : null;
         } catch (_) {
-          return [];
+          return null;
         }
       })();
+
+      // A failed metadata query must not erase tracks discovered earlier.
+      if (totalTracks === null) {
+        return;
+      }
 
       const currentTracks = (() => {
         try {

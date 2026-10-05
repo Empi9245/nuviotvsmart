@@ -38,7 +38,7 @@ export function createPlayerControllerMethods09() {
         this.configureAvPlayForSource(requestHeaders);
         this.configureAvPlayBuffering();
       } catch (error) {
-        this.lastPlaybackErrorCode = this.mapAvPlayErrorToMediaCode(error?.name || error?.message || error);
+        this.lastPlaybackErrorCode = this.mapAvPlayErrorToMediaCode([error?.name, error?.message].filter(Boolean).join(": ") || error);
         this.teardownAvPlay();
         this.playbackEngine = "none";
         return false;
@@ -251,7 +251,7 @@ export function createPlayerControllerMethods09() {
           onPrepareError("prepare_not_supported");
         }
       } catch (error) {
-        onPrepareError(error?.name || error?.message || error);
+        onPrepareError([error?.name, error?.message].filter(Boolean).join(": ") || error);
       }
 
       return true;
