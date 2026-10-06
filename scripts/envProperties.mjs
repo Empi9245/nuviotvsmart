@@ -26,8 +26,9 @@ export const ENV_PROPERTY_KEYS = [
 ];
 
 const DEFAULT_ENV_VALUES = {
-  NUVIO_SUPABASE_URL: "",
-  NUVIO_SUPABASE_ANON_KEY: "",
+  NUVIO_SUPABASE_URL: "https://api.nuvio.tv",
+  NUVIO_SUPABASE_ANON_KEY:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgxNTIxMzQ2LCJleHAiOjE5MzkyMDEzNDZ9.tmQaj682pwzehpqlgCDMnySOqiUvpgRbrE43T4VJpDI",
   NUVIO_SUPABASE_FALLBACK_URL: "",
   TV_LOGIN_WEB_BASE_URL: "https://nuvio.tv/tv-login",
   DEVICE_LOGIN_WEB_BASE_URL: "https://nuvio.tv/link",
@@ -97,7 +98,11 @@ export function normalizeEnvProperties(properties = {}) {
       : DEFAULT_ENV_VALUES[key];
     const normalizedValue = String(rawValue ?? "");
     const shouldUseDefault =
-      (key === "INTRODB_API_URL" || key === "SPONSOR_NAMES") && !normalizedValue.trim();
+      (key === "INTRODB_API_URL" ||
+        key === "SPONSOR_NAMES" ||
+        key === "NUVIO_SUPABASE_URL" ||
+        key === "NUVIO_SUPABASE_ANON_KEY") &&
+      !normalizedValue.trim();
     env[key] = shouldUseDefault ? DEFAULT_ENV_VALUES[key] : normalizedValue;
   });
   return env;

@@ -1,0 +1,30 @@
+{
+  "name": "Nuvio TV",
+  "short_name": "Nuvio",
+  "description": "Bring your sources together in one TV library.",
+  "start_url": "./?platform=vidaa&source=home-shortcut",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0a0a14",
+  "theme_color": "#0a0a14",
+  "icons": [
+    {
+      "src": "assets/images/icon.png",
+      "sizes": "80x80",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/images/largeIcon.png",
+      "sizes": "130x130",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/images/tizenIcon.png",
+      "sizes": "1080x1080",
+      "type": "image/png"
+    }
+  ],
+  "id": "./?platform=vidaa",
+  "scope": "./",
+  "display_override": ["fullscreen", "standalone"]
+}

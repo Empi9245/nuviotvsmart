@@ -190,6 +190,19 @@ export function getPluginCapabilitySnapshot() {
     };
   }
 
+  if (platform === "vidaa") {
+    return {
+      ...snapshotFields(platform, PLUGIN_QUOTAS.modern, {
+        appSupported: true,
+        normalAddonsSupported: true,
+        candidate: true,
+        reason: "VIDAA OS runtime ready"
+      }),
+      precheckPassed: true,
+      pluginServicePackaged: true
+    };
+  }
+
   return {
     ...snapshotFields(platform, PLUGIN_QUOTAS.modern, {
       appSupported: false,

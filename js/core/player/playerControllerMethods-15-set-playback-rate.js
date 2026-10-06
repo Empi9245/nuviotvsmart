@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerController.js";
+import { selectVidaaTextTrack } from "../../platform/vidaa/vidaaVideo.js";
 
 export function createPlayerControllerMethods15() {
   const { Platform, isValidAvPlayPlaybackSpeedState, resolveWebOsSubtitleFontSizeLevel } = internals;
@@ -174,6 +175,10 @@ export function createPlayerControllerMethods15() {
       }
       if (!Number.isFinite(targetIndex) || targetIndex < -1 || targetIndex >= tracks.length) {
         return false;
+      }
+
+      if (Platform.isVidaa()) {
+        return selectVidaaTextTrack(tracks, targetIndex);
       }
 
       if (Platform.isWebOS() && this.isUsingNativePlayback()) {

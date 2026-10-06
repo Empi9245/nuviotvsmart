@@ -17,3 +17,7 @@ app.bundle.js
 ecosystem.config.cjs
 scripts/commit-build-poller.mjs
 .DS_Store
+
+# Python cache
+__pycache__/
+*.pyc

@@ -20,23 +20,26 @@ import {
   isSelectedSidebarAction
 } from "./sidebarNavigationHelpers-02-get-sidebar-avatar-catalog.js";
 import { focusWithoutAutoScroll } from "./sidebarNavigationHelpers-04-set-modern-sidebar-expanded.js";
-import { scheduleRootSidebarTextFit, syncSidebarStateClasses } from "./sidebarNavigationHelpers-01-root-sidebar-items.js";
+import { scheduleRootSidebarTextFit, syncSidebarStateClasses, t } from "./sidebarNavigationHelpers-01-root-sidebar-items.js";
 
 export function renderRootSidebar({ selectedRoute = "home", profile = null, layout = {}, expanded = false, pillIconOnly = false } = {}) {
-  if (layout?.modernSidebar) {
-    return renderModernSidebar({
-      selectedRoute,
-      profile,
-      expanded,
-      pillIconOnly,
-      blurEnabled: Boolean(layout?.modernSidebarBlur) && isModernSidebarBlurAvailable(),
-      layout
-    });
-  }
-  return renderLegacySidebar({ selectedRoute, profile, layout, expanded });
+  const sidebarMarkup = layout?.modernSidebar
+    ? renderModernSidebar({
+        selectedRoute,
+        profile,
+        expanded,
+        pillIconOnly,
+        blurEnabled: Boolean(layout?.modernSidebarBlur) && isModernSidebarBlurAvailable(),
+        layout
+      })
+    : renderLegacySidebar({ selectedRoute, profile, layout, expanded });
+  return sidebarMarkup;
 }
 
-export function bindRootSidebarEvents(container, { currentRoute = "", onExpandSidebar = null, onSelectedAction = null } = {}) {
+export function bindRootSidebarEvents(
+  container,
+  { currentRoute = "", onExpandSidebar = null, onCollapseSidebar = null, onSelectedAction = null } = {}
+) {
   const focusables = Array.from(container?.querySelectorAll(".home-sidebar .focusable, .modern-sidebar-panel .focusable") || []);
 
   const moveSidebarFocus = (currentNode, delta) => {

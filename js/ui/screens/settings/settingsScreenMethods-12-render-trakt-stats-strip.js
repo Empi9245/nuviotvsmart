@@ -306,7 +306,8 @@ export function createSettingsScreenMethods12() {
       bindRootSidebarEvents(this.container, {
         currentRoute: "settings",
         onSelectedAction: () => this.closeSidebarToNav(),
-        onExpandSidebar: () => this.openSidebar()
+        onExpandSidebar: () => this.openSidebar(),
+        onCollapseSidebar: () => this.closeSidebarToNav()
       });
       ScreenUtils.indexFocusables(this.container);
       bindSettingsScrollIndicators(this.container);

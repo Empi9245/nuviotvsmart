@@ -27,6 +27,11 @@ export function createPlayerControllerMethods12() {
 
       if (this.isLikelyHlsMimeType(normalizedSourceType)) {
         const candidates = [];
+        // Like Stremio's VIDAA player, use the TV's HTML media pipeline when
+        // it advertises HLS support. Keep the shared MSE path as a fallback.
+        if (Platform.isVidaa() && canPlayNativeHls) {
+          pushCandidate(candidates, "native-hls");
+        }
         if (isTizenRuntime && canUseHlsJs) {
           // Match Android's single HLS media pipeline when MSE is available.
           // This also avoids the long AVPlay connection-failure path observed
