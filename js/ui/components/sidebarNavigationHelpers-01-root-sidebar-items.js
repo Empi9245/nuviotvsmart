@@ -116,14 +116,8 @@ export function syncSidebarStateClasses(container) {
   const modernSidebar = root.querySelector?.(".modern-sidebar-shell");
   root.classList.toggle("has-modern-sidebar", Boolean(modernSidebar));
   root.classList.toggle("has-collapsible-sidebar", Boolean(legacySidebar?.getAttribute("data-collapsible") === "true"));
-  const isExpanded = Boolean(
-    legacySidebar?.classList?.contains("expanded") ||
-      modernSidebar?.classList?.contains("expanded")
-  );
+  const isExpanded = Boolean(legacySidebar?.classList?.contains("expanded") || modernSidebar?.classList?.contains("expanded"));
   root.classList.toggle("has-expanded-sidebar", isExpanded);
-  root
-    .querySelector?.(".vidaa-sidebar-menu-trigger")
-    ?.setAttribute?.("aria-expanded", isExpanded ? "true" : "false");
 }
 
 export function getSidebarTextFitTargets(container) {

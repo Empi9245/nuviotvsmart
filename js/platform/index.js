@@ -175,7 +175,7 @@ export const Platform = {
     return getAdapter().prepareVideoElement?.(videoElement);
   },
 
-  launchNativePlayer(url, title) {
-    return getAdapter().launchNativePlayer?.(url, title) ?? false;
+  prepareMediaRequest(url) {
+    getAdapter().prepareMediaRequest?.(url);
   }
 };

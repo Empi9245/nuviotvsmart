@@ -11,7 +11,6 @@ import { MemberAccessRepository } from "../../data/remote/supabase/memberAccessR
 import { I18n } from "../../i18n/index.js";
 
 import { getTvRuntimePerformanceProfile } from "../../platform/tvRuntimePerformance.js";
-import { Platform } from "../../platform/index.js";
 
 import {
   renderModernSidebar,
@@ -23,26 +22,7 @@ import {
 import { focusWithoutAutoScroll } from "./sidebarNavigationHelpers-04-set-modern-sidebar-expanded.js";
 import { scheduleRootSidebarTextFit, syncSidebarStateClasses, t } from "./sidebarNavigationHelpers-01-root-sidebar-items.js";
 
-function renderVidaaSidebarMenuTrigger(expanded = false) {
-  if (!Platform.isVidaa()) {
-    return "";
-  }
-  return `
-    <button class="vidaa-sidebar-menu-trigger"
-            type="button"
-            data-action="toggleSidebar"
-            aria-label="${t("sidebar.expandSidebar", {}, "Menu")}"
-            aria-expanded="${expanded ? "true" : "false"}">
-      <span class="vidaa-sidebar-menu-glyph" aria-hidden="true">
-        <span></span><span></span><span></span>
-      </span>
-      <span class="vidaa-sidebar-menu-label">Menu</span>
-    </button>
-  `;
-}
-
 export function renderRootSidebar({ selectedRoute = "home", profile = null, layout = {}, expanded = false, pillIconOnly = false } = {}) {
-  const menuTrigger = renderVidaaSidebarMenuTrigger(expanded);
   const sidebarMarkup = layout?.modernSidebar
     ? renderModernSidebar({
         selectedRoute,
@@ -53,7 +33,7 @@ export function renderRootSidebar({ selectedRoute = "home", profile = null, layo
         layout
       })
     : renderLegacySidebar({ selectedRoute, profile, layout, expanded });
-  return `${menuTrigger}${sidebarMarkup}`;
+  return sidebarMarkup;
 }
 
 export function bindRootSidebarEvents(
@@ -117,26 +97,6 @@ export function bindRootSidebarEvents(
       }
     };
   });
-
-  container
-    ?.querySelectorAll(".vidaa-sidebar-menu-trigger[data-action='toggleSidebar']")
-    .forEach((node) => {
-      node.onclick = async (event) => {
-        event?.preventDefault?.();
-        event?.stopPropagation?.();
-        event?.stopImmediatePropagation?.();
-        const expanded = Boolean(
-          container?.querySelector(
-            ".root-sidebar-legacy.expanded, .modern-sidebar-shell.expanded"
-          )
-        );
-        const handler = expanded ? onCollapseSidebar : onExpandSidebar;
-        if (typeof handler === "function") {
-          await handler(node);
-        }
-        syncSidebarStateClasses(container);
-      };
-    });
 
   scheduleRootSidebarTextFit(container);
   syncSidebarStateClasses(container);

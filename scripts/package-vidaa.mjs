@@ -83,23 +83,13 @@ async function packageVidaa() {
   const zipStats = await stat(zipOutputPath);
 
   console.log("\n=======================================================");
-  console.log("  Nuvio TV VIDAA OS Package Created Successfully!");
+  console.log("  Nuvio TV VIDAA web archive created");
   console.log("=======================================================");
   console.log(`  Package directory : ${vidaaDistDir}`);
   console.log(
     `  Release archive   : ${zipOutputPath} (${(zipStats.size / (1024 * 1024)).toFixed(2)} MB)`
   );
   console.log(`  Application ID    : space.nuvio.tv`);
-  console.log(`  Target Platforms  : Hisense VIDAA U5/U6/U7/U8+ TVs & Projectors`);
-  console.log("-------------------------------------------------------");
-  console.log("  How to install on Hisense U7Q:");
-  console.log("   1. Method 1 (Universal Web / PWA):");
-  console.log("      Host this directory or use 'npm run serve:vidaa'");
-  console.log("      Open the URL in the TV browser and bookmark it.");
-  console.log("   2. Method 2 (Home Screen Launcher Icon):");
-  console.log("      Run 'sudo python3 installer/server.py'");
-  console.log("      Set TV DNS to your PC IP, go to https://vidaahub.com on TV,");
-  console.log("      and click 'Install to TV Launcher'.");
   console.log("=======================================================\n");
 }
 

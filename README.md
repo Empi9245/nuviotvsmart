@@ -32,7 +32,7 @@ The startup compatibility baseline is Samsung Tizen 4.0 / Chromium 56, LG webOS 
 
 Platform capabilities are intentionally version-dependent:
 
-- **Hisense VIDAA OS (New Port)** — Full TV remote control navigation (D-pad, Back, Exit, media keys), TV viewport scaling, native hardware video playback, and a dedicated local web installer (`installer/`).
+- **Hisense VIDAA OS (Experimental Port)** — TV remote navigation, a fixed TV canvas, and playback through the TV runtime's HTML video backend, with native HLS preferred when supported. Audio and subtitle availability depends on the TV firmware.
 
 - **Samsung Tizen 4.x** — the app and direct playback are supported, but torrent/P2P playback is unavailable by design. Some advanced audio and subtitle features may also be limited.
 - **Samsung Tizen 5.x, including 5.5** — torrent/P2P playback is supported through the bundled local EngineFS service only. The PluginService, plugin execution, and remote plugin pull/push synchronization are disabled; the Plugins screen is not available.
@@ -49,53 +49,24 @@ On Tizen 5+ and LG webOS, torrent/P2P uses only the bundled local companion serv
 - [LG webOS Homebrew repository](https://raw.githubusercontent.com/NuvioMedia/NuvioTVWebOS/main/webosbrew/apps.json)
 - [LG webOS IPK](https://github.com/NuvioMedia/NuvioTVSmart/releases/latest) for manual installation
 
-## Experimental: Running on Hisense VIDAA OS (Preliminary Guide)
+## Hisense VIDAA OS
 
-> [!NOTE]
-> **Disclaimer:** This is an experimental, work-in-progress port and **not a guaranteed guide** for every Hisense TV. VIDAA OS behaviors and browser capabilities vary across versions (VIDAA U4, U5, U6, U7, U8) and regions. Hardware testing is in progress. If you try this, please report your experience or issues!
+Create the VIDAA web archive with:
 
-### Method 1: Local Network Serving (Recommended for testing)
+```bash
+npm run package:vidaa
+```
 
-The easiest way to test Nuvio on a VIDAA TV without developer tools:
+The output is `dist/nuvio-vidaa.zip`, with the app files also available in
+`dist/vidaa/`. Use these files with your TV installation method.
 
-1. **Connect both devices:** Ensure your computer (PC/Mac/Linux) and your Hisense TV are connected to the same local Wi-Fi/LAN network.
-2. **Build and start the server:**
-   ```bash
-   git clone https://github.com/derpwinnie/NuvioTVSmart.git
-   cd NuvioTVSmart
-   npm install
-   npm run build:vidaa
-   npm run serve:vidaa
-   ```
-   _(Alternatively, run the included installer helper: `python3 installer/server.py` or double-click `installer/start-windows.bat` on Windows)._
-3. **Open the TV browser:**
-   - The server terminal will output a local network URL (e.g. `http://192.168.1.50:8080`).
-   - On your Hisense TV, launch the built-in **Web Browser**.
-   - Navigate to `http://<YOUR-PC-IP>:8080/`.
-4. **Navigation & Controls:**
-   - The app automatically detects VIDAA OS and maps your TV remote control (D-pad arrows, OK/Enter, Back, Play/Pause).
-   - D-pad input snaps focus instantly across lists with native scroll prevention, eliminating mouse-pointer drag and scroll lag.
-   - Pointer mode (via air-mouse or the VIDAA mobile remote touchpad) is also supported seamlessly.
-   - Tip: Bookmark the page in your TV browser or pin it to your browser speed-dial for quick 1-click access (recommended method for VIDAA U6/U7/U8).
+The VIDAA version shares Nuvio's interface and player controls with Tizen and
+webOS. Its platform adapter handles TV keys, keyboard input, app exit, and
+optional HTTP media-domain registration. Playback uses the HTML video backend;
+the app pauses playback when hidden. Codec support, track switching, buffering,
+and storage persistence still require validation on the target TV.
 
-### Method 2: Package Deployment (Advanced / Developer Mode)
-
-For users with developer mode enabled or who wish to package the app:
-
-1. **Build the VIDAA package:**
-   ```bash
-   npm run package:vidaa
-   ```
-   This generates `dist/nuvio-vidaa.zip` containing the packaged app, `manifest.json`, and service worker.
-2. **Sideloading & Security Note:**
-   - On newer VIDAA firmware versions (VIDAA U6, U7, U8, U9+), Hisense has locked down file permissions (`websdk/Appinfo.json` returns `permission check error`) and enforces cryptographic signatures on launcher packages, silently dropping unsigned third-party registrations.
-   - ⚠️ **Brick Risk Warning:** Never attempt forced low-level file writes, raw JSON corruption, or dangerous service menu (`1969`) modifications. Independent security researchers warn that corrupting internal launcher files can easily soft-brick/boot-loop the TV with no public recovery method.
-   - **Recommended Approach:** Pinning the browser shortcut / PWA to your TV speed-dial (Method 1) is the official community-recommended standard: it is 100% safe, risk-free, update-proof, and runs in full-screen with native hardware decoding.
-
-### Feedback & Troubleshooting
-
-- **Codecs & Playback:** While desktop browsers might fail playing MKV or AC-3 audio streams due to missing browser codecs, VIDAA Smart TVs utilize hardware media decoders.
-- **Remote Keys:** Standard VIDAA remote codes are mapped. If any key on your specific Hisense remote model does not respond as expected, please open an issue with your TV model and VIDAA version.
+For local development, run `npm run serve:vidaa`.
 
 ## Build from source
 
@@ -115,10 +86,9 @@ npm run package:webos
 npm run package:vidaa
 ```
 
-To test and run the VIDAA version locally:
+To run the VIDAA version locally:
 
 ```bash
-npm run test:vidaa   # Run VIDAA adapter & platform test suite
 npm run serve:vidaa  # Start local VIDAA development server
 ```
 

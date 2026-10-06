@@ -19,15 +19,12 @@
       "type": "image/png"
     },
     {
-      "src": "assets/images/nuviotv.png",
-      "sizes": "512x512",
+      "src": "assets/images/tizenIcon.png",
+      "sizes": "1080x1080",
       "type": "image/png"
     }
   ],
   "id": "./?platform=vidaa",
   "scope": "./",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ]
+  "display_override": ["fullscreen", "standalone"]
 }

@@ -80,45 +80,7 @@
         );
         if (document.documentElement) document.documentElement.classList.add("vidaa-tv");
 
-        // Suppress F-key fullscreen crash on VIDAA browser
-        window.addEventListener(
-          "keydown",
-          function (e) {
-            if (e.keyCode === 70 || e.key === "f" || e.key === "F") {
-              var tag = (e.target && e.target.tagName ? e.target.tagName : "").toLowerCase();
-              if (tag === "input" || tag === "textarea") return;
-              e.preventDefault();
-              e.stopPropagation();
-            }
-          },
-          true
-        );
-
-        // Early VIDAA virtual keyboard input fix
-        try {
-          var desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
-          if (desc && desc.set) {
-            var origSet = desc.set;
-            var origGet = desc.get;
-            var guard = false;
-            Object.defineProperty(HTMLInputElement.prototype, "value", {
-              get: origGet,
-              set: function (v) {
-                var old = origGet.call(this);
-                origSet.call(this, v);
-                if (v !== old && !guard) {
-                  guard = true;
-                  try {
-                    this.dispatchEvent(new Event("input", { bubbles: true }));
-                    this.dispatchEvent(new Event("change", { bubbles: true }));
-                  } catch (_) {}
-                  guard = false;
-                }
-              },
-              configurable: true
-            });
-          }
-        } catch (_) {}
+        // The platform adapter installs the focused-field keyboard fallback.
 
         // PWA/offline support is VIDAA-only. Do not register a service worker
         // or manifest on Tizen, webOS, or normal browser launches.

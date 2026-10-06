@@ -182,7 +182,11 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
     if (ended) {
       return;
     }
-    if (PlayerController.isLivePlaybackItemType?.() && PlayerController.isPlaying) {
+    if (
+      PlayerController.isLivePlaybackItemType?.() &&
+      PlayerController.isPlaying &&
+      !(Environment.isVidaa() && document.visibilityState === "hidden")
+    ) {
       return;
     }
     if (this.hasPresentedPlaybackFrame && !this.playbackEngineValidated) {

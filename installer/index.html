@@ -237,15 +237,15 @@
     <div class="container">
       <img
         class="logo"
-        src="/shared/logo.png"
+        src="/assets/brand/app_logo_wordmark.png"
         alt="Nuvio TV"
-        onerror="this.src = '/shared/icon.png'"
+        onerror="this.src = '/assets/images/tizenIcon.png'"
       />
       <h1>Nuvio TV for VIDAA OS</h1>
-      <p class="subtitle">Hisense U7Q &amp; VIDAA Smart TV Platform Port</p>
+      <p class="subtitle">VIDAA web port &bull; TV installation unverified</p>
 
       <div class="status-area">
-        <p id="statusMsg" class="status-message">Ready to install Nuvio TV</p>
+        <p id="statusMsg" class="status-message">URL registration requires TV permission</p>
         <div id="progressWrap" class="progress-bar-wrap">
           <div id="progressBar" class="progress-bar"></div>
         </div>
@@ -262,12 +262,13 @@
         <ul style="margin-left: 20px; margin-top: 6px">
           <li>
             <strong>Method 1 (Universal Bookmark)</strong>: Open the TV Internet Browser, go to your
-            Nuvio URL, and bookmark it. Nuvio caches offline via Service Worker and boots instantly.
+            Nuvio URL, and bookmark it. The interface depends on its server; browser cache does not
+            demonstrate a persistent local TV app.
           </li>
           <li>
-            <strong>Method 2 (Launcher Icon)</strong>: Clicking "Install to TV Launcher" registers
-            Nuvio on your TV home screen. After install, revert DNS to automatic and power-cycle
-            your TV.
+            <strong>Method 2 (Launcher Icon)</strong>: Clicking "Install to TV Launcher" requests
+            registration of the current app URL. It does not copy Nuvio files to the TV. Permission,
+            launcher availability and use after reboot must be verified separately.
           </li>
         </ul>
       </div>
@@ -290,7 +291,8 @@
         var APP_ID = "space.nuvio.tv";
         var APP_NAME = "Nuvio TV";
         var INSTALL_ORIGIN = window.location.origin;
-        var ICON_URL = INSTALL_ORIGIN + "/shared/icon.png";
+        // Use the square app icon: VIDAA stretches a horizontal wordmark.
+        var ICON_URL = INSTALL_ORIGIN + "/assets/images/tizenIcon.png";
         var APP_URL = INSTALL_ORIGIN + "/?wrapper=vidaa";
         var STORE_TYPE = "store";
 
@@ -304,7 +306,9 @@
         var vidaaDetected = document.getElementById("vidaaDetected");
 
         var isVidaa = typeof Hisense_installApp === "function";
-        vidaaDetected.textContent = isVidaa ? "VIDAA APIs Active" : "Non-VIDAA Browser Mode";
+        vidaaDetected.textContent = isVidaa
+          ? "Install API available; permission unverified"
+          : "Non-VIDAA Browser Mode";
         vidaaDetected.style.color = isVidaa ? "#4cdf7f" : "#8888aa";
 
         var diagState = {
@@ -384,7 +388,7 @@
           }
 
           btnInstall.disabled = true;
-          setStatus("Registering trusted domains...", "working");
+          setStatus("Preparing URL registration request...", "working");
           showProgress(25);
 
           try {
@@ -394,7 +398,7 @@
           } catch (_) {}
 
           setTimeout(function () {
-            setStatus("Installing Nuvio TV into TV launcher...", "working");
+            setStatus("Requesting launcher URL registration...", "working");
             showProgress(60);
 
             try {
@@ -414,14 +418,12 @@
                   if (code === 0) {
                     refreshAppsOnHisenseUI(APP_ID);
                     setStatus(
-                      "Installation successful! Revert your TV DNS to Automatic and restart your TV.",
-                      "success"
+                      "VIDAA returned code 0. Launcher registration is unverified; Nuvio files were not copied to the TV.",
+                      "warning"
                     );
                   } else {
                     setStatus(
-                      "Install returned code " +
-                        code +
-                        ". You can use Method 1 (Bookmark in TV Browser) instead!",
+                      "Install returned code " + code + ". Launcher registration was not verified.",
                       "error"
                     );
                   }
@@ -443,7 +445,7 @@
           try {
             Hisense_uninstallApp(APP_ID, function (code) {
               refreshAppsOnHisenseUI(APP_ID);
-              setStatus("Uninstall complete (code " + code + ")", "success");
+              setStatus("Uninstall returned code " + code + "; removal unverified", "warning");
             });
           } catch (e) {
             setStatus("Uninstall error: " + e.message, "error");
