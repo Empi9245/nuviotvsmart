@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./streamScreen.js";
+import { bindCachedBadgeImages } from "../../../core/media/cachedBadgeImages.js";
 
 export function createStreamScreenMethods09() {
   const {
@@ -269,6 +270,7 @@ export function createStreamScreenMethods09() {
         const hydrated = placeholder.dataset.badgesHydrated === "true";
         if (shouldHydrate && !hydrated) {
           placeholder.innerHTML = renderStreamBadgeContents(filtered[rowIndex], streamBadgesEnabled, badgeSettings);
+          bindCachedBadgeImages(placeholder);
           // webOS already uses the fixed-height lazy badge row. Tizen must drop
           // that placeholder-only class once hydrated so its visible wrapping
           // and card geometry remain byte-for-byte CSS-equivalent to the eager
@@ -291,6 +293,7 @@ export function createStreamScreenMethods09() {
       }
     },
     bindAddonLogoFallbacks() {
+      bindCachedBadgeImages(this.container);
       this.container?.querySelectorAll(".stream-route-addon-badge img[data-addon-logo]").forEach((node) => {
         if (!(node instanceof HTMLImageElement) || node.dataset.fallbackBound === "true") {
           return;

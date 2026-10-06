@@ -118,7 +118,7 @@ export function renderImageBadgeChip(badge = {}) {
   ].join("");
   return `
     <span class="stream-route-stream-badge image${filled ? " filled" : ""}"${style ? ` style="${escapeHtml(style)}"` : ""}>
-      <img src="${escapeHtml(safeImageUrl)}" alt="${escapeHtml(badge.name || "")}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
+      <img ${Environment.isWebOS() ? `data-cached-badge-image="${escapeHtml(imageUrl)}"` : `src="${escapeHtml(safeImageUrl)}"`} alt="${escapeHtml(badge.name || "")}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
     </span>
   `;
 }
