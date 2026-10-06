@@ -24,9 +24,7 @@ html.vidaa-tv .home-sidebar {
   height: 100%;
 }
 
-/* The base web skin mirrors Android-TV dp values at 2x. That makes the
-   navigation oversized when VIDAA is already rendering a real 1920px CSS
-   canvas. Use TV-distance dimensions sized directly for 1080p instead. */
+/* Keep the compact legacy rail; the modern sidebar uses the shared TV skin. */
 html.vidaa-tv .home-shell {
   --legacy-sidebar-rail-width: 104px;
   --legacy-sidebar-open-width: 304px;
@@ -41,135 +39,40 @@ html.vidaa-tv .home-shell {
   --legacy-sidebar-label-end: 18px;
   --legacy-sidebar-profile-top-gap: 36px;
   --legacy-sidebar-profile-bottom-gap: 14px;
+  --legacy-sidebar-focus-scale: 1.06;
+}
+
+html.vidaa-tv .root-sidebar-legacy {
   --sidebar-leading-visual-size: 52px;
   --sidebar-icon-size: 32px;
-  --legacy-sidebar-focus-scale: 1.06;
-  --modern-sidebar-collapsed-width: 244px;
-  --modern-sidebar-open-width: 380px;
-  --modern-sidebar-surface-width: 348px;
-  --modern-sidebar-surface-top: 22px;
-  --modern-sidebar-surface-left: 18px;
-  --modern-sidebar-surface-bottom: 18px;
-  --modern-sidebar-panel-padding-x: 18px;
-  --modern-sidebar-panel-padding-y: 20px;
-  --modern-sidebar-button-width: 92%;
-  --modern-sidebar-button-height: 76px;
-  --modern-sidebar-button-gap: 16px;
-  --modern-sidebar-list-gap: 8px;
-  --modern-sidebar-pill-top: 22px;
-  --modern-sidebar-pill-left: 18px;
-  --modern-sidebar-pill-height: 64px;
-  --modern-sidebar-pill-chevron-width: 12px;
-  --modern-sidebar-pill-chevron-height: 22px;
-  --modern-sidebar-pill-chip-start: 8px;
-  --modern-sidebar-pill-chip-end: 16px;
-  --modern-sidebar-pill-chip-gap: 10px;
 }
 
 html.vidaa-tv .home-nav-item,
 html.vidaa-tv .home-nav-label,
-html.vidaa-tv .home-profile-name,
-html.vidaa-tv .modern-sidebar-nav-label,
-html.vidaa-tv .modern-sidebar-pill-label,
-html.vidaa-tv .modern-sidebar-profile-name {
+html.vidaa-tv .home-profile-name {
   font-size: 26px;
   line-height: 34px;
 }
 
 html.vidaa-tv .modern-sidebar-panel {
-  height: 1036px;
+  height: calc(1080px - var(--modern-sidebar-surface-top) - var(--modern-sidebar-surface-bottom));
   min-height: 0;
-  max-height: 1036px;
-  border-width: 1px;
-  border-radius: 36px;
+  max-height: calc(
+    1080px - var(--modern-sidebar-surface-top) - var(--modern-sidebar-surface-bottom)
+  );
   overflow: hidden;
 }
 
-html.vidaa-tv .modern-sidebar-profile {
-  min-height: 76px;
-  margin: 14px auto 20px;
-  padding: 12px 18px;
-  gap: 18px;
-  border-width: 2px;
-}
-
-html.vidaa-tv .modern-sidebar-profile-avatar,
-html.vidaa-tv .modern-sidebar-nav-icon-circle,
-html.vidaa-tv .modern-sidebar-pill-icon-wrap {
-  width: 52px;
-  height: 52px;
-}
-
-html.vidaa-tv .modern-sidebar-profile-avatar {
-  font-size: 22px;
-}
-
 html.vidaa-tv .modern-sidebar-nav-list {
-  justify-content: flex-start;
-  transform: none;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 6px 0 18px;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
 html.vidaa-tv .modern-sidebar-nav-list::-webkit-scrollbar {
   display: none;
-}
-
-html.vidaa-tv .modern-sidebar-nav-item {
-  min-height: 76px;
-  padding: 12px 18px;
-  gap: 16px;
-  border-width: 2px;
-}
-
-html.vidaa-tv .modern-sidebar-profile.focused,
-html.vidaa-tv .modern-sidebar-nav-item.focused {
-  transform: scale(1.04);
-}
-
-html.vidaa-tv .modern-sidebar-nav-icon-circle,
-html.vidaa-tv .modern-sidebar-pill-icon-wrap {
-  padding: 10px;
-}
-
-html.vidaa-tv .modern-sidebar-nav-icon,
-html.vidaa-tv .modern-sidebar-pill-icon {
-  width: 32px;
-  height: 32px;
-}
-
-@keyframes vidaaModernSidebarShellOpen {
-  from {
-    width: 244px;
-  }
-  48% {
-    width: 396px;
-  }
-  to {
-    width: 380px;
-  }
-}
-
-@keyframes vidaaModernSidebarPanelOpen {
-  from {
-    opacity: 0;
-    transform: translate3d(0, -6px, 0) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-html.vidaa-tv .modern-sidebar-shell.opening {
-  animation: vidaaModernSidebarShellOpen 350ms cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-
-html.vidaa-tv .modern-sidebar-shell.opening .modern-sidebar-panel {
-  animation: vidaaModernSidebarPanelOpen 300ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 
 /* Base Home dimensions for Classic/Grid on the 1080p logical canvas. */
@@ -1413,4 +1316,118 @@ html.vidaa-tv .debug-console-back {
 
 html.vidaa-tv .debug-console-back .material-icons {
   font-size: 28px;
+}
+
+/* D-pad navigation on VIDAA must not tween card dimensions or shadows: every
+   intermediate flex width/height forces the entire row to lay out again while
+   it is scrolling. Focus borders and fills still update immediately; small
+   scale/opacity feedback can run without repeated layout or shadow painting. */
+html.vidaa-tv .home-screen-shell .home-content-card,
+html.vidaa-tv .home-screen-shell.home-layout-classic .home-poster-card,
+html.vidaa-tv .home-screen-shell.home-layout-grid .home-poster-card,
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-poster-card,
+html.vidaa-tv .discover-card-poster,
+html.vidaa-tv .library-grid-card,
+html.vidaa-tv .library-action-button,
+html.vidaa-tv .stream-route-card,
+html.vidaa-tv .series-detail-actions .series-primary-btn,
+html.vidaa-tv .series-detail-actions .series-circle-btn,
+html.vidaa-tv .series-season-btn,
+html.vidaa-tv .series-insight-tab,
+html.vidaa-tv .detail-morelike-card,
+html.vidaa-tv .movie-cast-card {
+  transition: transform 120ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transition-delay: 0ms !important;
+}
+
+html.vidaa-tv .home-screen-shell .home-poster-frame,
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-poster-frame,
+html.vidaa-tv .home-screen-shell .home-continue-media,
+html.vidaa-tv .home-screen-shell .home-seeall-card-inner,
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-poster-expanded-gradient,
+html.vidaa-tv .search-result-poster-wrap,
+html.vidaa-tv .search-seeall-inner,
+html.vidaa-tv .library-grid-poster,
+html.vidaa-tv .seeall-card-poster-wrap,
+html.vidaa-tv .series-episode-thumb {
+  transition: none !important;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-poster-card .content-poster,
+html.vidaa-tv
+  .home-screen-shell.home-layout-modern
+  .home-poster-card
+  .home-poster-expanded-backdrop {
+  transition: opacity 120ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transition-delay: 0ms !important;
+}
+
+/* A forced compositor layer for every horizontal track consumes TV graphics
+   memory even when most rows are outside the viewport. Keep native overflow. */
+html.vidaa-tv .home-screen-shell .home-track {
+  transform: none;
+  will-change: auto;
+}
+
+/* Opening the rail changes width once. The panel's short fade is interruptible
+   and keeps navigation readable without the shared width/overshoot keyframes. */
+html.vidaa-tv .home-sidebar,
+html.vidaa-tv .modern-sidebar-shell,
+html.vidaa-tv .modern-sidebar-shell.opening,
+html.vidaa-tv .settings-workspace {
+  transition: none !important;
+  animation: none !important;
+  will-change: auto;
+}
+
+html.vidaa-tv .modern-sidebar-shell.opening {
+  width: var(--modern-sidebar-open-width);
+}
+
+html.vidaa-tv .modern-sidebar-panel,
+html.vidaa-tv .modern-sidebar-shell.opening .modern-sidebar-panel,
+html.vidaa-tv .modern-sidebar-shell.collapsing .modern-sidebar-panel,
+html.vidaa-tv .home-nav-label,
+html.vidaa-tv .home-sidebar.content-expanded .home-nav-label,
+html.vidaa-tv .home-sidebar.opening .home-nav-label {
+  animation: none !important;
+  transition: opacity 120ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transition-delay: 0ms !important;
+}
+
+html.vidaa-tv .home-nav-item,
+html.vidaa-tv .home-sidebar.opening .home-nav-item,
+html.vidaa-tv .modern-sidebar-profile,
+html.vidaa-tv .modern-sidebar-nav-item {
+  transition: transform 120ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transition-delay: 0ms !important;
+  will-change: auto;
+}
+
+html.vidaa-tv .modern-sidebar-pill,
+html.vidaa-tv .modern-sidebar-shell.collapsing .modern-sidebar-pill {
+  transition:
+    opacity 120ms cubic-bezier(0.2, 0, 0, 1),
+    transform 120ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transition-delay: 0ms !important;
+}
+
+/* VIDAA feature detection may report blur support without enough fill rate to
+   blur a large surface during scrolling. Override the shared capability rule.
+   Spoiler-hiding artwork blur is intentionally retained. */
+html.vidaa-tv .modern-sidebar-panel,
+html.vidaa-tv.modern-sidebar-blur-capable
+  .modern-sidebar-shell.blur-enabled.expanded:not(.collapsing)
+  .modern-sidebar-panel,
+html.vidaa-tv .modern-sidebar-pill-chip,
+html.vidaa-tv .series-episode-card,
+html.vidaa-tv .series-stream-panel,
+html.vidaa-tv .stream-route-panel-shell {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-hero-backdrop,
+html.vidaa-tv .home-screen-shell .home-poster-landscape-logo {
+  filter: none;
 }
