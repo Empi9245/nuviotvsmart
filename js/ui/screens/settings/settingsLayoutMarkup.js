@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./settingsScreenContext.js";
+import { getTvRuntimePerformanceProfile } from "../../../platform/tvRuntimePerformance.js";
 
 export function renderLayoutMarkup(model) {
   const { isModernSidebarBlurAvailable, HOME_LAYOUT_OPTIONS, SECTION_META, t } = internals;
@@ -410,6 +411,12 @@ export function renderLayoutMarkup(model) {
                 bodyHtml: focusedPosterBody
               })}
               ${this.renderCollapsibleRow({ focusKey: "layout:toggle:cardAppearance", title: t("settings_card_depth_title", {}, "Card appearance"), subtitle: t("settings_card_depth_description", {}, "Size, corners and depth surfaces"), expanded: Boolean(expanded.cardAppearance), bodyHtml: cardAppearanceBody })}
+              ${this.renderToggleRow({
+                focusKey: "layout:performanceMode",
+                title: t("layout_perf_reduced", {}, "Reduced effects"),
+                subtitle: t("settings.performance.mode.subtitle", {}, "Reduce visual effects if the TV feels slow"),
+                checked: Boolean(getTvRuntimePerformanceProfile().isPerformanceConstrained)
+              })}
             </div>
           </div>
         `;

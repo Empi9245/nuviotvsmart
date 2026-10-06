@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./settingsScreenContext.js";
+import { getTvRuntimePerformanceProfile, setTvPerformanceMode } from "../../../platform/tvRuntimePerformance.js";
 
 export function registerLayoutActions(model) {
   const { HomeCatalogStore, LayoutPreferences, HOME_LAYOUT_OPTIONS, t } = internals;
@@ -20,6 +21,12 @@ export function registerLayoutActions(model) {
   });
   this.actionMap.set("layout:toggle:cardAppearance", () => {
     this.toggleExpandedSection("layout", "cardAppearance");
+  });
+  this.actionMap.set("layout:performanceMode", () => {
+    // Manual override of the version-based default: flip the current effective
+    // state and persist the user's explicit choice.
+    const constrained = getTvRuntimePerformanceProfile().isPerformanceConstrained;
+    setTvPerformanceMode(constrained ? "full" : "reduced");
   });
 
   HOME_LAYOUT_OPTIONS.forEach((option) => {

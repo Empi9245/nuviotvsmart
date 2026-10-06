@@ -812,6 +812,10 @@
     <string name="layout_section_home_desc">Choose structure and hero source.</string>
     <string name="layout_landscape_posters">Landscape Posters</string>
     <string name="layout_landscape_posters_sub">Switch between portrait and landscape cards for Modern view.</string>
+    <string name="layout_animations_effects">Animations &amp; effects</string>
+    <string name="layout_animations_effects_sub">Reduce visual effects if the TV feels slow.</string>
+    <string name="layout_perf_reduced">Reduced effects</string>
+    <string name="layout_perf_full">Full effects</string>
     <string name="layout_preview_row">Show Preview Row</string>
     <string name="layout_preview_row_sub">Show a partial preview of the row below in Modern Home layout.</string>
     <string name="layout_hero_catalogs">Hero Catalogs</string>

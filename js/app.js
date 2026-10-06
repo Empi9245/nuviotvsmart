@@ -200,6 +200,14 @@ function applyPerformanceMode() {
   );
 }
 
+// Settings exposes a performance mode (auto/full/reduced). Re-apply the
+// root/body classes when the user changes it (see tvRuntimePerformance.js).
+if (typeof globalThis.addEventListener === "function") {
+  globalThis.addEventListener("nuvio:performance-mode", () => {
+    applyPerformanceMode();
+  });
+}
+
 function isAddonRemoteMode() {
   try {
     return new URLSearchParams(window.location.search).get("addonsRemote") === "1";

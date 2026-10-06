@@ -1,5 +1,6 @@
 import { Platform } from "./index.js";
 import { TizenCapabilities } from "./tizen/tizenCapabilities.js";
+import { LocalStore } from "../core/storage/localStore.js";
 
 // The first common TV generation with a modern Chromium baseline is Samsung
 // Tizen 6.5 / Chromium M85 (2022) and LG webOS TV 22 / Chromium M87 (2022).
@@ -8,6 +9,58 @@ export const TV_RUNTIME_PERFORMANCE_THRESHOLDS = Object.freeze({
   modernTvYear: 2022,
   modernChromiumMajor: 85
 });
+
+// TV web runtimes fail closed to the constrained/perf path. The runtime year
+// proved to be a bad proxy for capability: budget 2023/2024 sets (e.g. Samsung
+// CU7700) report a modern Tizen and a capable Chromium but cannot hold a 60fps
+// frame budget, so the version-only gate left them on the heavy-effects path.
+// Default behavior is the upstream version-based classification: no stored
+// choice means "auto". The user can override it (persisted) to force the
+// constrained/perf path on or off from Settings.
+//   absent    → "auto" (upstream: constrained only on legacy runtimes)
+//   "reduced" → force constrained
+//   "full"    → force full effects
+const TV_PERF_MODE_KEY = "tvPerfMode";
+export const TV_PERF_MODES = Object.freeze(["reduced", "full"]);
+
+export function getTvPerformanceMode() {
+  try {
+    const raw = String(LocalStore.get(TV_PERF_MODE_KEY, "") || "").toLowerCase();
+    return raw === "reduced" || raw === "full" ? raw : "auto";
+  } catch (_) {
+    return "auto";
+  }
+}
+
+export function setTvPerformanceMode(mode) {
+  const normalized = String(mode || "").toLowerCase();
+  try {
+    if (normalized === "full" || normalized === "reduced") {
+      LocalStore.set(TV_PERF_MODE_KEY, normalized);
+    } else {
+      LocalStore.remove(TV_PERF_MODE_KEY);
+    }
+  } catch (_) {}
+  cachedProfile = null;
+  try {
+    if (typeof globalThis.dispatchEvent === "function" && typeof globalThis.Event === "function") {
+      globalThis.dispatchEvent(new Event("nuvio:performance-mode"));
+    }
+  } catch (_) {}
+  return getTvPerformanceMode();
+}
+
+function resolvePerformanceConstrained(isLegacyTvRuntime) {
+  const mode = getTvPerformanceMode();
+  if (mode === "reduced") {
+    return true;
+  }
+  if (mode === "full") {
+    return false;
+  }
+  // "auto": upstream version-based default (unchanged).
+  return Boolean(isLegacyTvRuntime);
+}
 
 const WEBOS_RELEASE_YEARS = Object.freeze({
   1: 2014,
@@ -159,7 +212,7 @@ export function getTvRuntimePerformanceProfile({ forceRefresh = false } = {}) {
     tvYearKnown,
     chromiumVersionKnown,
     isLegacyTvRuntime,
-    isPerformanceConstrained: isLegacyTvRuntime
+    isPerformanceConstrained: resolvePerformanceConstrained(isLegacyTvRuntime)
   });
   return cachedProfile;
 }
