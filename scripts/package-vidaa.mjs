@@ -76,21 +76,39 @@ async function packageVidaa() {
   const buildId = shellHash.digest("hex").slice(0, 16);
   const indexPath = path.join(vidaaDistDir, "index.html");
   const indexSource = await readFile(indexPath, "utf8");
+  const assetAliases = new Map();
   const versionedIndex = indexSource.replace(
     /((?:src|href)=")([^"?#]+\.(?:js|css))(?:\?[^"#]*)?("|#[^"]*")/g,
     (match, prefix, asset, suffix) => {
       if (/^(?:[a-z]+:|\/\/)/i.test(asset)) return match;
-      return `${prefix}${asset}?v=${buildId}${suffix}`;
+      const extension = path.posix.extname(asset);
+      const versionedAsset = `${asset.slice(0, -extension.length)}.${buildId}${extension}`;
+      assetAliases.set(asset, versionedAsset);
+      return `${prefix}${versionedAsset}${suffix}`;
     }
   );
-  const versionedWorker = workerSource.replace(
+  let versionedWorker = workerSource.replace(
     /^var CACHE_NAME = "[^"]+";/,
     `var CACHE_NAME = "nuvio-vidaa-${buildId}";`
   );
+  for (const [asset, alias] of assetAliases) {
+    versionedWorker = versionedWorker.replaceAll(
+      JSON.stringify(`./${asset}`),
+      JSON.stringify(`./${alias}`)
+    );
+  }
+  const vidaaEntry = versionedIndex.replace(
+    "<head>",
+    `<head>\n    <meta name="nuvio-build" content="${buildId}" />\n    <script>window.__NUVIO_PLATFORM__ = "vidaa";</script>`
+  );
   await Promise.all([
     writeFile(indexPath, versionedIndex),
+    writeFile(path.join(vidaaDistDir, "vidaa.html"), vidaaEntry),
     writeFile(path.join(vidaaDistDir, "sw.js"), versionedWorker),
-    cp(path.join(rootDir, "manifest.json"), path.join(vidaaDistDir, "manifest.json"))
+    cp(path.join(rootDir, "manifest.json"), path.join(vidaaDistDir, "manifest.json")),
+    ...Array.from(assetAliases, ([asset, alias]) =>
+      cp(path.join(vidaaDistDir, asset), path.join(vidaaDistDir, alias))
+    )
   ]);
 
   // Copy installer directory

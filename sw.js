@@ -2,6 +2,7 @@ var CACHE_NAME = "nuvio-vidaa-v4";
 var ASSETS = [
   "./",
   "./index.html",
+  "./vidaa.html",
   "./manifest.json",
   "./boot-guard.js",
   "./core-js.bundle.js",
