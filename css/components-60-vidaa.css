@@ -1405,7 +1405,10 @@ html.vidaa-tv .modern-sidebar-nav-item {
 }
 
 html.vidaa-tv .modern-sidebar-pill,
-html.vidaa-tv .modern-sidebar-shell.collapsing .modern-sidebar-pill {
+html.vidaa-tv .modern-sidebar-shell.collapsing .modern-sidebar-pill,
+html.vidaa-tv .home-profile-pill,
+html.vidaa-tv .home-sidebar.content-expanded .home-profile-pill,
+html.vidaa-tv .home-sidebar.opening .home-profile-pill {
   transition:
     opacity 120ms cubic-bezier(0.2, 0, 0, 1),
     transform 120ms cubic-bezier(0.2, 0, 0, 1) !important;

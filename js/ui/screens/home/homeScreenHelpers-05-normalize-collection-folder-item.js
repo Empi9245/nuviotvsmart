@@ -201,16 +201,22 @@ export function normalizeCollectionFolderItem(item, collectionMeta = null) {
     return null;
   }
   const collectionTitle = firstNonEmpty(item.collectionTitle, collectionMeta?.title);
-  const coverImageUrl = firstNonEmpty(item.coverImageUrl, item.coverImage);
   const focusGifUrl = normalizeAnimatedCollectionAssetUrl(firstNonEmpty(item.focusGifUrl));
-  const focusGifEnabled = item.focusGifEnabled !== false;
+  const isVidaa = Platform.isVidaa();
+  const artwork = (...sources) =>
+    isVidaa
+      ? firstNonEmpty(...sources.filter((src) => src !== focusGifUrl && !/\.gifv?(?:$|[?#])|^data:image\/gif/i.test(String(src || ""))))
+      : firstNonEmpty(...sources);
+  const coverImageUrl = artwork(item.coverImageUrl, item.coverImage);
+  const focusGifEnabled = !isVidaa && item.focusGifEnabled !== false;
   const hideTitle = Boolean(item.hideTitle);
   const tileShape = normalizeCollectionPosterShape(item.tileShape || item.posterShape);
   const coverEmoji = firstNonEmpty(item.coverEmoji);
-  const cardImage = focusGifEnabled
-    ? firstNonEmpty(coverImageUrl, collectionMeta?.backdropImageUrl)
-    : firstNonEmpty(focusGifUrl, coverImageUrl, collectionMeta?.backdropImageUrl);
-  const heroBackdrop = firstNonEmpty(item.heroBackdropUrl, coverImageUrl, collectionMeta?.backdropImageUrl);
+  const cardImage =
+    isVidaa || focusGifEnabled
+      ? artwork(coverImageUrl, collectionMeta?.backdropImageUrl)
+      : firstNonEmpty(focusGifUrl, coverImageUrl, collectionMeta?.backdropImageUrl);
+  const heroBackdrop = artwork(item.heroBackdropUrl, coverImageUrl, collectionMeta?.backdropImageUrl);
   return {
     ...item,
     id: `collection:${collectionId}:${folderId}`,
@@ -233,13 +239,13 @@ export function normalizeCollectionFolderItem(item, collectionMeta = null) {
     collectionTitle,
     folderId,
     coverImageUrl,
-    focusGifUrl,
+    focusGifUrl: isVidaa ? "" : focusGifUrl,
     focusGifEnabled,
     coverEmoji,
     tileShape,
     hideTitle,
-    heroBackdropUrl: firstNonEmpty(item.heroBackdropUrl),
-    heroVideoUrl: firstNonEmpty(item.heroVideoUrl),
+    heroBackdropUrl: artwork(item.heroBackdropUrl),
+    heroVideoUrl: isVidaa ? "" : firstNonEmpty(item.heroVideoUrl),
     titleLogoUrl: firstNonEmpty(item.titleLogoUrl)
   };
 }

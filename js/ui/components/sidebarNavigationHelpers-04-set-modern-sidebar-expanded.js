@@ -19,6 +19,47 @@ export function setModernSidebarExpanded(container, expanded) {
   if (!shell) {
     return false;
   }
+  if (getTvRuntimePerformanceProfile().platform === "vidaa") {
+    const shouldExpand = Boolean(expanded);
+    const requestedExpanded = shell._vidaaSidebarExpanded ?? shell.classList.contains("expanded");
+    if (requestedExpanded === shouldExpand) {
+      return true;
+    }
+    shell._vidaaSidebarExpanded = shouldExpand;
+    const panel = shell.querySelector(".modern-sidebar-panel");
+    const pill = shell.querySelector(".modern-sidebar-pill");
+    if (shell._modernOpenTimer) {
+      clearTimeout(shell._modernOpenTimer);
+      shell._modernOpenTimer = null;
+    }
+    if (shell._modernCloseEndTimer) {
+      clearTimeout(shell._modernCloseEndTimer);
+      shell._modernCloseEndTimer = null;
+    }
+    shell.classList.toggle("expanded", shouldExpand);
+    shell.classList.toggle("opening", shouldExpand);
+    shell.classList.toggle("collapsing", !shouldExpand);
+    if (shouldExpand) {
+      shell.classList.add("panel-visible");
+      panel?.setAttribute("aria-hidden", "false");
+    }
+    pill?.setAttribute("aria-expanded", String(shouldExpand));
+    syncSidebarStateClasses(container);
+    if (shouldExpand) {
+      scheduleRootSidebarTextFit(container);
+      shell._modernOpenTimer = setTimeout(() => {
+        shell.classList.remove("opening");
+        shell._modernOpenTimer = null;
+      }, 120);
+    } else {
+      shell._modernCloseEndTimer = setTimeout(() => {
+        shell.classList.remove("panel-visible", "collapsing");
+        panel?.setAttribute("aria-hidden", "true");
+        shell._modernCloseEndTimer = null;
+      }, 120);
+    }
+    return true;
+  }
   const panel = shell.querySelector(".modern-sidebar-panel");
   const pill = shell.querySelector(".modern-sidebar-pill");
   if (shell._modernOpenTimer) {

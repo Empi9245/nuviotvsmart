@@ -1,12 +1,22 @@
 import * as internals from "./homeScreenContext.js";
 
 export function createHomeScreenMethods12() {
-  const { MODERN_HOME_CONSTANTS, firstNonEmpty, isCollectionFolderItem, normalizeCollectionFolderItem } = internals;
+  const { Platform, MODERN_HOME_CONSTANTS, firstNonEmpty, isCollectionFolderItem, normalizeCollectionFolderItem } = internals;
 
   return {
     syncCollectionHeroMedia(hero = null) {
       const heroLayer = this.container?.querySelector(".home-hero-trailer-layer");
       const heroMedia = this.container?.querySelector(".home-modern-hero-media");
+      if (Platform.isVidaa()) {
+        // Collection hover media competes with remote navigation for the TV
+        // decoder. Keep the static collection artwork and folder action.
+        if (this.collectionHeroMediaKey || isCollectionFolderItem(hero)) {
+          this.collectionHeroMediaKey = "";
+          this.clearTrailerLayer(heroLayer);
+          this.setHeroTrailerActive(false, heroMedia);
+        }
+        return;
+      }
       const activeHero = isCollectionFolderItem(hero) ? normalizeCollectionFolderItem(hero) : null;
       const videoUrl = firstNonEmpty(activeHero?.heroVideoUrl);
       const playbackKey = videoUrl && activeHero ? `${activeHero.collectionId}:${activeHero.folderId}:${videoUrl}` : "";

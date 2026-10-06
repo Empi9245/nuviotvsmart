@@ -1,4 +1,6 @@
 import * as internals from "./homeScreenContext.js";
+import { Platform } from "../../../platform/index.js";
+import { isVidaaNavigationBusy, VIDAA_NAVIGATION_SETTLE_MS } from "../../navigation/vidaaNavigationActivity.js";
 
 export function createHomeScreenMethods29() {
   const { Router, catalogRepository, buildModernRowKey, MODERN_HOME_CONSTANTS, HOME_MAX_ITEMS_PER_ROW_DEFAULT, createPosterCardMarkup } =
@@ -15,12 +17,15 @@ export function createHomeScreenMethods29() {
         return;
       }
       this._trackScrollHandlers = this._trackScrollHandlers || new Map();
+      const isVidaaLoadingBusy = () => Platform.isVidaa() && (this.isVidaaHomeLoadingBusy?.() ?? isVidaaNavigationBusy());
       tracks.forEach((track) => {
         const rowKey = String(track.dataset.trackRowKey || "");
         if (!rowKey || this._trackScrollHandlers.has(track)) {
           return;
         }
         let duplicatePageRetryCount = 0;
+        let deferredAppendTimer = 0;
+        let deferredAppend = null;
         const scheduleLiveTrackCatchUp = (delayMs = 0) => {
           setTimeout(
             () => {
@@ -34,7 +39,7 @@ export function createHomeScreenMethods29() {
           );
         };
         const runPagination = ({ assumeNearEnd = false } = {}) => {
-          if (this._trackPaginationInFlight?.has(rowKey)) {
+          if (this._trackPaginationInFlight?.has(rowKey) || deferredAppend) {
             return;
           }
           const cards = track.querySelectorAll(".home-content-card:not(.home-poster-card-loading)");
@@ -69,6 +74,25 @@ export function createHomeScreenMethods29() {
           const appendItemsToTrack = (itemsToAppend = [], startIndex = 0) => {
             if (!itemsToAppend.length || !track.isConnected) {
               return false;
+            }
+            if (isVidaaLoadingBusy()) {
+              deferredAppend = { itemsToAppend, startIndex };
+              const appendWhenSettled = () => {
+                deferredAppendTimer = 0;
+                if (!track.isConnected || Router.getCurrent() !== "home") {
+                  deferredAppend = null;
+                  return;
+                }
+                if (isVidaaLoadingBusy()) {
+                  deferredAppendTimer = setTimeout(appendWhenSettled, 50);
+                  return;
+                }
+                const pending = deferredAppend;
+                deferredAppend = null;
+                if (pending) appendItemsToTrack(pending.itemsToAppend, pending.startIndex);
+              };
+              if (!deferredAppendTimer) deferredAppendTimer = setTimeout(appendWhenSettled, 50);
+              return true;
             }
             const newMarkup = itemsToAppend
               .map((item, i) =>
@@ -214,11 +238,12 @@ export function createHomeScreenMethods29() {
             return;
           }
           if (
+            isVidaaLoadingBusy() ||
             this.modernVerticalFastScrollState ||
             this.isScrollAnimationActive(track, "x") ||
             this.isScrollAnimationActive(this.modernCameraFollowLastVerticalContainer, "y")
           ) {
-            scrollTimer = setTimeout(runWhenIdle, 32);
+            scrollTimer = setTimeout(runWhenIdle, Platform.isVidaa() ? 50 : 32);
             return;
           }
           runPagination();
@@ -236,10 +261,14 @@ export function createHomeScreenMethods29() {
           if (prefetchTimer) {
             return;
           }
-          prefetchTimer = setTimeout(() => {
+          const runPrefetch = () => {
             prefetchTimer = 0;
             if (!track.isConnected || Router.getCurrent() !== "home") {
               pendingPrefetchContext = null;
+              return;
+            }
+            if (isVidaaLoadingBusy()) {
+              prefetchTimer = setTimeout(runPrefetch, 50);
               return;
             }
             const requestContext = pendingPrefetchContext;
@@ -263,7 +292,11 @@ export function createHomeScreenMethods29() {
               }
             }
             runPagination({ assumeNearEnd: true });
-          }, MODERN_HOME_CONSTANTS.trackPaginationPrefetchDelayMs);
+          };
+          prefetchTimer = setTimeout(
+            runPrefetch,
+            Platform.isVidaa() ? VIDAA_NAVIGATION_SETTLE_MS : MODERN_HOME_CONSTANTS.trackPaginationPrefetchDelayMs
+          );
         };
         handler.cancelPending = () => {
           if (scrollTimer) {
@@ -275,6 +308,11 @@ export function createHomeScreenMethods29() {
             prefetchTimer = 0;
           }
           pendingPrefetchContext = null;
+          if (deferredAppendTimer) {
+            clearTimeout(deferredAppendTimer);
+            deferredAppendTimer = 0;
+          }
+          deferredAppend = null;
         };
         this._trackScrollHandlers.set(track, handler);
         track.addEventListener("scroll", handler, { passive: true });

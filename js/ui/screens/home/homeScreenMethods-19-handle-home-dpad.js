@@ -1,7 +1,7 @@
 import * as internals from "./homeScreenContext.js";
 
 export function createHomeScreenMethods19() {
-  const { getLegacySidebarSelectedNode, getModernSidebarSelectedNode, getDirectionFromKeyCode } = internals;
+  const { Platform, getLegacySidebarSelectedNode, getModernSidebarSelectedNode, getDirectionFromKeyCode } = internals;
 
   return {
     handleHomeDpad(event) {
@@ -29,18 +29,27 @@ export function createHomeScreenMethods19() {
       if (!current) {
         return false;
       }
-      if (this.isMainNode(current) && !this.isNodeWithinMainViewport(current) && !this.shouldSuspendModernViewportFocusSync()) {
-        current = this.syncMainFocusToViewport({ suppressFlows: true }) || current;
+      const isVidaa = Platform.isVidaa();
+      const inputMeta = {
+        repeat: Boolean(event?.repeat)
+      };
+      if (isVidaa && inputMeta.repeat && this.shouldThrottleHomeDirectionalRepeat(direction)) {
+        event.preventDefault?.();
+        return true;
+      }
+      if (this.isMainNode(current)) {
+        const needsViewportSync = isVidaa
+          ? !this.shouldSuspendModernViewportFocusSync() && !this.isNodeWithinMainViewport(current)
+          : !this.isNodeWithinMainViewport(current) && !this.shouldSuspendModernViewportFocusSync();
+        if (needsViewportSync) {
+          current = this.syncMainFocusToViewport({ suppressFlows: true }) || current;
+        }
       }
       const isSidebar = this.isSidebarNode(current);
 
       if (typeof event?.preventDefault === "function") {
         event.preventDefault();
       }
-
-      const inputMeta = {
-        repeat: Boolean(event?.repeat)
-      };
 
       if (
         inputMeta.repeat &&
@@ -52,15 +61,8 @@ export function createHomeScreenMethods19() {
         return true;
       }
 
-      if (inputMeta.repeat) {
-        const now = Date.now();
-        const repeatThrottleMs = this.getDirectionalRepeatThrottleMs(direction);
-        const repeatTimes = this.lastDirectionalKeyAtByDirection || (this.lastDirectionalKeyAtByDirection = {});
-        const lastDirectionalKeyAt = Number(repeatTimes[direction] || 0);
-        if (lastDirectionalKeyAt > 0 && now - lastDirectionalKeyAt < repeatThrottleMs) {
-          return true;
-        }
-        repeatTimes[direction] = now;
+      if (!isVidaa && inputMeta.repeat && this.shouldThrottleHomeDirectionalRepeat(direction)) {
+        return true;
       }
 
       if (!isSidebar && current.classList.contains("home-hero-card") && (direction === "left" || direction === "right")) {
@@ -123,6 +125,17 @@ export function createHomeScreenMethods19() {
         return this.focusNode(current, target, direction, inputMeta) || true;
       }
 
+      return false;
+    },
+    shouldThrottleHomeDirectionalRepeat(direction) {
+      const now = Date.now();
+      const repeatThrottleMs = this.getDirectionalRepeatThrottleMs(direction);
+      const repeatTimes = this.lastDirectionalKeyAtByDirection || (this.lastDirectionalKeyAtByDirection = {});
+      const lastDirectionalKeyAt = Number(repeatTimes[direction] || 0);
+      if (lastDirectionalKeyAt > 0 && now - lastDirectionalKeyAt < repeatThrottleMs) {
+        return true;
+      }
+      repeatTimes[direction] = now;
       return false;
     },
     ensureDelegatedEventsBound() {

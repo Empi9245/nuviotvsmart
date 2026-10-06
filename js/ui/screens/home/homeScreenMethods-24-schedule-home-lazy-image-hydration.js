@@ -1,4 +1,10 @@
 import * as internals from "./homeScreenContext.js";
+import { Platform } from "../../../platform/index.js";
+import { isVidaaNavigationBusy, VIDAA_NAVIGATION_SETTLE_MS } from "../../navigation/vidaaNavigationActivity.js";
+
+function isVidaaHomeHydrationBusy(screen) {
+  return screen.isVidaaHomeLoadingBusy?.() ?? isVidaaNavigationBusy();
+}
 
 export function createHomeScreenMethods24() {
   const {
@@ -20,6 +26,10 @@ export function createHomeScreenMethods24() {
       anchorNode = null,
       { refreshIndex = false, deferUntilVerticalSettle = false, focusedRowOnly = false, includeNeighborRows = false } = {}
     ) {
+      if (Platform.isVidaa()) {
+        this.scheduleVidaaHomeLazyImageHydration(anchorNode, { refreshIndex });
+        return;
+      }
       const anchorRow = anchorNode instanceof HTMLElement ? anchorNode.closest(HOME_LAZY_IMAGE_ROW_SELECTOR) : null;
       const anchorImagePending = Boolean(
         anchorNode?.querySelector?.(".content-poster[data-src], .home-poster-landscape-logo[data-src], .home-continue-bg[data-src]")
@@ -117,6 +127,52 @@ export function createHomeScreenMethods24() {
         });
       });
     },
+    scheduleVidaaHomeLazyImageHydration(anchorNode = null, { refreshIndex = false } = {}) {
+      if (!this.container || this.container.isConnected === false) return;
+      const anchor = anchorNode || this.getCurrentFocusedNode();
+      this.pendingHomeLazyImageAnchor = anchor;
+      this.homeLazyImageHydrationNeedsIndexRefresh ||= refreshIndex;
+      // Keep the selected card recognizable without scanning other rows while
+      // the remote is moving. Logos and neighboring artwork wait for idle.
+      const focusedPoster = anchor?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
+      if (focusedPoster instanceof HTMLImageElement && focusedPoster.isConnected && focusedPoster.dataset.src) {
+        const src = String(focusedPoster.dataset.src).trim();
+        focusedPoster.loading = "eager";
+        focusedPoster.removeAttribute("data-src");
+        if (src) focusedPoster.src = src;
+      }
+      if (this.homeLazyImageHydrationSettleTimer) clearTimeout(this.homeLazyImageHydrationSettleTimer);
+      if (this.homeLazyImageHydrationRaf) {
+        cancelAnimationFrame(this.homeLazyImageHydrationRaf);
+        this.homeLazyImageHydrationRaf = 0;
+      }
+      if (this.homeLazyImageCommitRaf) {
+        cancelAnimationFrame(this.homeLazyImageCommitRaf);
+        this.homeLazyImageCommitRaf = 0;
+      }
+      // Queued secondary images from a previous viewport must not load after
+      // rapid navigation has already moved the focus somewhere else.
+      if (this.homeLazyImageCommitQueue) this.homeLazyImageCommitQueue.length = 0;
+      const hydrateWhenSettled = () => {
+        this.homeLazyImageHydrationSettleTimer = null;
+        if (!this.container || this.container.isConnected === false) return;
+        if (isVidaaHomeHydrationBusy(this)) {
+          this.homeLazyImageHydrationSettleTimer = setTimeout(hydrateWhenSettled, 50);
+          return;
+        }
+        const currentAnchor = this.getCurrentFocusedNode() || this.pendingHomeLazyImageAnchor;
+        this.pendingHomeLazyImageAnchor = null;
+        const shouldRefreshIndex = Boolean(this.homeLazyImageHydrationNeedsIndexRefresh);
+        this.homeLazyImageHydrationNeedsIndexRefresh = false;
+        this.homeLazyImageHydrationNeedsFullScan = false;
+        this.hydrateHomeLazyImages(currentAnchor, {
+          forceFullScan: true,
+          refreshIndex: shouldRefreshIndex,
+          includeNeighborRows: true
+        });
+      };
+      this.homeLazyImageHydrationSettleTimer = setTimeout(hydrateWhenSettled, VIDAA_NAVIGATION_SETTLE_MS);
+    },
     buildHomeLazyImageHydrationIndex() {
       if (!this.container) {
         this.homeLazyImageHydrationIndex = null;
@@ -138,6 +194,10 @@ export function createHomeScreenMethods24() {
       { forceFullScan = false, refreshIndex = false, focusedRowOnly = false, includeNeighborRows = false } = {}
     ) {
       if (!this.container) {
+        return;
+      }
+      if (Platform.isVidaa() && isVidaaHomeHydrationBusy(this)) {
+        this.scheduleVidaaHomeLazyImageHydration(anchorNode, { refreshIndex });
         return;
       }
       const anchorRow = anchorNode?.closest?.(HOME_LAZY_IMAGE_ROW_SELECTOR) || null;
@@ -236,7 +296,7 @@ export function createHomeScreenMethods24() {
         });
       });
       // Complete geometry reads before changing image layout/loading state.
-      if (this.isLegacyTvRuntime()) {
+      if (this.isLegacyTvRuntime() || Platform.isVidaa()) {
         this.commitHomeLazyImageSources(pendingLoads, anchorNode, anchorRow);
       } else {
         pendingLoads.forEach(({ image, src }) => {
@@ -282,8 +342,13 @@ export function createHomeScreenMethods24() {
 
       const drain = () => {
         this.homeLazyImageCommitRaf = 0;
+        if (Platform.isVidaa() && isVidaaHomeHydrationBusy(this)) {
+          this.scheduleVidaaHomeLazyImageHydration(this.getCurrentFocusedNode());
+          return;
+        }
         let assigned = 0;
-        while (pending.length && assigned < HOME_LEGACY_LAZY_HYDRATION_MAX_PER_FRAME) {
+        const maxPerFrame = Platform.isVidaa() ? 4 : HOME_LEGACY_LAZY_HYDRATION_MAX_PER_FRAME;
+        while (pending.length && assigned < maxPerFrame) {
           const { image, src } = pending.shift();
           if (!(image instanceof HTMLImageElement) || !image.isConnected) {
             continue;

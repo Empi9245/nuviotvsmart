@@ -2,7 +2,7 @@ function isVidaaViewportLocked() {
   const root = globalThis?.document?.documentElement;
   return Boolean(
     root?.classList?.contains("vidaa-tv") ||
-      String(globalThis?.__NUVIO_PLATFORM__ || "").toLowerCase() === "vidaa"
+    String(globalThis?.__NUVIO_PLATFORM__ || "").toLowerCase() === "vidaa"
   );
 }
 
@@ -129,8 +129,17 @@ export const ScreenUtils = {
     if (globalThis?.document?.body?.classList?.contains("nuvio-modal-open")) {
       return;
     }
+    // VIDAA's generic screens used to measure every candidate twice for a
+    // single remote press. Reuse this event's geometry without caching across
+    // scrolling, image loads or changing focus transforms.
+    const vidaaRects = isVidaaViewportLocked() ? new Map() : null;
+    const readRect = (node) => {
+      if (!vidaaRects) return node.getBoundingClientRect();
+      if (!vidaaRects.has(node)) vidaaRects.set(node, node.getBoundingClientRect());
+      return vidaaRects.get(node);
+    };
     const list = Array.from(container?.querySelectorAll(selector) || []).filter((node) => {
-      const rect = node.getBoundingClientRect();
+      const rect = readRect(node);
       return rect.width > 0 && rect.height > 0;
     });
     if (!list.length) {
@@ -145,14 +154,14 @@ export const ScreenUtils = {
       return;
     }
 
-    const currentRect = current.getBoundingClientRect();
+    const currentRect = readRect(current);
     const cx = currentRect.left + currentRect.width / 2;
     const cy = currentRect.top + currentRect.height / 2;
 
     const candidates = list
       .filter((node) => node !== current)
       .map((node) => {
-        const rect = node.getBoundingClientRect();
+        const rect = readRect(node);
         const nx = rect.left + rect.width / 2;
         const ny = rect.top + rect.height / 2;
         const dx = nx - cx;

@@ -1,20 +1,26 @@
 import * as internals from "./homeScreenContext.js";
 
 export function createHomeScreenMethods10() {
-  const { MODERN_HOME_CONSTANTS, shouldEnrichModernHero, preloadHeroAssets, buildHeroIdentity } = internals;
+  const { Platform, MODERN_HOME_CONSTANTS, shouldEnrichModernHero, preloadHeroAssets, buildHeroIdentity } = internals;
 
   return {
     scheduleModernHeroUpdate(node, { deferUntilVerticalSettle = false, immediate = false } = {}) {
       if (this.layoutMode !== "modern") {
         return;
       }
+      const isVidaa = Platform.isVidaa();
       const hero = this.getNodeHeroSource(node);
       if (!hero || !hero.id) {
         return;
       }
       const currentHeroIdentity = buildHeroIdentity(this.heroItem);
       const nextHeroIdentity = buildHeroIdentity(hero);
-      if (currentHeroIdentity === nextHeroIdentity && !this.heroItem?.heroMetaEnriching && !shouldEnrichModernHero(hero)) {
+      if (
+        currentHeroIdentity === nextHeroIdentity &&
+        !this.heroItem?.heroMetaEnriching &&
+        !shouldEnrichModernHero(hero) &&
+        (!isVidaa || !this.isVidaaHomeLoadingBusy())
+      ) {
         this.container?.querySelector(".home-modern-hero-card")?.classList.remove("is-hero-focus-pending");
         this.syncCollectionHeroMedia(hero);
         return;
@@ -32,7 +38,10 @@ export function createHomeScreenMethods10() {
         this.container?.querySelector(".home-modern-hero-card")?.classList.add("is-hero-focus-pending");
       }
       const waitForVerticalSettle = (callback) => {
-        if (deferUntilVerticalSettle && this.isModernVerticalScrollActive()) {
+        if (isVidaa && (Number(this.heroFocusToken || 0) !== focusToken || this.getCurrentFocusedNode() !== node || !node?.isConnected)) {
+          return;
+        }
+        if ((isVidaa && this.isVidaaHomeLoadingBusy()) || (deferUntilVerticalSettle && this.isModernVerticalScrollActive())) {
           this.heroBackdropPreloadTimer = setTimeout(
             () => waitForVerticalSettle(callback),
             MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs
@@ -41,7 +50,7 @@ export function createHomeScreenMethods10() {
         }
         callback();
       };
-      const preloadDelay = Math.max(0, Math.min(120, delay - 80));
+      const preloadDelay = isVidaa ? Math.max(250, delay) : Math.max(0, Math.min(120, delay - 80));
       this.heroBackdropPreloadTimer = setTimeout(() => {
         this.heroBackdropPreloadTimer = null;
         waitForVerticalSettle(() => {
@@ -60,7 +69,11 @@ export function createHomeScreenMethods10() {
         });
       }, preloadDelay);
       const commitHeroWhenSettled = () => {
-        if (deferUntilVerticalSettle && this.isModernVerticalScrollActive()) {
+        if (isVidaa && (Number(this.heroFocusToken || 0) !== focusToken || this.getCurrentFocusedNode() !== node || !node?.isConnected)) {
+          this.heroFocusDelayTimer = null;
+          return;
+        }
+        if ((isVidaa && this.isVidaaHomeLoadingBusy()) || (deferUntilVerticalSettle && this.isModernVerticalScrollActive())) {
           this.heroFocusDelayTimer = setTimeout(commitHeroWhenSettled, MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs);
           return;
         }
@@ -82,6 +95,10 @@ export function createHomeScreenMethods10() {
           }
           const focusedNode = this.getCurrentFocusedNode();
           if (focusedNode !== node || !node?.isConnected || !node.classList.contains("focused")) {
+            return;
+          }
+          if (isVidaa && this.isVidaaHomeLoadingBusy()) {
+            this.heroFocusDelayTimer = setTimeout(commitHeroWhenSettled, MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs);
             return;
           }
           const latestHero = this.getNodeHeroSource(node);

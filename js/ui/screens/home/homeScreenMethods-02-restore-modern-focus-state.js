@@ -1,7 +1,8 @@
 import * as internals from "./homeScreenContext.js";
+import { animateVidaaFocusScroll } from "../../navigation/vidaaFocusScroll.js";
 
 export function createHomeScreenMethods02() {
-  const { MODERN_HOME_CONSTANTS, findHomeFocusIdentityMatch, MODERN_CAMERA_PAN_EASING } = internals;
+  const { Platform, MODERN_HOME_CONSTANTS, findHomeFocusIdentityMatch, MODERN_CAMERA_PAN_EASING } = internals;
 
   return {
     restoreModernFocusState(focusState) {
@@ -140,6 +141,17 @@ export function createHomeScreenMethods02() {
       if (!container) {
         return;
       }
+      if (Platform.isVidaa()) {
+        if (axis === "y") {
+          this.modernCameraFollowLastVerticalContainer = container;
+        } else {
+          this.modernCameraFollowLastHorizontalContainer = container;
+        }
+        animateVidaaFocusScroll(this, container, axis, targetValue, {
+          duration: Number(duration) > 0 ? 140 : 0
+        });
+        return;
+      }
       if (options?.mode === "spring") {
         this.animateSpringScroll(container, axis, targetValue, options?.spring || {});
         return;
@@ -196,6 +208,10 @@ export function createHomeScreenMethods02() {
     },
     animateSpringScroll(container, axis, targetValue, options = {}) {
       if (!container) {
+        return;
+      }
+      if (Platform.isVidaa()) {
+        animateVidaaFocusScroll(this, container, axis, targetValue, { duration: 140 });
         return;
       }
       const property = axis === "y" ? "scrollTop" : "scrollLeft";
@@ -292,6 +308,14 @@ export function createHomeScreenMethods02() {
       }
       const state = this.modernCameraFollowState || null;
       if (stopAnimations) {
+        if (Platform.isVidaa()) {
+          for (const frameKey of ["_trackHorizRaf", "_mainVertRaf", "_mainClassicVertRaf"]) {
+            if (this[frameKey]) {
+              cancelAnimationFrame(this[frameKey]);
+              this[frameKey] = null;
+            }
+          }
+        }
         const horizontalContainers = [state?.horizontal?.container, this.modernCameraFollowLastHorizontalContainer];
         const verticalContainers = [state?.vertical?.container, this.modernCameraFollowLastVerticalContainer];
         horizontalContainers.forEach((container) => {

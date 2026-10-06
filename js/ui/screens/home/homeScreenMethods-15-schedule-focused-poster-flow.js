@@ -3,6 +3,7 @@ import * as internals from "./homeScreenContext.js";
 export function createHomeScreenMethods15() {
   const {
     Router,
+    Platform,
     MODERN_HOME_CONSTANTS,
     getLegacySidebarSelectedNode,
     getModernSidebarSelectedNode,
@@ -17,6 +18,7 @@ export function createHomeScreenMethods15() {
       if (this.layoutMode !== "modern") {
         return;
       }
+      const isVidaa = Platform.isVidaa();
       this.cancelFocusedPosterFlow();
       if (this.isCollectionFolderNode(node)) {
         this.clearFocusedPosterFlowState();
@@ -51,9 +53,10 @@ export function createHomeScreenMethods15() {
       const existingState = this.focusedPosterFlowState;
       const canReuseExistingState = Boolean(flowKey && existingState?.key === flowKey);
       const now = Date.now();
-      const delayMs = canReuseExistingState
+      const requestedDelayMs = canReuseExistingState
         ? Math.max(0, Number(existingState.activated ? 0 : (existingState.activateAt || now) - now))
         : defaultDelayMs;
+      const delayMs = isVidaa ? Math.max(250, requestedDelayMs) : requestedDelayMs;
       const flowToken = Number(this.focusedPosterFlowToken || 0) + 1;
       this.focusedPosterFlowToken = flowToken;
       this.focusedPosterFlowState = {
@@ -73,6 +76,10 @@ export function createHomeScreenMethods15() {
           ) {
             return;
           }
+          if (isVidaa && this.isVidaaHomeLoadingBusy()) {
+            this.focusedPosterTrailerPrefetchTimer = setTimeout(prefetchTrailer, MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs);
+            return;
+          }
           this.prefetchFocusedPosterTrailer(node);
         };
         const waitForVerticalSettleThenPrefetch = () => {
@@ -87,13 +94,14 @@ export function createHomeScreenMethods15() {
           this.focusedPosterTrailerPrefetchTimer = setTimeout(prefetchTrailer, 150);
         };
         this.focusedPosterTrailerPrefetchTimer = setTimeout(
-          deferUntilVerticalSettle ? waitForVerticalSettleThenPrefetch : prefetchTrailer,
-          deferUntilVerticalSettle ? MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs : 150
+          !isVidaa && deferUntilVerticalSettle ? waitForVerticalSettleThenPrefetch : prefetchTrailer,
+          isVidaa ? 250 : deferUntilVerticalSettle ? MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs : 150
         );
       }
       if (
         canReuseExistingState &&
         existingState.activated &&
+        (!isVidaa || !this.isVidaaHomeLoadingBusy()) &&
         this.restorePersistentHeroTrailer(node, {
           shouldExpand,
           shouldPreviewTrailer,
@@ -103,7 +111,18 @@ export function createHomeScreenMethods15() {
       ) {
         return;
       }
-      this.focusedPosterTimer = setTimeout(() => {
+      const activateWhenSettled = () => {
+        this.focusedPosterTimer = null;
+        if (
+          isVidaa &&
+          (Number(this.focusedPosterFlowToken || 0) !== flowToken || this.getCurrentFocusedNode() !== node || !node?.isConnected)
+        ) {
+          return;
+        }
+        if (isVidaa && this.isVidaaHomeLoadingBusy()) {
+          this.focusedPosterTimer = setTimeout(activateWhenSettled, MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs);
+          return;
+        }
         if (this.focusedPosterFlowState?.key === flowKey && this.focusedPosterFlowState?.token === flowToken) {
           this.focusedPosterFlowState = {
             key: flowKey,
@@ -122,7 +141,8 @@ export function createHomeScreenMethods15() {
         this.activateFocusedPosterFlow(node, flowToken).catch((error) => {
           console.warn("Focused poster flow failed", error);
         });
-      }, delayMs);
+      };
+      this.focusedPosterTimer = setTimeout(activateWhenSettled, delayMs);
     },
     resetFocusedPosterFlow(node) {
       if (this.layoutMode !== "modern") {
@@ -290,8 +310,16 @@ export function createHomeScreenMethods15() {
       if (!track) {
         return null;
       }
-      const styles = globalThis.getComputedStyle ? globalThis.getComputedStyle(track) : null;
-      const leftPad = Math.max(0, Number.parseFloat(styles?.paddingLeft || "0") || 0);
+      let leftPad;
+      if (Platform.isVidaa()) {
+        // Track padding is fixed for this rendered row. Reuse the existing
+        // viewport metrics cache instead of resolving style on every key.
+        const cachedLeft = Number.parseFloat(track.dataset?.trackPadLeft || "");
+        leftPad = Number.isFinite(cachedLeft) && cachedLeft >= 0 ? cachedLeft : this.getTrackViewportMetrics(track).leftPadding;
+      } else {
+        const styles = globalThis.getComputedStyle ? globalThis.getComputedStyle(track) : null;
+        leftPad = Math.max(0, Number.parseFloat(styles?.paddingLeft || "0") || 0);
+      }
       const trackRect = track.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       const targetLeft = targetRect.left - trackRect.left + Number(track.scrollLeft || 0) - Number(layoutAdjustment || 0);

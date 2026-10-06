@@ -3,6 +3,7 @@ import * as internals from "./homeScreenContext.js";
 export function createHomeScreenMethods11() {
   const {
     Router,
+    Platform,
     TmdbSettingsStore,
     metaRepository,
     mdbListRepository,
@@ -27,6 +28,7 @@ export function createHomeScreenMethods11() {
       const itemType = String(hero.type || hero.apiType || "movie");
       const heroIdentity = buildHeroIdentity(hero);
       const deferCommit = Boolean(options?.deferCommit);
+      const isVidaa = Platform.isVidaa();
       const token = (this.heroEnrichmentToken = Number(this.heroEnrichmentToken || 0) + 1);
       const canCommitHero = () => {
         if (Number(this.heroEnrichmentToken) !== token) {
@@ -34,6 +36,15 @@ export function createHomeScreenMethods11() {
         }
         if (Number(this.heroFocusToken || 0) !== Number(focusToken || 0)) {
           return false;
+        }
+        if (isVidaa) {
+          if (Router.getCurrent() !== String(options?.routeName || "home")) {
+            return false;
+          }
+          const focusedHero = this.getNodeHeroSource(this.getCurrentFocusedNode());
+          if (buildHeroIdentity(focusedHero) !== heroIdentity) {
+            return false;
+          }
         }
         if (!deferCommit) {
           return String(this.heroItem?.id || "") === itemId;
@@ -45,9 +56,15 @@ export function createHomeScreenMethods11() {
         return buildHeroIdentity(focusedHero) === heroIdentity;
       };
       const commitHero = async (resolvedHero, { merge = false } = {}) => {
+        if (isVidaa && !(await this.waitForVidaaHomeLoadingIdle(canCommitHero))) {
+          return false;
+        }
         if (deferCommit) {
           const display = buildModernHeroPresentation(resolvedHero);
           await Promise.all([preloadImageSource(display?.backdrop), preloadImageSource(display?.logo)]);
+        }
+        if (isVidaa && !(await this.waitForVidaaHomeLoadingIdle(canCommitHero))) {
+          return false;
         }
         if (!canCommitHero()) {
           return false;
@@ -63,6 +80,9 @@ export function createHomeScreenMethods11() {
         this.applyHeroToDom();
         return true;
       };
+      if (isVidaa && (!(await this.waitForVidaaHomeLoadingIdle(canCommitHero)) || !canCommitHero())) {
+        return;
+      }
       const mdbImdbRatingPromise = withTimeout(mdbListRepository.getImdbRatingForItem(itemId, itemType), 3500, null).catch(() => null);
       let metadataPromise = null;
       let latestMetadataResult = null;
@@ -252,6 +272,7 @@ export function createHomeScreenMethods11() {
       return Boolean(this.resolveCollectionFolderTargetFromNode(node));
     },
     shouldPreserveCollectionHeroMedia(node) {
+      if (Platform.isVidaa()) return false;
       if (!this.isCollectionFolderNode(node)) {
         return false;
       }
@@ -262,7 +283,7 @@ export function createHomeScreenMethods11() {
       if (!(gifNode instanceof HTMLImageElement)) {
         return;
       }
-      if (active) {
+      if (active && !Platform.isVidaa()) {
         const src = String(gifNode.dataset.src || gifNode.getAttribute("src") || "").trim();
         if (src && !gifNode.getAttribute("src")) {
           gifNode.setAttribute("src", src);

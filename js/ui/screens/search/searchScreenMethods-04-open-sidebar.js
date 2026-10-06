@@ -1,5 +1,7 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./searchScreen.js";
+import { Platform } from "../../../platform/index.js";
+import { animateVidaaFocusScroll } from "../../navigation/vidaaFocusScroll.js";
 
 export function createSearchScreenMethods04() {
   const {
@@ -132,6 +134,10 @@ export function createSearchScreenMethods04() {
       if (!container) {
         return;
       }
+      if (Platform.isVidaa()) {
+        animateVidaaFocusScroll(this, container, axis, targetValue);
+        return;
+      }
       if (options?.mode === "spring") {
         this.animateSpringScroll(container, axis, targetValue, options?.spring || {});
         return;
@@ -180,6 +186,10 @@ export function createSearchScreenMethods04() {
     },
     animateSpringScroll(container, axis, targetValue, options = {}) {
       if (!container) {
+        return;
+      }
+      if (Platform.isVidaa()) {
+        animateVidaaFocusScroll(this, container, axis, targetValue);
         return;
       }
       const property = axis === "y" ? "scrollTop" : "scrollLeft";

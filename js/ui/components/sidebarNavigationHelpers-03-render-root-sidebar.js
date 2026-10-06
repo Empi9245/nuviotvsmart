@@ -107,6 +107,22 @@ export function setLegacySidebarExpanded(container, expanded) {
   if (!sidebar) {
     return;
   }
+  if (getTvRuntimePerformanceProfile().platform === "vidaa") {
+    const shouldExpand = Boolean(expanded);
+    const requestedExpanded = sidebar._vidaaSidebarExpanded ?? sidebar.classList.contains("expanded");
+    // Every card move requests the collapsed state. Keep that path free of
+    // forced layout and repeated sidebar text measurements on the TV.
+    if (requestedExpanded === shouldExpand) {
+      return;
+    }
+    sidebar._vidaaSidebarExpanded = shouldExpand;
+    sidebar.classList.remove("opening");
+    sidebar.classList.toggle("content-expanded", shouldExpand);
+    sidebar.classList.toggle("expanded", shouldExpand);
+    syncSidebarStateClasses(container);
+    scheduleRootSidebarTextFit(container);
+    return;
+  }
   if (sidebar._legacyCloseFrame) {
     cancelAnimationFrame(sidebar._legacyCloseFrame);
     sidebar._legacyCloseFrame = null;

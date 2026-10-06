@@ -1,5 +1,7 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./metaDetailsScreenContext.js";
+import { Platform } from "../../../platform/index.js";
+import { animateVidaaFocusScroll } from "../../navigation/vidaaFocusScroll.js";
 
 export function createMetaDetailsScreenMethods17() {
   const {
@@ -146,6 +148,10 @@ export function createMetaDetailsScreenMethods17() {
       if (!container) {
         return;
       }
+      if (Platform.isVidaa()) {
+        animateVidaaFocusScroll(this, container, axis, targetValue);
+        return;
+      }
       if (!this.isLegacyTvRuntime()) {
         this.animateSpringScroll(container, axis, targetValue);
         return;
@@ -214,6 +220,10 @@ export function createMetaDetailsScreenMethods17() {
     },
     animateSpringScroll(container, axis, targetValue, options = {}) {
       if (!container) {
+        return;
+      }
+      if (Platform.isVidaa()) {
+        animateVidaaFocusScroll(this, container, axis, targetValue);
         return;
       }
       const property = axis === "y" ? "scrollTop" : "scrollLeft";

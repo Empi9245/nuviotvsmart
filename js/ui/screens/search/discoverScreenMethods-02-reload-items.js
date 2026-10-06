@@ -51,6 +51,18 @@ export function createDiscoverScreenMethods02() {
       if (this.loading || !this.hasMore) {
         return;
       }
+      if (preserveViewport && this.items?.length && this.isVidaaDiscoverLoadingBusy()) {
+        if (!this.vidaaDiscoverPaginationTimer) {
+          const token = this.loadToken;
+          this.vidaaDiscoverPaginationTimer = setTimeout(() => {
+            this.vidaaDiscoverPaginationTimer = null;
+            if (token === this.loadToken && Router.getCurrent() === "discover") {
+              this.loadNextPage({ restoreFocusToGrid, preserveViewport, suppressLoadingRender, replaceExistingItems, partialRender });
+            }
+          }, 60);
+        }
+        return;
+      }
 
       const token = this.loadToken;
       const selectedCatalog = this.getSelectedCatalog();
