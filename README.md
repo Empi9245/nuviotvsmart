@@ -43,13 +43,26 @@ Platform capabilities are intentionally version-dependent:
 
 On Tizen 5+ and LG webOS, torrent/P2P uses only the bundled local companion service; no external torrent streaming server is configured or required.
 
-- [Hisense VIDAA Web Installer](./installer) for local network installation
+- [Sidee VIDAA launcher installer](https://github.com/Empi9245/Sidee) for adding Nuvio to the TV launcher using a paired local-network connection
+- [Legacy Hisense VIDAA Web Installer](./installer) for older firmware and experimental browser-based installation
 - [Nuvio TV Installer](https://github.com/NuvioMedia/NuvioTVSmart/releases/latest) for Windows, macOS, and Linux
 - [Samsung Tizen WGT](https://github.com/NuvioMedia/NuvioTVSmart/releases/latest) for manual installation
 - [LG webOS Homebrew repository](https://raw.githubusercontent.com/NuvioMedia/NuvioTVWebOS/main/webosbrew/apps.json)
 - [LG webOS IPK](https://github.com/NuvioMedia/NuvioTVSmart/releases/latest) for manual installation
 
 ## Hisense VIDAA OS
+
+### Install Nuvio on a Hisense VIDAA TV
+
+**Recommended for newer VIDAA firmware: [Sidee](https://github.com/Empi9245/Sidee).** Sidee uses PIN-authorized pairing over your local network to add a Nuvio web-app tile to the TV launcher, without changing the TV's DNS settings. The Windows launcher is the simplest setup:
+
+1. Download Sidee from its [GitHub installation guide](https://github.com/Empi9245/Sidee#start-on-windows) and run `start-windows.bat` on a Windows computer on the same network as the TV.
+2. In the Sidee dashboard, select **Find TV**, then **Request code**. Enter the PIN shown on your TV and select **Confirm code**.
+3. Choose **Install Nuvio**, then launch the Nuvio tile from your TV Home screen. See Sidee's README for other systems and troubleshooting.
+
+Sidee has been tested on VIDAA U09.60; compatibility with other TV models and firmware may vary. The installed tile opens the hosted web app rather than copying an offline package onto the TV. The computer is needed for setup, not for launching the hosted tile afterward.
+
+**Older VIDAA firmware:** The original [browser/DNS-based installer instructions](./installer/README.md) remain available for TVs where the `Hisense_installApp` method is permitted. That legacy method is firmware-dependent and may not work on newer models. Alternatively, you can open the hosted app in the TV browser and bookmark it.
 
 Create the VIDAA web archive with:
 
