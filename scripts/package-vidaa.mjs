@@ -1,5 +1,6 @@
 import { access, cp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
@@ -56,9 +57,39 @@ async function packageVidaa() {
     await cp(srcPath, destPath, { recursive: true });
   }
 
-  // VIDAA-only hosted/PWA assets must not leak into Tizen/webOS dist packages.
+  // Give each VIDAA app shell its own asset URLs and offline cache. Keep the
+  // shared dist unchanged for the Tizen and webOS packagers.
+  const workerSource = await readFile(path.join(rootDir, "sw.js"), "utf8");
+  const shellFiles = [
+    "index.html",
+    "app.bundle.js",
+    "core-js.bundle.js",
+    "css/bundle.css",
+    "nuvio.env.js",
+    "boot-guard.js",
+    "assets/runtime/legacy-features.js"
+  ];
+  const shellHash = createHash("sha256").update(workerSource);
+  for (const file of shellFiles) {
+    shellHash.update(file).update(await readFile(path.join(vidaaDistDir, file)));
+  }
+  const buildId = shellHash.digest("hex").slice(0, 16);
+  const indexPath = path.join(vidaaDistDir, "index.html");
+  const indexSource = await readFile(indexPath, "utf8");
+  const versionedIndex = indexSource.replace(
+    /((?:src|href)=")([^"?#]+\.(?:js|css))(?:\?[^"#]*)?("|#[^"]*")/g,
+    (match, prefix, asset, suffix) => {
+      if (/^(?:[a-z]+:|\/\/)/i.test(asset)) return match;
+      return `${prefix}${asset}?v=${buildId}${suffix}`;
+    }
+  );
+  const versionedWorker = workerSource.replace(
+    /^var CACHE_NAME = "[^"]+";/,
+    `var CACHE_NAME = "nuvio-vidaa-${buildId}";`
+  );
   await Promise.all([
-    cp(path.join(rootDir, "sw.js"), path.join(vidaaDistDir, "sw.js")),
+    writeFile(indexPath, versionedIndex),
+    writeFile(path.join(vidaaDistDir, "sw.js"), versionedWorker),
     cp(path.join(rootDir, "manifest.json"), path.join(vidaaDistDir, "manifest.json"))
   ]);
 

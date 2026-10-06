@@ -45,7 +45,7 @@ self.addEventListener("activate", function (e) {
         return Promise.all(
           names
             .filter(function (n) {
-              return n !== CACHE_NAME;
+              return n.indexOf("nuvio-vidaa-") === 0 && n !== CACHE_NAME;
             })
             .map(function (n) {
               return caches.delete(n);
@@ -75,12 +75,23 @@ self.addEventListener("fetch", function (e) {
   }
 
   function updateCacheFromNetwork() {
-    return fetch(req).then(function (response) {
+    return fetch(req, { cache: "no-store" }).then(function (response) {
+      if (!response || !response.ok) {
+        throw new Error("App resource unavailable");
+      }
       if (response && response.status === 200) {
         var clone = response.clone();
-        caches.open(CACHE_NAME).then(function (cache) {
-          cache.put(normalizedRequest, clone);
-        });
+        return caches
+          .open(CACHE_NAME)
+          .then(function (cache) {
+            return cache.put(normalizedRequest, clone);
+          })
+          .then(function () {
+            return response;
+          })
+          .catch(function () {
+            return response;
+          });
       }
       return response;
     });
@@ -94,21 +105,20 @@ self.addEventListener("fetch", function (e) {
     req.destination === "style" ||
     req.destination === "font" ||
     req.destination === "image" ||
-    req.url.endsWith(".html") ||
-    req.url.endsWith(".js") ||
-    req.url.endsWith(".css") ||
-    req.url.endsWith(".wasm");
+    /\.(html|js|css|wasm)(\?|$)/i.test(req.url);
 
   if (isAppShellRequest) {
     e.respondWith(
-      caches.match(normalizedRequest).then(function (cached) {
-        if (cached) {
-          // Serve from cache and update in background
-          updateCacheFromNetwork().catch(function () {});
-          return cached;
-        }
-        return updateCacheFromNetwork().catch(function () {
-          return caches.match("./index.html");
+      // Check the network at app launch; reuse this build's cache when offline.
+      updateCacheFromNetwork().catch(function (error) {
+        return caches.open(CACHE_NAME).then(function (cache) {
+          return cache.match(normalizedRequest).then(function (cached) {
+            if (cached) return cached;
+            if (req.mode === "navigate" || req.destination === "document") {
+              return cache.match("./index.html");
+            }
+            throw error;
+          });
         });
       })
     );
@@ -116,8 +126,10 @@ self.addEventListener("fetch", function (e) {
   }
 
   e.respondWith(
-    caches.match(normalizedRequest).then(function (response) {
-      return response || fetch(req);
+    caches.open(CACHE_NAME).then(function (cache) {
+      return cache.match(normalizedRequest).then(function (response) {
+        return response || fetch(req);
+      });
     })
   );
 });
