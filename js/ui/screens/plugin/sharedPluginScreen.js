@@ -25,16 +25,17 @@ export const SharedPluginScreen = {
   async mount(container) {
     this.container = container;
     this.mounted = true;
-    this.busy = false;
+    this.syncing = false;
+    this.saving = false;
     this.message = "";
     this.url = "";
     this.render();
-    await this.refresh();
   },
 
   render() {
     if (!this.mounted) return;
-    const editable = addonRepository.canEdit() && AuthManager.isAuthenticated;
+    const editable = addonRepository.canEdit();
+    const mutationDisabled = !editable || this.saving;
     const urls = addonRepository.getInstalledAddonUrls();
     const cached = addonRepository.getCachedInstalledAddons(urls, { includeDisabled: true });
     let index = 0;
@@ -48,24 +49,30 @@ export const SharedPluginScreen = {
         <section class="addons-install-card">
           <label class="addons-install-heading" for="shared-addon-url">${escapeHtml(t("web_add_addon_url", "Add addon by URL"))}</label>
           <div class="addons-install-row">
-            <input id="shared-addon-url" class="addons-install-surface focusable" data-index="${index++}" type="url" value="${escapeHtml(this.url)}" placeholder="https://example.com/manifest.json" autocomplete="off" ${!editable || this.busy ? "disabled" : ""}>
-            ${button("install", t("addon_install_btn", "Install"), !editable || this.busy)}
+            <input id="shared-addon-url" class="addons-install-surface focusable" data-index="${index++}" type="url" value="${escapeHtml(this.url)}" placeholder="https://example.com/manifest.json" autocomplete="off" ${mutationDisabled ? "disabled" : ""}>
+            ${button("install", t("addon_install_btn", "Install"), mutationDisabled)}
           </div>
         </section>
-        <p class="addons-sync-status" role="status">${escapeHtml(this.busy ? t("addon_shared_saving", "Saving…") : this.message)}</p>
+        <p class="addons-sync-status" role="status">${escapeHtml(
+          this.saving
+            ? t("addon_shared_saving", "Saving…")
+            : this.syncing
+              ? t("addon_refresh_action", "Refreshing…")
+              : this.message
+        )}</p>
         <h2>${escapeHtml(t("addon_installed_section", "Installed"))}</h2>
         <div class="addons-installed-list">
           ${urls.map((url) => {
             const addon = cached.find((item) => item.baseUrl === url || item.url === url);
             return `<article class="addons-installed-card"><h3>${escapeHtml(addon?.name || addonRepository.getAddonDisplayNameOverride(url) || url)}</h3>
               <p class="addons-installed-description">${escapeHtml(url)}</p>
-              ${button("remove", t("addon_remove", "Remove"), !editable || this.busy, `data-url="${escapeHtml(url)}"`)}</article>`;
+              ${button("remove", t("addon_remove", "Remove"), mutationDisabled, `data-url="${escapeHtml(url)}"`)}</article>`;
           }).join("") || `<p>${escapeHtml(t("addon_empty", "No addons installed."))}</p>`}
         </div>
         <div class="addons-installed-actions">
-          ${button("refresh", t("addon_refresh_action", "Refresh Addons"), this.busy)}
-          ${button("catalogs", t("addon_reorder_title", "Reorder home catalogs"), this.busy)}
-          ${button("home", t("nav_home", "Home"), this.busy)}
+          ${button("refresh", t("addon_refresh_action", "Refresh Addons"), this.syncing || this.saving)}
+          ${button("catalogs", t("addon_reorder_title", "Reorder home catalogs"))}
+          ${button("home", t("nav_home", "Home"))}
         </div>
       </div></main>`;
     const controls = [...this.container.querySelectorAll(".focusable:not(:disabled)")];
@@ -105,8 +112,8 @@ export const SharedPluginScreen = {
   },
 
   async refresh() {
-    if (this.busy) return;
-    this.busy = true;
+    if (this.syncing || this.saving) return;
+    this.syncing = true;
     this.render();
     try {
       await LibrarySyncService.pull();
@@ -114,14 +121,14 @@ export const SharedPluginScreen = {
         ? t("addon_shared_sync_error", "Unable to save or load add-ons. Check your connection and try again.") : "";
       catalogRepository.clearCache();
     } finally {
-      this.busy = false;
-      this.render();
+      this.syncing = false;
+      if (this.mounted) this.render();
     }
   },
 
   async change(action, value) {
-    if (this.busy || !addonRepository.canEdit() || !AuthManager.isAuthenticated) return;
-    this.busy = true;
+    if (this.saving || this.syncing || !addonRepository.canEdit()) return;
+    this.saving = true;
     const profileId = ProfileManager.getActiveProfileId();
     const generation = AuthManager.sessionGeneration;
     const previousUrls = addonRepository.getInstalledAddonUrls();
@@ -146,23 +153,27 @@ export const SharedPluginScreen = {
         this.message = t("addon_shared_already_installed", "This add-on is already installed.");
         return;
       }
-      if (!(await LibrarySyncService.push())) {
-        await addonRepository.setAddonOrder(previousUrls);
-        addonRepository.setAddonEnabledStates(Object.entries(previousEnabled).map(([url, enabled]) => ({ url, enabled })), { replace: true });
-        this.message = t("addon_shared_sync_error", "Unable to save or load add-ons. Check your connection and try again.");
-        return;
+      if (AuthManager.isAuthenticated) {
+        if (!(await LibrarySyncService.push())) {
+          await addonRepository.setAddonOrder(previousUrls);
+          addonRepository.setAddonEnabledStates(Object.entries(previousEnabled).map(([url, enabled]) => ({ url, enabled })), { replace: true });
+          this.message = t("addon_shared_sync_error", "Unable to save or load add-ons. Check your connection and try again.");
+          return;
+        }
+        this.message = t("addon_shared_saved", "Add-ons saved to your account.");
+      } else {
+        this.message = t("addon_shared_saved_local", "Add-ons saved on this TV.");
       }
       catalogRepository.clearCache();
       this.url = "";
-      this.message = t("addon_shared_saved", "Add-ons saved to your account.");
     } finally {
-      this.busy = false;
-      this.render();
+      this.saving = false;
+      if (this.mounted) this.render();
     }
   },
 
   async activate(node) {
-    if (this.busy) return;
+    if (this.saving) return;
     const action = node.dataset.action;
     if (action === "install") await this.change(action, this.url);
     else if (action === "remove") await this.change(action, node.dataset.url);
@@ -174,15 +185,17 @@ export const SharedPluginScreen = {
   async onKeyDown(event) {
     if (Platform.isBackEvent(event)) {
       event.preventDefault();
-      if (!this.busy) await Router.back();
+      await Router.back();
       return;
     }
     const code = Number(event.keyCode || 0);
-    const inputFocused = document.activeElement?.tagName === "INPUT";
+    const focusedControl = this.container.querySelector(".focusable.focused");
+    const inputFocused =
+      focusedControl?.tagName === "INPUT" ||
+      (!focusedControl && document.activeElement?.tagName === "INPUT");
 
     // Let the TV/browser handle OK on a focused text field. VIDAA uses this
-    // native activation to open its on-screen keyboard; consuming Enter here
-    // previously moved focus away before text entry could start.
+    // native activation to open its on-screen keyboard.
     if (inputFocused && code === 13) return;
 
     // Keep left/right available for caret movement while editing the URL.
@@ -190,6 +203,9 @@ export const SharedPluginScreen = {
 
     if (code === 38 || code === 40 || code === 37 || code === 39) {
       event.preventDefault();
+      if (inputFocused && (code === 38 || code === 40)) {
+        try { document.activeElement?.blur?.(); } catch (_) {}
+      }
       ScreenUtils.moveFocus(
         this.container,
         code === 38 || code === 37 ? -1 : 1,
@@ -203,5 +219,9 @@ export const SharedPluginScreen = {
     }
   },
 
-  cleanup() { this.mounted = false; }
+  cleanup() {
+    this.mounted = false;
+    this.syncing = false;
+    this.saving = false;
+  }
 };
