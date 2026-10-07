@@ -814,6 +814,7 @@
     <string name="layout_landscape_posters_sub">Switch between portrait and landscape cards for Modern view.</string>
     <string name="layout_animations_effects">Animations &amp; effects</string>
     <string name="layout_animations_effects_sub">Reduce visual effects if the TV feels slow.</string>
+    <string name="layout_perf_auto">Automatic</string>
     <string name="layout_perf_reduced">Reduced effects</string>
     <string name="layout_perf_full">Full effects</string>
     <string name="layout_preview_row">Show Preview Row</string>

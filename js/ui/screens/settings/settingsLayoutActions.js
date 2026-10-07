@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./settingsScreenContext.js";
-import { getTvRuntimePerformanceProfile, setTvPerformanceMode } from "../../../platform/tvRuntimePerformance.js";
+import { getTvPerformanceMode, setTvPerformanceMode } from "../../../platform/tvRuntimePerformance.js";
 
 export function registerLayoutActions(model) {
   const { HomeCatalogStore, LayoutPreferences, HOME_LAYOUT_OPTIONS, t } = internals;
@@ -23,10 +23,19 @@ export function registerLayoutActions(model) {
     this.toggleExpandedSection("layout", "cardAppearance");
   });
   this.actionMap.set("layout:performanceMode", () => {
-    // Manual override of the version-based default: flip the current effective
-    // state and persist the user's explicit choice.
-    const constrained = getTvRuntimePerformanceProfile().isPerformanceConstrained;
-    setTvPerformanceMode(constrained ? "full" : "reduced");
+    this.openOptionDialog({
+      title: t("layout_animations_effects", {}, "Animations & effects"),
+      options: [
+        { id: "auto", labelKey: "layout_perf_auto" },
+        { id: "reduced", labelKey: "layout_perf_reduced" },
+        { id: "full", labelKey: "layout_perf_full" }
+      ],
+      selectedId: getTvPerformanceMode(),
+      returnFocusKey: "layout:performanceMode",
+      onSelect: (option) => {
+        setTvPerformanceMode(option.id);
+      }
+    });
   });
 
   HOME_LAYOUT_OPTIONS.forEach((option) => {

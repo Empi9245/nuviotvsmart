@@ -763,6 +763,7 @@
     <string name="layout_landscape_posters_sub">Alterne os pôsteres para o formato horizontal.</string>
     <string name="layout_animations_effects">Animações e efeitos</string>
     <string name="layout_animations_effects_sub">Reduza os efeitos visuais se a TV estiver lenta.</string>
+    <string name="layout_perf_auto">Automático</string>
     <string name="layout_perf_reduced">Efeitos reduzidos</string>
     <string name="layout_perf_full">Efeitos completos</string>
     <string name="layout_preview_row">Mostrar prévia do catálogo</string>

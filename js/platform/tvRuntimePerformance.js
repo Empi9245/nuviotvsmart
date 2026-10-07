@@ -10,18 +10,10 @@ export const TV_RUNTIME_PERFORMANCE_THRESHOLDS = Object.freeze({
   modernChromiumMajor: 85
 });
 
-// TV web runtimes fail closed to the constrained/perf path. The runtime year
-// proved to be a bad proxy for capability: budget 2023/2024 sets (e.g. Samsung
-// CU7700) report a modern Tizen and a capable Chromium but cannot hold a 60fps
-// frame budget, so the version-only gate left them on the heavy-effects path.
-// Default behavior is the upstream version-based classification: no stored
-// choice means "auto". The user can override it (persisted) to force the
-// constrained/perf path on or off from Settings.
-//   absent    → "auto" (upstream: constrained only on legacy runtimes)
-//   "reduced" → force constrained
-//   "full"    → force full effects
+// Keep the runtime-based automatic default unless the user explicitly chooses
+// a device-local override. Legacy API compatibility remains independent.
 const TV_PERF_MODE_KEY = "tvPerfMode";
-export const TV_PERF_MODES = Object.freeze(["reduced", "full"]);
+export const TV_PERF_MODES = Object.freeze(["auto", "reduced", "full"]);
 
 export function getTvPerformanceMode() {
   try {
