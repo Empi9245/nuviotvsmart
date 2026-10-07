@@ -185,10 +185,39 @@ platform("vidaa");
       card.dataset = { navRow: String(rowIndex), navCol: String(colIndex) };
     })
   );
-  owner.scheduleHomeLazyImageHydration(cards[0], { navigationDirection: "down" });
-  assert.equal(images[0].src, "poster-0-0");
-  assert.equal(images[10].src, "poster-1-0", "Vertical navigation should warm only the next catalogue");
-  assert.equal(images[20].src, undefined, "Vertical navigation must not preload multiple catalogues");
+
+  owner.scheduleHomeLazyImageHydration(cards[4], { navigationDirection: "down" });
+  assert.equal(images[4].src, "poster-0-4");
+  for (const index of [14, 13, 15, 12, 24, 23, 25, 22]) {
+    assert.equal(images[index].src, `poster-${Math.floor(index / 10)}-${index % 10}`);
+    assert.equal(images[index].fetchPriority, "low");
+  }
+  assert.equal(images[11].src, undefined, "Vertical prefetch must stay bounded to four posters per row");
+  assert.equal(images[21].src, undefined, "Second buffered row must also stay bounded");
+
+  const upSurface = homeSurface();
+  upSurface.owner.navModel = {
+    rows: [
+      upSurface.cards.slice(0, 10),
+      upSurface.cards.slice(10, 20),
+      upSurface.cards.slice(20, 30)
+    ]
+  };
+  upSurface.owner.navModel.rows.forEach((rowNodes, rowIndex) =>
+    rowNodes.forEach((card, colIndex) => {
+      card.dataset = { navRow: String(rowIndex), navCol: String(colIndex) };
+    })
+  );
+  upSurface.owner.scheduleHomeLazyImageHydration(upSurface.cards[24], { navigationDirection: "up" });
+  for (const index of [14, 13, 15, 12, 4, 3, 5, 2]) {
+    assert.equal(
+      upSurface.images[index].src,
+      `poster-${Math.floor(index / 10)}-${index % 10}`,
+      "Upward navigation should warm two catalogues with four posters each"
+    );
+  }
+  assert.equal(upSurface.images[11].src, undefined);
+  assert.equal(upSurface.images[1].src, undefined);
 }
 
 platform("vidaa");
