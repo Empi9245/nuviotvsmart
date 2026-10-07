@@ -9,6 +9,10 @@ export const Environment = {
     return Platform.isTizen();
   },
 
+  isVidaa() {
+    return Platform.isVidaa();
+  },
+
   isBrowser() {
     return Platform.isBrowser();
   },

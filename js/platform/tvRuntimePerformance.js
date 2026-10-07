@@ -162,7 +162,8 @@ export function getTvRuntimePerformanceProfile({ forceRefresh = false } = {}) {
 
   const isWebOS = Platform.isWebOS();
   const isTizen = Platform.isTizen();
-  const isTvRuntime = isWebOS || isTizen;
+  const isVidaa = Platform.isVidaa();
+  const isTvRuntime = isWebOS || isTizen || isVidaa;
   let chromiumMajorVersion = readChromiumMajorVersion();
   if (!isTvRuntime) {
     cachedProfile = Object.freeze({
@@ -186,6 +187,8 @@ export function getTvRuntimePerformanceProfile({ forceRefresh = false } = {}) {
     const capabilities = TizenCapabilities.get();
     tvYear = getTizenReleaseYear(capabilities?.tizenVersion);
     chromiumMajorVersion = Number(capabilities?.chromiumMajorVersion || chromiumMajorVersion);
+  } else if (isVidaa) {
+    tvYear = 2022;
   }
 
   const { modernTvYear, modernChromiumMajor } = TV_RUNTIME_PERFORMANCE_THRESHOLDS;
@@ -198,13 +201,13 @@ export function getTvRuntimePerformanceProfile({ forceRefresh = false } = {}) {
 
   cachedProfile = Object.freeze({
     isTvRuntime: true,
-    platform: isWebOS ? "webos" : "tizen",
+    platform: isWebOS ? "webos" : isTizen ? "tizen" : "vidaa",
     tvYear,
     chromiumMajorVersion,
     tvYearKnown,
     chromiumVersionKnown,
     isLegacyTvRuntime,
-    isPerformanceConstrained: resolvePerformanceConstrained(isLegacyTvRuntime)
+    isPerformanceConstrained: resolvePerformanceConstrained(isLegacyTvRuntime || isVidaa)
   });
   return cachedProfile;
 }

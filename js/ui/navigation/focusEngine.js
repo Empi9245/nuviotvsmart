@@ -43,6 +43,7 @@ function hasActiveModal() {
 }
 
 const BACK_DEBOUNCE_MS = 250;
+const VIDAA_SELECT_KEY_CODE = 13;
 
 export const FocusEngine = {
   lastBackHandledAt: 0,
@@ -117,8 +118,18 @@ export const FocusEngine = {
 
     const normalizedEvent = buildNormalizedEvent(event);
     const keyIdentity = this.getKeyIdentity(normalizedEvent);
-    if (keyIdentity && (!normalizedEvent.repeat || !this.activeKeyDownStartedAt.has(keyIdentity))) {
-      this.activeKeyDownStartedAt.set(keyIdentity, Date.now());
+    const isVidaaSelectKey =
+      Platform.isVidaa() && normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE;
+    if (keyIdentity) {
+      if (isVidaaSelectKey) {
+        if (this.activeKeyDownStartedAt.has(keyIdentity)) {
+          normalizedEvent.repeat = true;
+        } else {
+          this.activeKeyDownStartedAt.set(keyIdentity, Date.now());
+        }
+      } else if (!normalizedEvent.repeat || !this.activeKeyDownStartedAt.has(keyIdentity)) {
+        this.activeKeyDownStartedAt.set(keyIdentity, Date.now());
+      }
     }
 
     if (
@@ -153,6 +164,18 @@ export const FocusEngine = {
       return;
     }
 
+    const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
+
+    if (Platform.isVidaa() && (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)) {
+      normalizedEvent.preventDefault();
+      normalizedEvent.stopPropagation();
+      normalizedEvent.stopImmediatePropagation();
+      this.lastPointerFocusTarget = null;
+      if (normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE && normalizedEvent.repeat) {
+        return;
+      }
+    }
+
     const currentScreen = Router.getCurrentScreen();
 
     if (currentScreen?.onKeyDown) {
@@ -177,7 +200,8 @@ export const FocusEngine = {
     ) {
       this.activeBackKeyIdentities.delete("back");
     }
-    if (event?.target && !document.contains(event.target)) return;
+    const isVidaa = Platform.isVidaa();
+    if (event?.target && !document.contains(event.target) && !isVidaa) return;
     if (hasActiveModal()) {
       if (keyIdentity) {
         this.activeKeyDownStartedAt.delete(keyIdentity);
@@ -189,6 +213,14 @@ export const FocusEngine = {
       const startedAt = Number(this.activeKeyDownStartedAt.get(keyIdentity) || 0);
       normalizedEvent.keyDownDurationMs = startedAt > 0 ? Math.max(0, Date.now() - startedAt) : 0;
       this.activeKeyDownStartedAt.delete(keyIdentity);
+    }
+
+    const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
+    if (isVidaa && (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)) {
+      normalizedEvent.preventDefault();
+      normalizedEvent.stopPropagation();
+      normalizedEvent.stopImmediatePropagation();
+      this.lastPointerFocusTarget = null;
     }
 
     const currentScreen = Router.getCurrentScreen();

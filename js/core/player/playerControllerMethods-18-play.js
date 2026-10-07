@@ -31,6 +31,7 @@ export function createPlayerControllerMethods18() {
       if (!this.video) return;
 
       const requestedUrl = String(url || "").trim();
+      Platform.prepareMediaRequest(requestedUrl);
       const playToken = Number(this.playRequestToken || 0) + 1;
       this.playRequestToken = playToken;
       this.stopProgressSaving();

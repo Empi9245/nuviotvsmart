@@ -148,6 +148,9 @@ export function createPlayerControllerMethods16() {
     },
     async ensureAdaptiveLibrariesForSource(sourceType, playbackEngine = null) {
       const normalizedEngine = String(playbackEngine || "").trim();
+      if (Platform.isVidaa() && normalizedEngine.startsWith("native-")) {
+        return;
+      }
       if (Platform.isTizen() && normalizedEngine !== "hls.js" && normalizedEngine !== "dash.js") {
         return;
       }
@@ -179,7 +182,7 @@ export function createPlayerControllerMethods16() {
       }
 
       this.video.addEventListener("ended", () => {
-        if (this.isLivePlaybackItemType() && this.playbackSessionActive) {
+        if (this.isLivePlaybackItemType() && this.playbackSessionActive && !(Platform.isVidaa() && document.visibilityState === "hidden")) {
           this.isPlaying = true;
           this.resume();
           this.syncWebOsPlaybackKeepAwake();
@@ -269,6 +272,12 @@ export function createPlayerControllerMethods16() {
       if (!this.lifecycleBound) {
         this.lifecycleBound = true;
         this.lifecycleFlushHandler = () => {
+          if (Platform.isVidaa() && this.playbackSessionActive && this.video && !this.video.paused) {
+            // Use the shared pause path so UI, progress and playback state
+            // remain in sync when VIDAA hides or suspends the WebApp.
+            this.pause();
+            return;
+          }
           this.flushCurrentProgress({ forceCloudSync: true });
         };
         this.visibilityFlushHandler = () => {

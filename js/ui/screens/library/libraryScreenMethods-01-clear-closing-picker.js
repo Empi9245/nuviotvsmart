@@ -265,7 +265,8 @@ export function createLibraryScreenMethods01() {
       bindRootSidebarEvents(this.container, {
         currentRoute: "library",
         onSelectedAction: () => this.focusMainNode(),
-        onExpandSidebar: () => this.focusSidebarNode()
+        onExpandSidebar: () => this.focusSidebarNode(),
+        onCollapseSidebar: () => this.focusMainNode()
       });
     },
     renderSidebar() {
