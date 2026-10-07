@@ -1,4 +1,5 @@
 import { AuthState } from "../../../core/auth/authState.js";
+import { ServerConfigurationStore } from "../../local/serverConfigurationStore.js";
 import { AuthManager } from "../../../core/auth/authManager.js";
 import { SupabaseApi } from "./supabaseApi.js";
 
@@ -118,6 +119,10 @@ async function loadOverview({ resetPrevious = false } = {}) {
   requestPromise = (async () => {
     let previous = null;
     try {
+      const configuration = ServerConfigurationStore.getActive();
+      if (configuration.isLocal || configuration.isCustom || configuration.isShared) {
+        return setState({ overview: EMPTY_OVERVIEW, isLoading: false, isRefreshing: false, hasError: false });
+      }
       if (!AuthManager.isAuthenticated) {
         if (AuthManager.getAuthState() === AuthState.LOADING) {
           return setState({

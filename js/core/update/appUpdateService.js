@@ -1,3 +1,5 @@
+import { ServerConfigurationStore } from "../../data/local/serverConfigurationStore.js";
+
 const LATEST_RELEASE_URL = "https://api.github.com/repos/NuvioMedia/NuvioTVSmart/releases/latest";
 const DEFAULT_TIMEOUT_MS = 8000;
 const DEFAULT_RETRY_DELAY_MS = 2000;
@@ -75,6 +77,8 @@ export async function getLatestAppUpdate({
   fetchImpl = globalThis.fetch,
   timeoutMs = DEFAULT_TIMEOUT_MS
 } = {}) {
+  // Upstream packages would replace this variant's configured shared backend.
+  if (ServerConfigurationStore.getActive().isShared) return null;
   if (typeof fetchImpl !== "function") {
     throw new Error("Fetch is unavailable");
   }

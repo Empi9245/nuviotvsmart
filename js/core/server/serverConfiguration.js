@@ -4,6 +4,40 @@ function normalizeUrl(value) {
     .replace(/\/+$/, "");
 }
 
+export function createLocalServerConfiguration() {
+  return Object.freeze({
+    isLocal: true,
+    isCustom: false,
+    backendUrl: "",
+    publishableKey: "",
+    capabilities: Object.freeze({ emailPasswordAuth: false, tvLogin: false }),
+    discoveryUrl: "",
+    fallbackBackendUrl: "",
+    tvLoginWebBaseUrl: "",
+    deviceLoginWebBaseUrl: "",
+    avatarPublicBaseUrl: "",
+    isSecure: false,
+    isPublicHost: false
+  });
+}
+
+export function requireAccountBackend(configuration) {
+  if (configuration?.isLocal || !configuration?.backendUrl || !configuration?.publishableKey) {
+    const error = new Error("Connect to a server to use account sync.");
+    error.code = "LOCAL_BACKEND_DISABLED";
+    throw error;
+  }
+  return configuration;
+}
+
+// New publishable keys authenticate the application through apikey; only
+// session JWTs (or legacy anon JWTs) belong in the Authorization header.
+export function accountAuthorizationHeaders(key, accessToken = "") {
+  const token = String(accessToken || "").trim();
+  if (token) return { Authorization: `Bearer ${token}` };
+  return String(key || "").split(".").length === 3 ? { Authorization: `Bearer ${key}` } : {};
+}
+
 export function parseServerUrl(value) {
   try {
     const parsed = new URL(String(value || "").trim());
