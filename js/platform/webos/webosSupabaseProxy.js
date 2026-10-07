@@ -1,4 +1,5 @@
 import { Environment } from "../environment.js";
+import { getTvRuntimePerformanceProfile } from "../tvRuntimePerformance.js";
 import {
   isWebOsCompanionServiceAvailable,
   requestWebOsCompanionService
@@ -178,6 +179,12 @@ export async function fetchViaWebOsSupabaseProxy(url, fetchOptions = {}) {
     return null;
   }
   if (!Environment.isWebOS() || !isWebOsCompanionServiceAvailable()) {
+    return null;
+  }
+  // Modern webOS can reach Supabase directly. Routing these requests through
+  // Luna otherwise boots the media runtime before even profile locks can load.
+  // Keep the existing proxy path for legacy and unidentified runtimes.
+  if (!getTvRuntimePerformanceProfile().isLegacyTvRuntime) {
     return null;
   }
 

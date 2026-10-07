@@ -174,6 +174,12 @@ function applyPerformanceMode() {
   const constrained = tvRuntime.isPerformanceConstrained || isLowEndDevice();
   const webOsMajorVersion = Platform.isWebOS() ? Number(Platform.getWebOsMajorVersion() || 0) : 0;
   const legacyWebOs = Platform.isWebOS() && tvRuntime.isLegacyTvRuntime;
+  // Chromium 87 webOS also stalls when every Modern Home track is promoted
+  // to a compositor layer. Keep this separate from API and motion policies.
+  const unpromotedHomeTracks =
+    Platform.isWebOS() &&
+    tvRuntime.chromiumMajorVersion > 0 &&
+    tvRuntime.chromiumMajorVersion <= 87;
   const legacyWebOs38 = Platform.isWebOS() && webOsMajorVersion > 0 && webOsMajorVersion <= 3;
   // Keep the Tizen class as a platform-layout fallback; performance gating is
   // handled exclusively by the runtime profile above.
@@ -189,6 +195,8 @@ function applyPerformanceMode() {
   document.body.classList.toggle("modern-sidebar-blur-capable", modernSidebarBlurCapable);
   document.documentElement.classList.toggle("legacy-webos", legacyWebOs);
   document.body.classList.toggle("legacy-webos", legacyWebOs);
+  document.documentElement.classList.toggle("webos-unpromoted-home-tracks", unpromotedHomeTracks);
+  document.body.classList.toggle("webos-unpromoted-home-tracks", unpromotedHomeTracks);
   document.documentElement.classList.toggle("legacy-webos38", legacyWebOs38);
   document.body.classList.toggle("legacy-webos38", legacyWebOs38);
   document.documentElement.classList.toggle("legacy-tizen", legacyTizen);

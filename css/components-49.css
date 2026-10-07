@@ -296,10 +296,11 @@
   line-clamp: 4;
 }
 
-/* Legacy webOS cannot sustain a compositor layer for every Home track while
-   the modern rows are hydrating artwork. Keep native overflow scrolling, but
-   let the renderer retain the tracks in the normal layer tree. */
-.legacy-webos .home-screen-shell.home-layout-modern .home-track {
+/* Legacy webOS and Chromium 87 stall with a compositor layer for every Home
+   track, even after artwork settles. Keep native overflow and spring scrolling
+   while letting the renderer manage the tracks without forced promotion. */
+.legacy-webos .home-screen-shell.home-layout-modern .home-track,
+.webos-unpromoted-home-tracks .home-screen-shell.home-layout-modern .home-track {
   transform: none;
 }
 
