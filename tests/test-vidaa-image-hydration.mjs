@@ -151,6 +151,25 @@ function homeSurface() {
 
 platform("vidaa");
 {
+  const { owner, images, cards } = homeSurface();
+  owner.navModel = {
+    rows: [cards.slice(0, 10), cards.slice(10, 20), cards.slice(20, 30)]
+  };
+  owner.navModel.rows.forEach((rowNodes, rowIndex) =>
+    rowNodes.forEach((card, colIndex) => {
+      card.dataset = { navRow: String(rowIndex), navCol: String(colIndex) };
+    })
+  );
+  owner.scheduleHomeLazyImageHydration(cards[0], { navigationDirection: "right" });
+  assert.equal(images[0].src, "poster-0-0", "Focused poster must start immediately");
+  assert.equal(images[1].src, "poster-0-1", "Next likely poster should start one step early");
+  assert.equal(images[2].src, undefined, "Predictive loading must stay bounded to one extra poster");
+  assert.equal(images[0].fetchPriority, "high");
+  assert.equal(images[1].fetchPriority, "low");
+}
+
+platform("vidaa");
+{
   const { owner, images, cards, setFocused } = homeSurface();
   noteVidaaNavigationKeyDown(39);
   owner.scheduleHomeLazyImageHydration(cards[0], { refreshIndex: true });
