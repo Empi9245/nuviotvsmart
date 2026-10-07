@@ -160,18 +160,60 @@ platform("vidaa");
       card.dataset = { navRow: String(rowIndex), navCol: String(colIndex) };
     })
   );
+
+  const previousImage = globalThis.Image;
+  const prefetched = [];
+  globalThis.Image = class {
+    set src(value) {
+      this._src = value;
+      prefetched.push(value);
+    }
+    get src() {
+      return this._src;
+    }
+  };
+  cards[9].dataset.posterSrc = "parked-poster-0-9";
+  cards[9].querySelector = () => null;
+
   owner.scheduleHomeLazyImageHydration(cards[0], { navigationDirection: "right" });
   assert.equal(images[0].src, "poster-0-0", "Focused poster must start immediately");
-  for (let index = 1; index <= 5; index += 1) {
+  for (let index = 1; index <= 8; index += 1) {
     assert.equal(
       images[index].src,
       `poster-0-${index}`,
-      `Horizontal poster ${index} should start early`
+      `Maximum-speed horizontal runway should warm poster ${index}`
     );
     assert.equal(images[index].fetchPriority, "low");
   }
-  assert.equal(images[6].src, undefined, "Horizontal predictive loading must stop after five posters");
+  assert.ok(
+    prefetched.includes("parked-poster-0-9"),
+    "Parked cards must still start network prefetch without remounting their DOM"
+  );
   assert.equal(images[0].fetchPriority, "high");
+  globalThis.Image = previousImage;
+}
+
+platform("vidaa");
+{
+  const { owner, images, cards } = homeSurface();
+  owner.navModel = {
+    rows: [cards.slice(0, 10), cards.slice(10, 20), cards.slice(20, 30)]
+  };
+  owner.navModel.rows.forEach((rowNodes, rowIndex) =>
+    rowNodes.forEach((card, colIndex) => {
+      card.dataset = { navRow: String(rowIndex), navCol: String(colIndex) };
+    })
+  );
+
+  // Slow navigation should not keep the maximum-speed runway. Prime the
+  // observed cadence at 300 ms and verify that it contracts automatically.
+  owner.homeVidaaPrefetchMotion = { direction: "right", lastAt: 1, intervalMs: 80 };
+  now = 301;
+  owner.scheduleHomeLazyImageHydration(cards[0], { navigationDirection: "right" });
+  for (let index = 1; index <= 6; index += 1) {
+    assert.equal(images[index].src, `poster-0-${index}`);
+  }
+  assert.equal(images[7].src, undefined, "Slow horizontal navigation should shrink the runway");
 }
 
 platform("vidaa");
@@ -188,12 +230,16 @@ platform("vidaa");
 
   owner.scheduleHomeLazyImageHydration(cards[4], { navigationDirection: "down" });
   assert.equal(images[4].src, "poster-0-4");
-  for (const index of [14, 13, 15, 12, 24, 23, 25, 22]) {
+  for (const index of [1, 2, 3, 5, 6, 7]) {
+    assert.equal(images[index].src, `poster-0-${index}`, "Entered row should hydrate its visible neighborhood");
+    assert.equal(images[index].fetchPriority, "auto");
+  }
+  for (const index of [14, 13, 15, 24, 23, 25]) {
     assert.equal(images[index].src, `poster-${Math.floor(index / 10)}-${index % 10}`);
     assert.equal(images[index].fetchPriority, "low");
   }
-  assert.equal(images[11].src, undefined, "Vertical prefetch must stay bounded to four posters per row");
-  assert.equal(images[21].src, undefined, "Second buffered row must also stay bounded");
+  assert.equal(images[12].src, undefined, "Future rows stay within the adaptive request budget");
+  assert.equal(images[22].src, undefined, "Farther future rows remain progressively narrower");
 
   const upSurface = homeSurface();
   upSurface.owner.navModel = {
@@ -209,15 +255,17 @@ platform("vidaa");
     })
   );
   upSurface.owner.scheduleHomeLazyImageHydration(upSurface.cards[24], { navigationDirection: "up" });
-  for (const index of [14, 13, 15, 12, 4, 3, 5, 2]) {
+  for (const index of [21, 22, 23, 25, 26, 27]) {
+    assert.equal(upSurface.images[index].src, `poster-2-${index % 10}`);
+    assert.equal(upSurface.images[index].fetchPriority, "auto");
+  }
+  for (const index of [14, 13, 15, 4, 3, 5]) {
     assert.equal(
       upSurface.images[index].src,
       `poster-${Math.floor(index / 10)}-${index % 10}`,
-      "Upward navigation should warm two catalogues with four posters each"
+      "Upward navigation should use the same adaptive runway"
     );
   }
-  assert.equal(upSurface.images[11].src, undefined);
-  assert.equal(upSurface.images[1].src, undefined);
 }
 
 platform("vidaa");
