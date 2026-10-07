@@ -24,5 +24,20 @@ assert.match(
 );
 assert.match(styles, /\.addons-install-primary/);
 assert.match(styles, /\.addons-shared-utility-btn/);
+assert.match(
+  screen,
+  /id="shared-addon-url"[\s\S]{0,220}type="url"/,
+  "Shared Addons must keep a native URL input for VIDAA keyboard editing"
+);
+assert.match(
+  screen,
+  /Platform\.shouldPreserveTextInputKey\(event\)/,
+  "Shared Addons must route VIDAA-owned editor keys through Platform"
+);
+assert.match(
+  screen,
+  /inputFocused && \(code === 38 \|\| code === 40\)[\s\S]{0,120}document\.activeElement\?\.blur/,
+  "Up/down must leave the Addon URL editor and return D-pad control to the UI"
+);
 
-console.log("VIDAA shared Addons visual-system regressions passed.");
+console.log("VIDAA shared Addons visual and input regressions passed.");
