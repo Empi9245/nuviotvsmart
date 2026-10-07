@@ -15,7 +15,7 @@
 </style>
 <div id="fixture"></div><pre id="result">Testing...</pre>
 <script type="module">
-import { updateVidaaHomeCardWindow, restoreVidaaHomeCard, restoreAllVidaaHomeCards } from "../js/ui/screens/home/vidaaHomeCardWindow.js";
+import { updateVidaaHomeCardWindow, restoreVidaaHomeCard, restoreAllVidaaHomeCards, restoreVidaaHomeNavigationNeighborhood } from "../js/ui/screens/home/vidaaHomeCardWindow.js";
 import { releaseDistantVidaaHomeImages } from "../js/ui/screens/home/vidaaHomeImageWindow.js";
 import { patchHomeMarkup } from "../js/ui/screens/home/patchHomeMarkup.js";
 const result = document.getElementById("result");
@@ -45,6 +45,17 @@ try {
   assert(viewport.scrollHeight === originalScrollHeight,"Vertical extent must stay exactly unchanged");
   tracks.forEach((t,i)=>assert(t.scrollWidth===originalSizes[i][0] && t.offsetHeight===originalSizes[i][1],"Track geometry changed"));
   assert(document.activeElement === cards[0],"Virtualization must preserve current focus");
+  screen.navModel={rows:Array.from({length:10},(_,rowIndex)=>cards.slice(rowIndex*30,rowIndex*30+30))};
+  screen.navModel.rows.forEach((rowNodes,rowIndex)=>rowNodes.forEach((card,colIndex)=>{
+    card.dataset.navRow=String(rowIndex);
+    card.dataset.navCol=String(colIndex);
+  }));
+  const warmTarget=screen.navModel.rows[5][15];
+  const parkedBeforeWarm=screen.homeVidaaParkedCards.size;
+  const warmed=restoreVidaaHomeNavigationNeighborhood(screen,warmTarget,"down");
+  assert(warmed>0 && warmed<=14,"Navigation warming must restore only a bounded target neighborhood");
+  assert(warmTarget.querySelector(".home-poster-frame"),"The next focus row must regain its visual subtree before settling");
+  assert(screen.homeVidaaParkedCards.size===parkedBeforeWarm-warmed,"Only warmed cards should leave the parked set");
   assert(restoreVidaaHomeCard(screen,distant),"A remote target restores synchronously");
   assert(distant.querySelector("button")===child,"Restore must preserve actual nodes and listeners");
   assert(!distant.querySelector("img").hasAttribute("src") && distant.querySelector("img").dataset.src===imageUrl,"Distant images must be deferred and restorable");
