@@ -173,6 +173,8 @@ export function createPlayerScreenMethods70() {
     },
     hasBackDismissableOverlay() {
       return Boolean(
+        this.postPlaySynopsisVisible ||
+        this.postPlayManualDialogVisible ||
         this.stillWatchingPromptVisible ||
         this.seekOverlayVisible ||
         this.seekPreviewSeconds != null ||
