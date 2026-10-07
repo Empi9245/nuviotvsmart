@@ -135,6 +135,46 @@ for (const code of [37, 38, 39, 40]) {
   assert.equal(downs.length, start + 1, "An initial native Enter repeat keeps its suppression");
 }
 
+// VIDAA text fields must keep native OK/left/right behavior so the firmware
+// can open its on-screen keyboard and move the caret. Up/down still belongs to
+// Nuvio navigation, and non-text controls keep the normal remote guard.
+{
+  const focus = engine();
+  const input = { isConnected: true, tagName: "INPUT", type: "url" };
+  const previousActiveElement = document.activeElement;
+  document.activeElement = input;
+
+  for (const code of [13, 37, 39]) {
+    const event = remoteEvent(code, false, { target: input });
+    focus.handleKey(event);
+    assert.deepEqual(event.calls, [], `Text input key ${code} must remain native on VIDAA`);
+    const release = remoteEvent(code, false, { target: input });
+    focus.handleKeyUp(release);
+    assert.deepEqual(release.calls, [], `Text input keyup ${code} must remain native on VIDAA`);
+  }
+
+  const bodyTargetEnter = remoteEvent(13, false, { target });
+  focus.handleKey(bodyTargetEnter);
+  assert.deepEqual(
+    bodyTargetEnter.calls,
+    [],
+    "Focused VIDAA text input must preserve OK even when firmware targets the outer surface"
+  );
+
+  const down = remoteEvent(40, false, { target: input });
+  focus.handleKey(down);
+  assert.deepEqual(down.calls, ["prevent", "stop", "stopImmediate"]);
+
+  document.activeElement = null;
+  const checkbox = remoteEvent(13, false, {
+    target: { isConnected: true, tagName: "INPUT", type: "checkbox" }
+  });
+  focus.handleKey(checkbox);
+  assert.deepEqual(checkbox.calls, ["prevent", "stop", "stopImmediate"]);
+
+  document.activeElement = previousActiveElement;
+}
+
 // Other platforms keep the native repeat flag and existing hold timing exactly.
 for (const name of ["tizen", "webos", "browser"]) {
   platform(name);
