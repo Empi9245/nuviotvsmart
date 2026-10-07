@@ -1,5 +1,6 @@
 import { Router } from "./routerState.js";
 import { Platform } from "../../platform/index.js";
+import { noteVidaaNavigationKeyDown, noteVidaaNavigationKeyUp } from "./vidaaNavigationActivity.js";
 
 function buildNormalizedEvent(event) {
   const normalizedKey = Platform.normalizeKey(event);
@@ -117,14 +118,22 @@ export const FocusEngine = {
     }
 
     const normalizedEvent = buildNormalizedEvent(event);
+    noteVidaaNavigationKeyDown(normalizedEvent.keyCode);
     const keyIdentity = this.getKeyIdentity(normalizedEvent);
-    const isVidaaSelectKey =
-      Platform.isVidaa() && normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE;
+    const isVidaa = Platform.isVidaa();
+    const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
+    const isVidaaSelectKey = isVidaa && normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE;
     if (keyIdentity) {
-      if (isVidaaSelectKey) {
-        if (this.activeKeyDownStartedAt.has(keyIdentity)) {
+      if (isVidaaSelectKey || (isVidaa && isArrowKey)) {
+        const keyIsHeld = this.activeKeyDownStartedAt.has(keyIdentity);
+        if (isArrowKey) {
+          // Use the remote's key cycle when firmware omits KeyboardEvent.repeat.
+          // Home can then apply its cadence while the scroll animation follows.
+          normalizedEvent.repeat = keyIsHeld;
+        } else if (keyIsHeld) {
           normalizedEvent.repeat = true;
-        } else {
+        }
+        if (!keyIsHeld) {
           this.activeKeyDownStartedAt.set(keyIdentity, Date.now());
         }
       } else if (!normalizedEvent.repeat || !this.activeKeyDownStartedAt.has(keyIdentity)) {
@@ -164,9 +173,7 @@ export const FocusEngine = {
       return;
     }
 
-    const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
-
-    if (Platform.isVidaa() && (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)) {
+    if (isVidaa && (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)) {
       normalizedEvent.preventDefault();
       normalizedEvent.stopPropagation();
       normalizedEvent.stopImmediatePropagation();
@@ -187,6 +194,7 @@ export const FocusEngine = {
 
   handleKeyUp(event) {
     const normalizedEvent = buildNormalizedEvent(event);
+    noteVidaaNavigationKeyUp(normalizedEvent.keyCode);
     const keyIdentity = this.getKeyIdentity(normalizedEvent);
     if (
       Platform.isBackEvent({
