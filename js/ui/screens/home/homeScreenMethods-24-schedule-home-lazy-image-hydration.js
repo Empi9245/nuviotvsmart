@@ -40,16 +40,40 @@ function getVidaaPredictedNavigationNodes(screen, anchor, direction = null, coun
     return predicted;
   }
 
-  if (direction === "up" || direction === "down") {
-    const step = direction === "down" ? 1 : -1;
-    for (let distance = 1; distance <= limit; distance += 1) {
-      const row = screen.navModel.rows[rowIndex + step * distance] || [];
-      if (!row.length) continue;
-      predicted.push(row[Math.max(0, Math.min(row.length - 1, colIndex))] || null);
-    }
-    return predicted.filter(Boolean);
-  }
   return [];
+}
+
+function getVidaaVerticalPrefetchNodes(screen, anchor, direction = null) {
+  if (
+    !anchor ||
+    (direction !== "up" && direction !== "down") ||
+    !Array.isArray(screen.navModel?.rows)
+  ) {
+    return [];
+  }
+
+  const rowIndex = Number(anchor.dataset?.navRow);
+  const colIndex = Number(anchor.dataset?.navCol);
+  if (!Number.isInteger(rowIndex) || !Number.isInteger(colIndex)) return [];
+
+  const rowStep = direction === "down" ? 1 : -1;
+  const columnOffsets = [0, -1, 1, -2, 2, -3, 3];
+  const predicted = [];
+
+  for (let rowDistance = 1; rowDistance <= 2; rowDistance += 1) {
+    const row = screen.navModel.rows[rowIndex + rowStep * rowDistance] || [];
+    if (!row.length) continue;
+
+    const rowNodes = [];
+    for (const offset of columnOffsets) {
+      const node = row[colIndex + offset] || null;
+      if (node && !rowNodes.includes(node)) rowNodes.push(node);
+      if (rowNodes.length >= 4) break;
+    }
+    predicted.push(...rowNodes);
+  }
+
+  return predicted;
 }
 
 export function createHomeScreenMethods24() {
@@ -197,18 +221,14 @@ export function createHomeScreenMethods24() {
       const focusedPoster = anchor?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
       hydrateVidaaPriorityPoster(focusedPoster, "high");
 
-      // Horizontal traversal benefits from a wider runway because the remote can
-      // advance through cards faster than network + image decode. Keep vertical
-      // traversal to one predicted row so moving between catalogues does not
-      // compete with five extra poster requests and stays as light as possible.
+      // Horizontal traversal keeps a five-poster runway. Vertical traversal uses
+      // a rolling two-row buffer, warming only four posters around the current
+      // column in each upcoming catalogue. This avoids blank rows during fast
+      // up/down input without hydrating entire catalogues.
       const horizontalNavigation = navigationDirection === "left" || navigationDirection === "right";
-      const predictiveCount = horizontalNavigation ? 5 : 1;
-      const predictedNodes = getVidaaPredictedNavigationNodes(
-        this,
-        anchor,
-        navigationDirection,
-        predictiveCount
-      );
+      const predictedNodes = horizontalNavigation
+        ? getVidaaPredictedNavigationNodes(this, anchor, navigationDirection, 5)
+        : getVidaaVerticalPrefetchNodes(this, anchor, navigationDirection);
       predictedNodes.forEach((node) => {
         const predictedPoster = node?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
         hydrateVidaaPriorityPoster(predictedPoster, "low");
