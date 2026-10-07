@@ -1,5 +1,7 @@
 import * as internals from "./homeScreenContext.js";
+import { Platform } from "../../../platform/index.js";
 import { hasMountedHomeDom, updateHomeDom } from "./homeDomUpdate.js";
+import { restoreAllVidaaHomeCards } from "./vidaaHomeCardWindow.js";
 
 export function createHomeScreenMethods23() {
   const {
@@ -39,6 +41,7 @@ export function createHomeScreenMethods23() {
   return {
     render() {
       const renderStart = HOME_PERF_DEBUG ? homePerfNow() : 0;
+      if (Platform.isVidaa()) restoreAllVidaaHomeCards(this);
       this.cancelScheduledRender();
       const liveFocusedNode = this.getCurrentFocusedNode();
       if (this.hasUserInteractedSinceHomePaint) {
