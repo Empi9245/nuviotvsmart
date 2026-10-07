@@ -8,6 +8,40 @@ function isVidaaHomeHydrationBusy(screen) {
   return screen.isVidaaHomeLoadingBusy?.() ?? isVidaaNavigationBusy();
 }
 
+function hydrateVidaaPriorityPoster(image, priority = "auto") {
+  if (!(image instanceof HTMLImageElement) || !image.isConnected || !image.dataset.src) return false;
+  const src = String(image.dataset.src || "").trim();
+  image.loading = "eager";
+  image.decoding = "async";
+  try {
+    image.fetchPriority = priority;
+  } catch (_) {}
+  image.removeAttribute("data-src");
+  if (src) image.src = src;
+  return Boolean(src);
+}
+
+function getVidaaPredictedNavigationNode(screen, anchor, direction = null) {
+  if (!anchor || !direction || !Array.isArray(screen.navModel?.rows)) return null;
+  const rowIndex = Number(anchor.dataset?.navRow);
+  const colIndex = Number(anchor.dataset?.navCol);
+  if (!Number.isInteger(rowIndex) || !Number.isInteger(colIndex)) return null;
+
+  if (direction === "left" || direction === "right") {
+    const row = screen.navModel.rows[rowIndex] || [];
+    const nextCol = colIndex + (direction === "right" ? 1 : -1);
+    return row[nextCol] || null;
+  }
+
+  if (direction === "up" || direction === "down") {
+    const nextRowIndex = rowIndex + (direction === "down" ? 1 : -1);
+    const row = screen.navModel.rows[nextRowIndex] || [];
+    if (!row.length) return null;
+    return row[Math.max(0, Math.min(row.length - 1, colIndex))] || null;
+  }
+  return null;
+}
+
 export function createHomeScreenMethods24() {
   const {
     MODERN_HOME_CONSTANTS,
@@ -36,11 +70,12 @@ export function createHomeScreenMethods24() {
         deferUntilVerticalSettle = false,
         focusedRowOnly = false,
         includeNeighborRows = false,
-        viewportChanged = false
+        viewportChanged = false,
+        navigationDirection = null
       } = {}
     ) {
       if (Platform.isVidaa()) {
-        this.scheduleVidaaHomeLazyImageHydration(anchorNode, { refreshIndex });
+        this.scheduleVidaaHomeLazyImageHydration(anchorNode, { refreshIndex, navigationDirection });
         return;
       }
       const anchorRow = anchorNode instanceof HTMLElement ? anchorNode.closest(HOME_LAZY_IMAGE_ROW_SELECTOR) : null;
@@ -141,18 +176,23 @@ export function createHomeScreenMethods24() {
         });
       });
     },
-    scheduleVidaaHomeLazyImageHydration(anchorNode = null, { refreshIndex = false } = {}) {
+    scheduleVidaaHomeLazyImageHydration(
+      anchorNode = null,
+      { refreshIndex = false, navigationDirection = null } = {}
+    ) {
       if (!this.container || this.container.isConnected === false) return;
       const anchor = anchorNode || this.getCurrentFocusedNode();
       this.pendingHomeLazyImageAnchor = anchor;
       this.homeLazyImageHydrationNeedsIndexRefresh ||= refreshIndex;
       const focusedPoster = anchor?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
-      if (focusedPoster instanceof HTMLImageElement && focusedPoster.isConnected && focusedPoster.dataset.src) {
-        const src = String(focusedPoster.dataset.src).trim();
-        focusedPoster.loading = "eager";
-        focusedPoster.removeAttribute("data-src");
-        if (src) focusedPoster.src = src;
-      }
+      hydrateVidaaPriorityPoster(focusedPoster, "high");
+
+      // Start just the next likely poster one D-pad step early. This hides CDN
+      // latency on fast traversal while keeping the hot path bounded to one
+      // additional image request instead of waking the whole visible row.
+      const predictedNode = getVidaaPredictedNavigationNode(this, anchor, navigationDirection);
+      const predictedPoster = predictedNode?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
+      hydrateVidaaPriorityPoster(predictedPoster, "low");
       if (this.homeLazyImageHydrationSettleTimer) clearTimeout(this.homeLazyImageHydrationSettleTimer);
       if (this.homeLazyImageHydrationRaf) {
         cancelAnimationFrame(this.homeLazyImageHydrationRaf);
