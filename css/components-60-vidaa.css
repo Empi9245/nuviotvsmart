@@ -7,6 +7,15 @@
  * physical panel's vw/vh values. These overrides intentionally exclude the
  * player: playback already has the correct sizing on VIDAA.
  */
+/* Odin/Chromium draws a native focus ring around the fullscreen player root
+   when controls auto-hide. Keep the root focused for D-pad handling, but do
+   not render that browser-owned white frame. */
+html.vidaa-tv #playerUiRoot:focus,
+html.vidaa-tv #playerUiRoot:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 html.vidaa-tv .home-shell,
 html.vidaa-tv .home-screen-shell,
 html.vidaa-tv .search-screen-shell,
