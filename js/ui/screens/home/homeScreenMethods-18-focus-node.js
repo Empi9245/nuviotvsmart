@@ -1,7 +1,8 @@
 import * as internals from "./homeScreenContext.js";
+import { restoreVidaaHomeNavigationNeighborhood } from "./vidaaHomeCardWindow.js";
 
 export function createHomeScreenMethods18() {
-  const { HOME_PERF_DEBUG, homePerfNow, logHomePerf, groupNodesByOffsetTop } = internals;
+  const { Platform, HOME_PERF_DEBUG, homePerfNow, logHomePerf, groupNodesByOffsetTop } = internals;
 
   return {
     focusNode(current, target, direction = null, inputMeta = null) {
@@ -10,6 +11,9 @@ export function createHomeScreenMethods18() {
       }
       if (!current || !target || current === target) {
         return false;
+      }
+      if (Platform.isVidaa()) {
+        restoreVidaaHomeNavigationNeighborhood(this, target, direction);
       }
       this.refreshPendingHomeTrailerCleanup();
       const focusStart = HOME_PERF_DEBUG ? homePerfNow() : 0;
