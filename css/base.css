@@ -97,6 +97,25 @@ html.vidaa-tv {
   width: 1920px;
   height: 1080px;
   overflow: hidden;
+  /* Shared TV tokens evaluated on the 1920x1080 logical canvas. */
+  --tv-safe-gutter: 56px;
+  --tv-safe-gutter-wide: 69.12px;
+  --tv-card-radius: 21.12px;
+  --tv-card-gap: 18px;
+  --tv-button-height: 68px;
+  --tv-button-padding-x: 34px;
+  --tv-control-size: 74px;
+  --tv-control-icon-size: 36px;
+  --tv-caption-text: 18px;
+  --tv-secondary-text: 20.736px;
+  --tv-body-text: 22.656px;
+  --tv-subtitle-text: 32px;
+  --tv-title-text: 55.68px;
+}
+
+/* Keep the existing VIDAA playback overlay sizing. */
+html.vidaa-tv #player {
+  font-size: 18px;
   --tv-safe-gutter: 36px;
   --tv-safe-gutter-wide: 52px;
   --tv-card-radius: 16px;
