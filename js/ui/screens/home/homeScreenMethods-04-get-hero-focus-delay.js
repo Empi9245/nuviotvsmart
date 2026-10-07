@@ -81,6 +81,7 @@ function mergeHomeCatalogRefreshRow(currentRow, freshRow, { rowHasFocus = false,
 export function createHomeScreenMethods04() {
   const {
     Router,
+    Platform,
     addonRepository,
     CollectionsStore,
     ProfileManager,
@@ -112,10 +113,25 @@ export function createHomeScreenMethods04() {
 
   return {
     getHeroFocusDelay({ rapid = false } = {}) {
+      if (Platform.isVidaa()) {
+        return 250;
+      }
       if (this.isLegacyTvRuntime()) {
         return rapid ? 260 : 150;
       }
       return rapid ? MODERN_HOME_CONSTANTS.heroRapidSettleMs : MODERN_HOME_CONSTANTS.heroFocusDelayMs;
+    },
+    async waitForVidaaHomeLoadingIdle(isCurrent) {
+      if (!Platform.isVidaa()) {
+        return true;
+      }
+      while (isCurrent()) {
+        if (!this.isVidaaHomeLoadingBusy()) {
+          return true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs));
+      }
+      return false;
     },
     cancelScheduledRender() {
       if (this.homeRenderTimer) {
@@ -691,6 +707,22 @@ export function createHomeScreenMethods04() {
       const sceneToken = (this.pendingHeroSceneToken = Number(this.pendingHeroSceneToken || 0) + 1);
       const pendingHero = this.heroItem;
       const pendingHeroIdentity = buildHeroIdentity(pendingHero);
+      if (Platform.isVidaa()) {
+        const isCurrentScene = () =>
+          Router.getCurrent() === "home" &&
+          Number(this.pendingHeroSceneToken || 0) === sceneToken &&
+          buildHeroIdentity(this.heroItem) === pendingHeroIdentity;
+        void this.waitForVidaaHomeLoadingIdle(isCurrentScene).then(async (idle) => {
+          if (!idle || !isCurrentScene()) {
+            return;
+          }
+          await preloadHeroAssets(pendingHero, this.layoutMode);
+          if ((await this.waitForVidaaHomeLoadingIdle(isCurrentScene)) && isCurrentScene()) {
+            this.applyHeroToDom();
+          }
+        });
+        return;
+      }
       void preloadHeroAssets(pendingHero, this.layoutMode).then(() => {
         if (Number(this.pendingHeroSceneToken || 0) !== sceneToken || buildHeroIdentity(this.heroItem) !== pendingHeroIdentity) {
           return;

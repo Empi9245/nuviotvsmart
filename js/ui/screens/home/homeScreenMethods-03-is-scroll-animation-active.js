@@ -1,4 +1,5 @@
 import * as internals from "./homeScreenContext.js";
+import { isVidaaNavigationBusy } from "../../navigation/vidaaNavigationActivity.js";
 
 export function createHomeScreenMethods03() {
   const {
@@ -38,6 +39,11 @@ export function createHomeScreenMethods03() {
       if (this.layoutMode !== "modern") {
         return false;
       }
+      if (Platform.isVidaa() && (this._mainVertRaf || this._trackHorizRaf)) {
+        // Focus changes before the scroll starter runs. Keep that target when
+        // another arrow arrives in the same frame, even if its row is offscreen.
+        return true;
+      }
       if (this.modernCameraFollowTimer) {
         return true;
       }
@@ -47,6 +53,16 @@ export function createHomeScreenMethods03() {
       return (
         this.isScrollAnimationActive(this.modernCameraFollowLastVerticalContainer, "y") ||
         this.isScrollAnimationActive(this.modernCameraFollowLastHorizontalContainer, "x")
+      );
+    },
+    isVidaaHomeLoadingBusy() {
+      return Boolean(
+        Platform.isVidaa() &&
+        (isVidaaNavigationBusy() ||
+          this.shouldSuspendModernViewportFocusSync() ||
+          this._mainClassicVertRaf ||
+          this.isScrollAnimationActive(this.modernCameraFollowLastVerticalContainer, "y") ||
+          this.isScrollAnimationActive(this.modernCameraFollowLastHorizontalContainer, "x"))
       );
     },
     isModernVerticalScrollActive() {
@@ -252,6 +268,9 @@ export function createHomeScreenMethods03() {
     },
     getScrollDuration(base) {
       const baseline = Number.isFinite(base) ? base : 150;
+      if (Platform.isVidaa()) {
+        return 140;
+      }
       if (this.isLegacyTvRuntime()) {
         return 0;
       }
