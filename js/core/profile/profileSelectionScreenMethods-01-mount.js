@@ -54,6 +54,7 @@ export function createProfileSelectionScreenMethods01() {
       this.pinTransitionCallback = null;
       this.suppressedFocusClick = null;
       this.avatarCatalog = [];
+      this.avatarImageUrlsById = {};
       this.profileBackgroundCatalog = [];
       this.memberAccess = MemberAccessRepository.getCurrentAccess();
       this.hasProfileAvatarAccess = false;
@@ -61,6 +62,8 @@ export function createProfileSelectionScreenMethods01() {
       this.memberAccessUnsubscribe = null;
       this.profileBackgroundUnsubscribe = null;
       this.isMounted = true;
+      const mountToken = {};
+      this.mountToken = mountToken;
       this.lastKeyboardActivation = null;
       this.suppressHoldMenuEnterUntilKeyUp = false;
       this.isActivatingProfile = false;
@@ -70,20 +73,31 @@ export function createProfileSelectionScreenMethods01() {
       this._bgTargetColor = null;
 
       const skipInitialProfileSync = Boolean(params?.skipInitialProfileSync);
-      const profilePinEnabled = skipInitialProfileSync
-        ? params?.profilePinEnabled || {}
-        : (await Promise.all([ProfileSyncService.pull(), ProfileSyncService.pullProfileLockStates()]))[1];
+      this.profilePinEnabled = skipInitialProfileSync ? params?.profilePinEnabled || {} : {};
       this.profiles = await ProfileManager.getProfiles();
-      this.profilePinEnabled = profilePinEnabled;
+      if (!this.isMounted || this.mountToken !== mountToken) return;
       this.lastProfileFocusKey = `profile:${this.activeProfileId || "1"}`;
-      globalThis.NuvioBootGuard?.stage?.("Loading profile avatars");
-      await this.refreshMemberFeatures({ render: false });
+      this.render();
+
+      // Display local profiles immediately, but keep profile actions behind the
+      // same initial profile/lock refresh that previously blocked the screen.
+      this.initialProfileSync = skipInitialProfileSync
+        ? Promise.resolve()
+        : Promise.all([ProfileSyncService.pull(), ProfileSyncService.pullProfileLockStates()]).then(async ([, pinStates]) => {
+            const profiles = await ProfileManager.getProfiles();
+            if (!this.isMounted || this.mountToken !== mountToken) return;
+            this.profiles = profiles;
+            this.profilePinEnabled = pinStates;
+            this.render();
+          });
       this.memberAccessUnsubscribe = MemberAccessRepository.subscribe((access) => {
         this.memberAccess = access;
         if (!this.isMounted || !this.profiles) {
           return;
         }
-        void this.refreshMemberFeatures({ render: true });
+        void this.refreshMemberFeatures({ render: true }).catch((error) => {
+          console.warn("Profile member features refresh failed", error);
+        });
       });
       this.profileBackgroundUnsubscribe = ProfileBackgroundRepository.subscribe((catalog) => {
         this.profileBackgroundCatalog = Array.isArray(catalog) ? catalog : [];
@@ -96,29 +110,37 @@ export function createProfileSelectionScreenMethods01() {
           this.updateProfileBackground(this.getFocusedProfile());
         }
       });
-      this.render();
     },
     async loadAvatarCatalog(hasMemberAccess = this.hasProfileAvatarAccess) {
+      const mountToken = this.mountToken;
+      let catalog;
       try {
-        this.avatarCatalog = await AvatarRepository.getAvatarCatalog(Boolean(hasMemberAccess));
+        catalog = await AvatarRepository.getAvatarCatalog(Boolean(hasMemberAccess));
       } catch (error) {
         console.warn("Failed to load avatar catalog", error);
-        this.avatarCatalog = [];
+        catalog = [];
       }
+      if (!this.isMounted || this.mountToken !== mountToken) return;
+      this.avatarCatalog = catalog;
       this.avatarImageUrlsById = this.avatarCatalog.reduce((accumulator, avatar) => {
         accumulator[avatar.id] = avatar.imageUrl;
         return accumulator;
       }, {});
     },
     async refreshMemberFeatures({ render = false } = {}) {
+      const mountToken = this.mountToken;
       const previousBackgroundAccess = Boolean(this.hasProfileBackgroundAccess);
       const access = await MemberAccessRepository.getAccess().catch(() => this.memberAccess);
+      if (!this.isMounted || this.mountToken !== mountToken) return;
       this.memberAccess = access;
       this.hasProfileAvatarAccess = MemberAccessRepository.hasEntitlement(access, "PROFILE_AVATARS");
       this.hasProfileBackgroundAccess = MemberAccessRepository.hasEntitlement(access, "PROFILE_BACKGROUNDS");
       await this.loadAvatarCatalog(this.hasProfileAvatarAccess);
+      if (!this.isMounted || this.mountToken !== mountToken) return;
       if (this.hasProfileBackgroundAccess) {
-        this.profileBackgroundCatalog = await ProfileBackgroundRepository.ensureLoaded();
+        const catalog = await ProfileBackgroundRepository.ensureLoaded();
+        if (!this.isMounted || this.mountToken !== mountToken) return;
+        this.profileBackgroundCatalog = catalog;
         const selectedId = this.getFocusedProfile()?.profileBackgroundId || null;
         void ProfileBackgroundRepository.loadSelectedAndPreload(selectedId);
       } else {

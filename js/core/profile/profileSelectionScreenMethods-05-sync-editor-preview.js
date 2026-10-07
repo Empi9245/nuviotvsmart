@@ -94,7 +94,11 @@ export function createProfileSelectionScreenMethods05() {
       this.pendingFocusKey = this.lastProfileFocusKey || "profile:1";
       this.render();
     },
-    openOptionsDialog(profile) {
+    async openOptionsDialog(profile) {
+      const mountToken = this.mountToken;
+      await this.initialProfileSync;
+      if (!this.isMounted || this.mountToken !== mountToken) return;
+      profile = this.getProfileById(profile?.id);
       if (!profile) {
         return;
       }

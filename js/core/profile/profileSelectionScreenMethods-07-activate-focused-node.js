@@ -126,6 +126,10 @@ export function createProfileSelectionScreenMethods07() {
         return;
       }
 
+      const mountToken = this.mountToken;
+      await this.initialProfileSync;
+      if (!this.isMounted || this.mountToken !== mountToken) return;
+
       if (profileId === "add") {
         this.openCreateEditor();
         return;

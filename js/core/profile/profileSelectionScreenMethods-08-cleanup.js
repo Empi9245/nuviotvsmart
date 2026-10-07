@@ -2,6 +2,7 @@ export function createProfileSelectionScreenMethods08() {
   return {
     cleanup() {
       this.isMounted = false;
+      this.mountToken = null;
       this.memberAccessUnsubscribe?.();
       this.memberAccessUnsubscribe = null;
       this.profileBackgroundUnsubscribe?.();
