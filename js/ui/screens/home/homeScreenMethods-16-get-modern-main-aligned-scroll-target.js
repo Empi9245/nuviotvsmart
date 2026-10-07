@@ -1,4 +1,5 @@
 import * as internals from "./homeScreenContext.js";
+import { restoreVidaaHomeNavigationNeighborhood } from "./vidaaHomeCardWindow.js";
 
 export function createHomeScreenMethods16() {
   const { Router, Platform, MODERN_HOME_CONSTANTS, HOME_PERF_DEBUG, homePerfNow, logHomePerf } = internals;
@@ -253,10 +254,16 @@ export function createHomeScreenMethods16() {
       }
       if (currentMain !== target) {
         const syncStart = HOME_PERF_DEBUG ? homePerfNow() : 0;
+        if (Platform.isVidaa()) {
+          restoreVidaaHomeNavigationNeighborhood(this, target);
+        }
         if (currentMain && currentMain.isConnected) {
           currentMain.classList.remove("focused");
         }
         this.setFocusedNode(target, { suppressDelegatedFocus: true });
+        if (Platform.isVidaa()) {
+          this.scheduleHomeLazyImageHydration(target);
+        }
         logHomePerf("syncMainFocusToViewport", {
           ms: Number((homePerfNow() - syncStart).toFixed(2)),
           rowKey: String(this.getNodeRowKey(target) || ""),
