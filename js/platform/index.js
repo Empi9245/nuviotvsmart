@@ -163,10 +163,6 @@ export const Platform = {
     return getAdapter().normalizeKey(event);
   },
 
-  shouldPreserveTextInputKey(event) {
-    return Boolean(getAdapter().shouldPreserveTextInputKey?.(event));
-  },
-
   getDeviceLabel() {
     return getAdapter().getDeviceLabel();
   },

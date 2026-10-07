@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./authQrSignInScreen.js";
+import { shouldPreserveVidaaTextInputKey } from "../../../platform/vidaa/vidaaKeyboard.js";
 
 export function createAuthQrSignInScreenMethods02() {
   const {
@@ -23,7 +24,7 @@ export function createAuthQrSignInScreenMethods02() {
       }
 
       const keyCode = Number(event?.keyCode || 0);
-      if (Platform.shouldPreserveTextInputKey(event)) {
+      if (shouldPreserveVidaaTextInputKey(event)) {
         return;
       }
 

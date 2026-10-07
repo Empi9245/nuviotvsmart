@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./pluginsScreen.js";
+import { shouldPreserveVidaaTextInputKey } from "../../../platform/vidaa/vidaaKeyboard.js";
 
 export function createPluginsScreenMethods04() {
   const { ScreenUtils, Router, Platform, PluginManager, t } = internals;
@@ -93,13 +94,13 @@ export function createPluginsScreenMethods04() {
         return;
       }
       const code = Number(event?.keyCode || 0);
-      if (Platform.shouldPreserveTextInputKey(event)) {
+      if (Platform.isVidaa() && shouldPreserveVidaaTextInputKey(event)) {
         return;
       }
       if (this.isNativeTextInputEditingActive(event) && [38, 40, 37, 39].includes(code)) {
-        // Tizen/webOS keep their existing native-keyboard behavior. VIDAA
-        // reaches this branch only for keys not owned by its adapter policy.
-        // Do not move the page focus graph behind an active native editor.
+        // Tizen/webOS route the directional keys through the native TV keyboard
+        // while an input is being edited. Do not let the page-level focus graph
+        // move to repository actions behind that keyboard.
         event?.stopPropagation?.();
         return;
       }

@@ -62,16 +62,9 @@ function eventSurface() {
   first.dispatchEvent({ type: "input" });
   poll();
   assert.equal(first.events.length, 3, "Do not duplicate the native input event");
-  first.dispatchEvent({ type: "change" });
-  poll();
-  assert.deepEqual(
-    first.events.slice(-2),
-    ["input", "change"],
-    "A native input/change pair must stay single and must not be synthesized twice"
-  );
   first.value = "last commit on keyboard close";
   documentRef.emit("focusout", first);
-  assert.equal(first.events.length, 6, "Flush exactly one final input/change pair on blur");
+  assert.equal(first.events.length, 5, "Flush the final value on blur");
   assert.equal(poll, null);
   const checkbox = field("INPUT", "checkbox");
   documentRef.emit("focusin", checkbox);

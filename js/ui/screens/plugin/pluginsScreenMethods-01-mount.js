@@ -41,12 +41,6 @@ export function createPluginsScreenMethods01() {
       this.render();
     },
     isNativeTextInputEditingActive(event = null) {
-      // VIDAA owns OK/left/right while a text editor is active. Up/down are
-      // intentionally left to Nuvio so closing the native keyboard cannot trap
-      // focus inside the field.
-      if (Platform.shouldPreserveTextInputKey(event)) {
-        return true;
-      }
       if (!Platform.isTizen() && !Platform.isWebOS()) {
         return false;
       }

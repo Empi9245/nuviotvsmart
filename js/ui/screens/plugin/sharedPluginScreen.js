@@ -398,9 +398,6 @@ export const SharedPluginScreen = {
       return;
     }
     const code = Number(event.keyCode || 0);
-    if (Platform.shouldPreserveTextInputKey(event)) {
-      return;
-    }
     const focusedControl = this.container.querySelector(".focusable.focused");
     const inputFocused =
       focusedControl?.tagName === "INPUT" ||
