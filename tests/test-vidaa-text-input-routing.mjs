@@ -34,6 +34,7 @@ const guardedFiles = [
   "../js/ui/screens/account/serverConnectionScreen.js",
   "../js/ui/screens/account/syncCodeScreen.js",
   "../js/ui/screens/search/searchScreenMethods-05-ensure-header-visible.js",
+  "../js/ui/screens/search/searchScreenMethods-06-activate-action-node.js",
   "../js/ui/screens/plugin/pluginsScreenMethods-04-refresh-repository.js",
   "../js/ui/screens/account/authQrSignInScreenMethods-02-bind-controls.js"
 ];
@@ -46,6 +47,16 @@ for (const relativePath of guardedFiles) {
     `${relativePath} must preserve VIDAA native text-input keys`
   );
 }
+
+const focusEngineSource = await readFile(
+  new URL("../js/ui/navigation/focusEngine.js", import.meta.url),
+  "utf8"
+);
+assert.match(
+  focusEngineSource,
+  /shouldPreserveVidaaTextInputKey\(normalizedEvent\)/,
+  "The global focus engine must use the shared VIDAA text-input rule"
+);
 
 const settingsSource = await readFile(
   new URL("../js/ui/screens/settings/settingsScreenMethods-14-activate-focused.js", import.meta.url),

@@ -1,6 +1,7 @@
 import { Router } from "./routerState.js";
 import { Platform } from "../../platform/index.js";
 import { noteVidaaNavigationKeyDown, noteVidaaNavigationKeyUp } from "./vidaaNavigationActivity.js";
+import { shouldPreserveVidaaTextInputKey } from "../../platform/vidaa/vidaaKeyboard.js";
 
 function buildNormalizedEvent(event) {
   const normalizedKey = Platform.normalizeKey(event);
@@ -41,41 +42,6 @@ function buildNormalizedEvent(event) {
 
 function hasActiveModal() {
   return Boolean(globalThis?.document?.body?.classList?.contains("nuvio-modal-open"));
-}
-
-function isTextEditingTarget(target) {
-  const tagName = String(target?.tagName || "").toUpperCase();
-  if (tagName === "TEXTAREA") {
-    return true;
-  }
-  if (tagName === "INPUT") {
-    const type = String(target?.type || "text").toLowerCase();
-    return ![
-      "button",
-      "checkbox",
-      "color",
-      "file",
-      "hidden",
-      "image",
-      "radio",
-      "range",
-      "reset",
-      "submit"
-    ].includes(type);
-  }
-  return target?.isContentEditable === true || target?.contentEditable === "true";
-}
-
-function shouldPreserveNativeVidaaTextKey(event) {
-  const keyCode = Number(event?.keyCode || event?.which || 0);
-  if (![13, 37, 39].includes(keyCode)) {
-    return false;
-  }
-  const eventTarget = event?.target || null;
-  if (isTextEditingTarget(eventTarget)) {
-    return true;
-  }
-  return isTextEditingTarget(globalThis?.document?.activeElement || null);
 }
 
 const BACK_DEBOUNCE_MS = 250;
@@ -209,7 +175,7 @@ export const FocusEngine = {
     }
 
     const preserveNativeTextKey =
-      isVidaa && shouldPreserveNativeVidaaTextKey(normalizedEvent);
+      isVidaa && shouldPreserveVidaaTextInputKey(normalizedEvent);
 
     if (
       isVidaa &&
@@ -267,7 +233,7 @@ export const FocusEngine = {
 
     const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
     const preserveNativeTextKey =
-      isVidaa && shouldPreserveNativeVidaaTextKey(normalizedEvent);
+      isVidaa && shouldPreserveVidaaTextInputKey(normalizedEvent);
     if (
       isVidaa &&
       (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE) &&
