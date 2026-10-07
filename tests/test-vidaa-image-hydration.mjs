@@ -162,10 +162,12 @@ platform("vidaa");
   );
   owner.scheduleHomeLazyImageHydration(cards[0], { navigationDirection: "right" });
   assert.equal(images[0].src, "poster-0-0", "Focused poster must start immediately");
-  assert.equal(images[1].src, "poster-0-1", "Next likely poster should start one step early");
-  assert.equal(images[2].src, undefined, "Predictive loading must stay bounded to one extra poster");
+  assert.equal(images[1].src, "poster-0-1", "First likely poster should start one step early");
+  assert.equal(images[2].src, "poster-0-2", "Second likely poster should start two steps early");
+  assert.equal(images[3].src, undefined, "Predictive loading must stay bounded to two extra posters");
   assert.equal(images[0].fetchPriority, "high");
   assert.equal(images[1].fetchPriority, "low");
+  assert.equal(images[2].fetchPriority, "low");
 }
 
 platform("vidaa");
