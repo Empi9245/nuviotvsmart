@@ -21,14 +21,14 @@ function hydrateVidaaPriorityPoster(image, priority = "auto") {
   return Boolean(src);
 }
 
-function getVidaaPredictedNavigationNodes(screen, anchor, direction = null, count = 2) {
+function getVidaaPredictedNavigationNodes(screen, anchor, direction = null, count = 5) {
   if (!anchor || !direction || !Array.isArray(screen.navModel?.rows)) return [];
   const rowIndex = Number(anchor.dataset?.navRow);
   const colIndex = Number(anchor.dataset?.navCol);
   if (!Number.isInteger(rowIndex) || !Number.isInteger(colIndex)) return [];
 
   const predicted = [];
-  const limit = Math.max(1, Math.min(2, Number(count || 2)));
+  const limit = Math.max(1, Math.min(5, Number(count || 5)));
 
   if (direction === "left" || direction === "right") {
     const row = screen.navModel.rows[rowIndex] || [];
@@ -197,10 +197,18 @@ export function createHomeScreenMethods24() {
       const focusedPoster = anchor?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
       hydrateVidaaPriorityPoster(focusedPoster, "high");
 
-      // Keep a tiny two-step runway ahead of the remote. One poster was not
-      // always enough to hide network + decode latency during held D-pad input,
-      // while two stays bounded and does not scan or hydrate the whole row.
-      const predictedNodes = getVidaaPredictedNavigationNodes(this, anchor, navigationDirection, 2);
+      // Horizontal traversal benefits from a wider runway because the remote can
+      // advance through cards faster than network + image decode. Keep vertical
+      // traversal to one predicted row so moving between catalogues does not
+      // compete with five extra poster requests and stays as light as possible.
+      const horizontalNavigation = navigationDirection === "left" || navigationDirection === "right";
+      const predictiveCount = horizontalNavigation ? 5 : 1;
+      const predictedNodes = getVidaaPredictedNavigationNodes(
+        this,
+        anchor,
+        navigationDirection,
+        predictiveCount
+      );
       predictedNodes.forEach((node) => {
         const predictedPoster = node?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
         hydrateVidaaPriorityPoster(predictedPoster, "low");
