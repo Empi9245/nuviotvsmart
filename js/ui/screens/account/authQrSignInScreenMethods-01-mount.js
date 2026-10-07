@@ -33,6 +33,8 @@ export function createAuthQrSignInScreenMethods01() {
       this.email = "";
       this.password = "";
       this.emailError = "";
+      this.emailNotice = "";
+      this.isRegistering = false;
       this.isServerMenuOpen = false;
       this.focusAfterRender = null;
       this.showSignOutConfirmation = false;
@@ -40,6 +42,7 @@ export function createAuthQrSignInScreenMethods01() {
       this.connectedStats = null;
       this.isConnectedStatsLoading = this.isSignedIn;
       this.serverConfiguration = ServerConfigurationStore.getActive();
+      this.useLocalMode = this.serverConfiguration.isLocal === true;
       this.useEmailLogin = supportsEmailPasswordAuth(this.serverConfiguration);
       this.useQrLogin = supportsTvLogin(this.serverConfiguration) && !this.useEmailLogin;
       ScreenUtils.show(this.container);
@@ -64,24 +67,23 @@ export function createAuthQrSignInScreenMethods01() {
       }
 
       const configuration = this.serverConfiguration || ServerConfigurationStore.getActive();
-      const menuItems = configuration?.isCustom
-        ? [
-            { action: "use-official", label: I18n.t("server_options_use_official") },
-            { action: "connect-custom", label: I18n.t("server_options_change_custom") }
-          ]
-        : [{ action: "connect-custom", label: I18n.t("server_options_connect_custom") }];
+      const menuItems = [
+        { action: "connect-custom", label: I18n.t("server_options_connect_custom") },
+        ...(!configuration?.isLocal ? [{ action: "use-local", label: I18n.t("server_options_use_local") }] : []),
+        ...(configuration?.isCustom || configuration?.isLocal ? [{ action: "use-official", label: I18n.t("server_options_use_official") }] : [])
+      ];
 
       this.container.innerHTML = `
           <div class="qr-layout">
-            <button type="button" class="qr-server-menu-trigger focusable" data-action="server-menu"
-                    aria-label="${escapeHtml(I18n.t("server_options_content_description"))}">⋮</button>
+            ${configuration.isShared ? "" : `<button type="button" class="qr-server-menu-trigger focusable" data-action="server-menu"
+                    aria-label="${escapeHtml(I18n.t("server_options_content_description"))}">⋮</button>`}
             <section class="qr-left-panel">
               <div class="qr-brand-lockup">
                 ${renderBrandWordmarkImage({ className: "qr-logo" })}
               </div>
 
               <div class="qr-copy-block">
-                <h1 class="qr-title">${I18n.t("auth.qr.title")}</h1>
+                <h1 class="qr-title">${I18n.t(configuration.isShared ? this.isRegistering ? "auth_email_create_account" : "auth_email_signin_title" : "auth.qr.title")}</h1>
                 <p id="qr-description" class="qr-description">${this.getLeftDescription()}</p>
                 ${this.renderConnectedAccountIdentity()}
               </div>
@@ -90,7 +92,7 @@ export function createAuthQrSignInScreenMethods01() {
             <section class="qr-card-panel" aria-label="${escapeHtml(I18n.t("auth.qr.cardAriaLabel"))}">
               <div class="qr-card">
                 <header class="qr-card-header">
-                  <h2 class="qr-card-title">${I18n.t("auth.qr.cardTitle")}</h2>
+                  <h2 class="qr-card-title">${I18n.t(this.useLocalMode ? "server_options_local_active" : "auth.qr.cardTitle")}</h2>
                   <p id="qr-card-subtitle" class="qr-card-subtitle">${this.getCardSubtitle()}</p>
                 </header>
 
@@ -98,13 +100,15 @@ export function createAuthQrSignInScreenMethods01() {
                   ${
                     this.isSignedIn
                       ? I18n.t("auth.qr.syncedData")
+                      : this.useLocalMode
+                        ? I18n.t("auth_local_description")
                       : this.useEmailLogin
                         ? I18n.t("auth.email.instruction")
                         : I18n.t("auth.qr.scanInstruction")
                   }
                 </p>
                 ${this.renderLoginContent()}
-                ${!this.isSignedIn ? this.renderTermsAcknowledgement() : ""}
+                ${!this.isSignedIn && !this.useLocalMode && !configuration.isShared ? this.renderTermsAcknowledgement() : ""}
                 <div class="qr-actions">${this.renderActions()}</div>
               </div>
             </section>
@@ -120,7 +124,7 @@ export function createAuthQrSignInScreenMethods01() {
         ? ".server-dialog-cancel"
         : this.isServerMenuOpen
           ? ".qr-server-menu-item.focusable"
-          : this.focusAfterRender || (this.useEmailLogin && !this.isSignedIn ? "#auth-email-input" : "#qr-refresh-btn");
+          : this.focusAfterRender || (this.useLocalMode ? "#qr-back-btn" : this.useEmailLogin && !this.isSignedIn ? "#auth-email-input" : "#qr-refresh-btn");
       const focusContainer = this.showSignOutConfirmation ? this.container.querySelector(".auth-signout-confirm-dialog") : this.container;
       this.focusAfterRender = null;
       ScreenUtils.setInitialFocus(focusContainer, initialSelector);
@@ -128,6 +132,9 @@ export function createAuthQrSignInScreenMethods01() {
     renderLoginContent() {
       if (this.isSignedIn) {
         return this.renderConnectedStats();
+      }
+      if (this.useLocalMode) {
+        return `<button type="button" class="qr-action-btn qr-action-btn-primary focusable" data-action="connect-custom">${escapeHtml(I18n.t("server_options_connect_custom"))}</button>`;
       }
       if (this.useEmailLogin) {
         return `
@@ -140,15 +147,17 @@ export function createAuthQrSignInScreenMethods01() {
                      value="${escapeHtml(this.email)}" />
               <label class="qr-input-label" for="auth-password-input">${escapeHtml(I18n.t("auth.email.passwordLabel"))}</label>
               <input id="auth-password-input" class="qr-auth-input focusable" data-action="password-input"
-                     type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false"
+                     type="password" autocomplete="${this.isRegistering ? "new-password" : "current-password"}" autocapitalize="none" spellcheck="false"
                      dir="ltr"
                      placeholder="${escapeHtml(I18n.t("auth.email.passwordPlaceholder"))}"
                      value="${escapeHtml(this.password)}" />
               <button type="button" id="auth-email-submit" class="qr-action-btn qr-action-btn-primary focusable"
                       data-action="email-submit" ${this.isEmailSubmitting ? "disabled" : ""}>
-                ${escapeHtml(I18n.t(this.isEmailSubmitting ? "auth.email.signingIn" : "auth.email.signIn"))}
+    ${escapeHtml(I18n.t(this.isEmailSubmitting ? "auth.email.signingIn" : this.isRegistering ? "auth_email_create_account" : "auth.email.signIn"))}
               </button>
               ${this.emailError ? `<p class="qr-login-error" role="alert">${escapeHtml(this.emailError)}</p>` : ""}
+              ${this.emailNotice ? `<p class="qr-status" role="status">${escapeHtml(this.emailNotice)}</p>` : ""}
+              ${this.serverConfiguration.isShared ? `<button type="button" class="qr-action-btn qr-action-btn-secondary focusable" data-action="email-mode" ${this.isEmailSubmitting ? "disabled" : ""}>${escapeHtml(I18n.t(this.isRegistering ? "auth_email_have_account" : "auth_email_create_account"))}</button>` : ""}
             </form>
           `;
       }
@@ -248,7 +257,7 @@ export function createAuthQrSignInScreenMethods01() {
         ? `<button type="button" id="qr-refresh-btn" class="qr-action-btn qr-action-btn-secondary focusable" data-action="signout">
                ${escapeHtml(I18n.t("auth.account.signOut"))}
              </button>`
-        : this.useEmailLogin
+        : this.useEmailLogin || this.useLocalMode
           ? ""
           : `<button type="button" id="qr-refresh-btn" class="qr-action-btn qr-action-btn-primary focusable" data-action="refresh">
                  ${escapeHtml(I18n.t("auth.qr.refresh"))}

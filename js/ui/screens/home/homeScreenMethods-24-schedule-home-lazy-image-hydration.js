@@ -1,6 +1,8 @@
 import * as internals from "./homeScreenContext.js";
 import { Platform } from "../../../platform/index.js";
 import { isVidaaNavigationBusy, VIDAA_NAVIGATION_SETTLE_MS } from "../../navigation/vidaaNavigationActivity.js";
+import { releaseDistantVidaaHomeImages } from "./vidaaHomeImageWindow.js";
+import { updateVidaaHomeCardWindow } from "./vidaaHomeCardWindow.js";
 
 function isVidaaHomeHydrationBusy(screen) {
   return screen.isVidaaHomeLoadingBusy?.() ?? isVidaaNavigationBusy();
@@ -211,6 +213,15 @@ export function createHomeScreenMethods24() {
         return;
       }
       this.lastHomeLazyImageHydrationAnchorRow = anchorRow;
+      const viewport =
+        this.container.querySelector(".home-modern-rows-viewport") || this.container.querySelector(".home-main") || this.container;
+      const viewportRect = viewport.getBoundingClientRect();
+      if (Platform.isVidaa() && releaseDistantVidaaHomeImages(this.container, viewportRect, anchorNode)) {
+        // Released posters re-enter the deferred index. Expanded assets have
+        // their own focus loader and aren't part of this index.
+        refreshIndex = true;
+      }
+      if (Platform.isVidaa() && updateVidaaHomeCardWindow(this, viewportRect, anchorNode)) refreshIndex = true;
       const imageRows =
         refreshIndex || !Array.isArray(this.homeLazyImageHydrationIndex)
           ? this.buildHomeLazyImageHydrationIndex()
@@ -218,9 +229,6 @@ export function createHomeScreenMethods24() {
       if (!imageRows.length) {
         return;
       }
-      const viewport =
-        this.container.querySelector(".home-modern-rows-viewport") || this.container.querySelector(".home-main") || this.container;
-      const viewportRect = viewport.getBoundingClientRect();
       const constrained = this.isPerformanceConstrained();
       // Android prefetches the visible window plus a small row/card neighborhood.
       // Keep the browser's DOM-mounted rows from turning every vertical focus

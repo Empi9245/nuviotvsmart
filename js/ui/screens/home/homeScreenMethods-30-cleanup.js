@@ -1,10 +1,13 @@
 import * as internals from "./homeScreenContext.js";
+import { forgetHomeMarkup } from "./patchHomeMarkup.js";
+import { restoreAllVidaaHomeCards } from "./vidaaHomeCardWindow.js";
 
 export function createHomeScreenMethods30() {
   const { ScreenUtils, Platform } = internals;
 
   return {
     cleanup() {
+      if (Platform.isVidaa()) restoreAllVidaaHomeCards(this);
       if (this.unsubscribeStartupSyncPullCompleted) {
         this.unsubscribeStartupSyncPullCompleted();
         this.unsubscribeStartupSyncPullCompleted = null;
@@ -134,6 +137,7 @@ export function createHomeScreenMethods30() {
         this.container.style.removeProperty("visibility");
         this.container.style.removeProperty("pointer-events");
         this.renderedMarkup = null;
+        forgetHomeMarkup(this.container);
         ScreenUtils.hide(this.container);
       }
     }

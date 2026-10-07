@@ -2,6 +2,7 @@ import { httpRequest } from "../../../core/network/httpClient.js";
 import { recordSyncFailure } from "../../../core/sync/syncBackoffPolicy.js";
 import { trackSessionRequest } from "../../../core/auth/sessionLifecycle.js";
 import { ServerConfigurationStore } from "../../local/serverConfigurationStore.js";
+import { accountAuthorizationHeaders, requireAccountBackend } from "../../../core/server/serverConfiguration.js";
 
 function trackSyncRequest(request) {
   return trackSessionRequest(request).catch((error) => {
@@ -17,17 +18,17 @@ function buildHeaders(extra = {}, useSession = true) {
     ...extra
   };
   if (!useSession && headers.Authorization == null) {
-    headers.Authorization = `Bearer ${publishableKey}`;
+    Object.assign(headers, accountAuthorizationHeaders(publishableKey));
   }
   return headers;
 }
 
 function backendUrl() {
-  return ServerConfigurationStore.getActive().backendUrl;
+  return requireAccountBackend(ServerConfigurationStore.getActive()).backendUrl;
 }
 
 export const SupabaseApi = {
-  rpc(functionName, body = {}, useSession = true) {
+  async rpc(functionName, body = {}, useSession = true) {
     return trackSyncRequest(
       httpRequest(`${backendUrl()}/rest/v1/rpc/${functionName}`, {
         method: "POST",
@@ -38,7 +39,7 @@ export const SupabaseApi = {
     );
   },
 
-  select(table, query = "", useSession = true) {
+  async select(table, query = "", useSession = true) {
     const suffix = query ? `?${query}` : "";
     return trackSyncRequest(
       httpRequest(`${backendUrl()}/rest/v1/${table}${suffix}`, {
@@ -49,7 +50,7 @@ export const SupabaseApi = {
     );
   },
 
-  upsert(table, rows, onConflict = null, useSession = true) {
+  async upsert(table, rows, onConflict = null, useSession = true) {
     const query = onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : "";
     return trackSyncRequest(
       httpRequest(`${backendUrl()}/rest/v1/${table}${query}`, {
@@ -67,7 +68,7 @@ export const SupabaseApi = {
     );
   },
 
-  delete(table, query, useSession = true) {
+  async delete(table, query, useSession = true) {
     return trackSyncRequest(
       httpRequest(`${backendUrl()}/rest/v1/${table}?${query}`, {
         method: "DELETE",
@@ -77,7 +78,7 @@ export const SupabaseApi = {
     );
   },
 
-  downloadStorageObject(bucket, storagePath, useSession = true) {
+  async downloadStorageObject(bucket, storagePath, useSession = true) {
     const normalizedBucket = encodeURIComponent(String(bucket || "").trim());
     const normalizedPath = String(storagePath || "")
       .trim()

@@ -211,6 +211,9 @@ export function createHomeScreenMethods04() {
       this.requestRender({ delayMs: this.getBackgroundRenderDelay() });
     },
     shouldDeferHomeRenderForInput() {
+      if (internals.Platform.isVidaa()) {
+        return Boolean(this.hasUserInteractedSinceHomePaint && this.isVidaaHomeLoadingBusy());
+      }
       return Boolean(this.layoutMode === "modern" && this.hasUserInteractedSinceHomePaint && this.shouldSuspendModernViewportFocusSync());
     },
     maybeStartPendingHomeBackgroundRefresh() {

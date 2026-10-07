@@ -1,5 +1,6 @@
 import { MemberCatalogStorage } from "../../local/memberCatalogStorage.js";
 import { SupabaseApi } from "./supabaseApi.js";
+import { ServerConfigurationStore } from "../../local/serverConfigurationStore.js";
 import { createStorageAssetUrl, revokeStorageAssetUrl } from "./storageAsset.js";
 
 const PROFILE_BACKGROUND_BUCKET = "membership-profile-backgrounds";
@@ -176,6 +177,8 @@ async function preloadCatalog(catalog, selectedId = null) {
 
 export const ProfileBackgroundRepository = {
   async ensureLoaded() {
+    const configuration = ServerConfigurationStore.getActive();
+    if (configuration.isShared || configuration.isLocal || configuration.isCustom) return [];
     hydrateStoredCatalog();
     const hadCatalog = Array.isArray(remoteCatalog);
     const pendingCatalogLoad = startCatalogLoad();
@@ -186,6 +189,8 @@ export const ProfileBackgroundRepository = {
   },
 
   getCatalog() {
+    const configuration = ServerConfigurationStore.getActive();
+    if (configuration.isShared || configuration.isLocal || configuration.isCustom) return [];
     hydrateStoredCatalog();
     return Array.isArray(remoteCatalog) ? remoteCatalog : [];
   },

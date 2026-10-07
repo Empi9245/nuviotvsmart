@@ -2970,4 +2970,22 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">You can try to start Nuvio TV anyway, but the app may not work correctly on this TV. This configuration is not officially supported.</string>
     <string name="unsupported_device_try_anyway">Try anyway</string>
+    <string name="server_options_use_local">Use local mode</string>
+    <string name="server_options_local_active">Local mode</string>
+    <string name="auth_local_description">Profiles, addons, your library and viewing history are saved on this TV. Connect your own server to sync them across devices.</string>
+    <string name="local_server_description">You will be signed out and the app will restart. Profiles, addons and viewing history will be stored only on this TV. Existing account data will be cleared.</string>
+    <string name="auth_email_shared_hint">Create your Nuvio account or sign in to keep profiles, addons, library and progress in sync.</string>
+    <string name="auth_email_delivery_unavailable">Confirmation emails are temporarily unavailable. Please try again later.</string>
+    <string name="auth_email_create_account">Create account</string>
+    <string name="auth_email_have_account">I already have an account</string>
+    <string name="auth_email_confirmation_sent">Check your email to confirm the account, then sign in here.</string>
+    <string name="auth_email_signin_title">Sign in to your account</string>
+    <string name="auth_email_signin_subtitle">Use your email and password to sync across devices</string>
+    <string name="addon_shared_manage_hint">Install or remove add-ons here. Changes are saved to your account.</string>
+    <string name="addon_shared_saving">Saving…</string>
+    <string name="addon_shared_sync_error">Unable to save or load add-ons. Check your connection and try again.</string>
+    <string name="addon_shared_invalid_url">Enter a valid HTTPS add-on URL.</string>
+    <string name="addon_shared_manifest_error">Could not load this add-on. Check its manifest URL.</string>
+    <string name="addon_shared_already_installed">This add-on is already installed.</string>
+    <string name="addon_shared_saved">Add-ons saved to your account.</string>
 </resources>

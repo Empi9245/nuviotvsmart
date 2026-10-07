@@ -670,11 +670,12 @@ async function runBuild() {
     );
     await writeFile(path.join(distDir, "index.html"), bundledIndex);
 
-    console.log("configuring runtime env from local.properties...");
+    console.log("configuring runtime env...");
     const envResult = await writeRuntimeEnvScriptFile(path.join(distDir, "nuvio.env.js"), {
       rootDir
     });
     const envSourceBaseName = path.basename(envResult.sourcePath || "");
+    console.log(`runtime configuration: ${path.relative(rootDir, envResult.sourcePath || rootDir)}`);
     const usingFallbackEnv =
       !envResult.sourcePath || envSourceBaseName === "local.example.properties";
     if (requireConfiguredRuntimeEnv && usingFallbackEnv) {

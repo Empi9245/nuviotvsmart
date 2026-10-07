@@ -2881,4 +2881,22 @@
     <string name="auth_qr_manual_instruction">Oppure vai su %1$s e inserisci</string>
     <string name="unsupported_device_warning">Puoi comunque provare ad avviare Nuvio TV, ma l’app potrebbe non funzionare correttamente su questa TV. Questa configurazione non è ufficialmente supportata.</string>
     <string name="unsupported_device_try_anyway">Prova comunque</string>
+    <string name="server_options_use_local">Usa modalità locale</string>
+    <string name="server_options_local_active">Modalità locale</string>
+    <string name="auth_local_description">Profili, addon, libreria e cronologia vengono salvati su questa TV. Collega il tuo server per sincronizzarli fra dispositivi.</string>
+    <string name="local_server_description">Verrai disconnesso e l’app si riavvierà. Profili, addon e cronologia verranno salvati solo su questa TV. I dati del vecchio account saranno azzerati.</string>
+    <string name="auth_email_shared_hint">Crea il tuo account Nuvio o accedi per sincronizzare profili, addon, libreria e avanzamento.</string>
+    <string name="auth_email_delivery_unavailable">Le email di conferma sono temporaneamente indisponibili. Riprova più tardi.</string>
+    <string name="auth_email_create_account">Crea account</string>
+    <string name="auth_email_have_account">Ho già un account</string>
+    <string name="auth_email_confirmation_sent">Controlla l’email per confermare l’account, poi accedi qui.</string>
+    <string name="auth_email_signin_title">Accedi al tuo account</string>
+    <string name="auth_email_signin_subtitle">Usa email e password per sincronizzare fra dispositivi</string>
+    <string name="addon_shared_manage_hint">Installa o rimuovi gli add-on qui. Le modifiche vengono salvate nel tuo account.</string>
+    <string name="addon_shared_saving">Salvataggio…</string>
+    <string name="addon_shared_sync_error">Impossibile salvare o caricare gli add-on. Controlla la connessione e riprova.</string>
+    <string name="addon_shared_invalid_url">Inserisci un URL HTTPS valido per l’add-on.</string>
+    <string name="addon_shared_manifest_error">Impossibile caricare questo add-on. Controlla l’URL del manifest.</string>
+    <string name="addon_shared_already_installed">Questo add-on è già installato.</string>
+    <string name="addon_shared_saved">Add-on salvati nel tuo account.</string>
 </resources>

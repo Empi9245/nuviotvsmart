@@ -1,7 +1,9 @@
 import * as internals from "./homeScreenContext.js";
+import { restoreVidaaHomeCard } from "./vidaaHomeCardWindow.js";
 
 export function createHomeScreenMethods05() {
   const {
+    Platform,
     getTvHeroTransitionMode,
     focusWithoutAutoScroll,
     setLegacySidebarExpanded,
@@ -242,6 +244,7 @@ export function createHomeScreenMethods05() {
       return rowNodes[Math.max(0, Math.min(rowNodes.length - 1, preferredIndex))] || rowNodes[0];
     },
     focusWithoutAutoScroll(target, { suppressDelegatedFocus = false } = {}) {
+      if (Platform.isVidaa()) restoreVidaaHomeCard(this, target);
       if (suppressDelegatedFocus && target) {
         this.pendingDelegatedFocusTarget = target;
       }

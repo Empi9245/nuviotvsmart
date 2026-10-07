@@ -968,6 +968,25 @@ html.vidaa-tv .home-screen-shell .home-track {
   will-change: auto;
 }
 
+/* The app owns focus scrolling. Browser anchoring must not compensate for
+   changing images/card expansion while that scroll is in progress. Contain
+   layout work in the already clipped, fixed-size Home viewport. */
+html.vidaa-tv .home-modern-rows-viewport {
+  contain: layout paint;
+  overflow-anchor: none;
+  scroll-behavior: auto;
+}
+
+html.vidaa-tv .home-main,
+html.vidaa-tv .home-track,
+html.vidaa-tv .home-grid-track {
+  overflow-anchor: none;
+}
+
+html.vidaa-tv .home-screen-shell .home-content-card.vidaa-card-parked {
+  visibility: hidden;
+}
+
 /* Opening the rail changes width once. The panel's short fade is interruptible
    and keeps navigation readable without the shared width/overshoot keyframes. */
 html.vidaa-tv .home-sidebar,

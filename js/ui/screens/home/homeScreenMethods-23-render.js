@@ -1,4 +1,7 @@
 import * as internals from "./homeScreenContext.js";
+import { Platform } from "../../../platform/index.js";
+import { patchHomeMarkup } from "./patchHomeMarkup.js";
+import { restoreAllVidaaHomeCards } from "./vidaaHomeCardWindow.js";
 
 export function createHomeScreenMethods23() {
   const {
@@ -38,6 +41,7 @@ export function createHomeScreenMethods23() {
   return {
     render() {
       const renderStart = HOME_PERF_DEBUG ? homePerfNow() : 0;
+      if (Platform.isVidaa()) restoreAllVidaaHomeCards(this);
       this.cancelScheduledRender();
       this.cancelModernCameraFollow({ stopAnimations: true });
       this.teardownModernTrackScrollPagination();
@@ -285,8 +289,17 @@ export function createHomeScreenMethods23() {
       const markupUnchanged = shellMounted && this.renderedMarkup === nextMarkup;
 
       if (!markupUnchanged) {
-        this.container.innerHTML = nextMarkup;
+        if (Platform.isVidaa()) {
+          patchHomeMarkup(this.container, nextMarkup, {
+            reset: !shellMounted || this.renderedLayoutMode !== this.layoutMode
+          });
+        } else {
+          this.container.innerHTML = nextMarkup;
+        }
         this.renderedMarkup = nextMarkup;
+      }
+      if (Platform.isVidaa()) {
+        this.expandedPosterNode = this.container.querySelector(".home-main .home-poster-card.is-expanded");
       }
 
       if (this.layoutMode === "grid") {

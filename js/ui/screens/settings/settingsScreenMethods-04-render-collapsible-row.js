@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./settingsScreenContext.js";
+import { ServerConfigurationStore } from "../../../data/local/serverConfigurationStore.js";
 
 export function createSettingsScreenMethods04() {
   const { Router, AuthManager, renderLoadingIndicator, SECTION_META, ROW_ICONS, t, escapeHtml, iconSvg } = internals;
@@ -36,6 +37,7 @@ export function createSettingsScreenMethods04() {
         `;
     },
     renderAccountSection(model) {
+      const server = ServerConfigurationStore.getActive();
       const signedIn = model.authState === "authenticated";
       const loading = model.authState === "loading";
       this.actionMap.set("account:signin", () => Router.navigate("authQrSignIn"));
@@ -86,8 +88,8 @@ export function createSettingsScreenMethods04() {
                 ${this.renderAccountActionButton({
                   focusKey: "account:signin",
                   icon: "vpn_key",
-                  title: t("account_signin_qr_title", {}, "Sign In with QR"),
-                  subtitle: t("account_signin_qr_subtitle", {}, "Scan a QR code and complete email login on your phone")
+                  title: server.isLocal ? t("server_options_local_active") : server.capabilities.emailPasswordAuth ? t("auth_email_signin_title") : t("account_signin_qr_title", {}, "Sign In with QR"),
+                  subtitle: server.isLocal ? t("auth_local_description") : server.capabilities.emailPasswordAuth ? t("auth_email_signin_subtitle") : t("account_signin_qr_subtitle", {}, "Scan a QR code and complete email login on your phone")
                 })}
               `
                   : ""

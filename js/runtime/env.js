@@ -3,6 +3,8 @@
   var existing = root.__NUVIO_ENV__ || {};
 
   root.__NUVIO_ENV__ = {
+    NUVIO_ACCOUNT_BACKEND_MODE:
+      typeof existing.NUVIO_ACCOUNT_BACKEND_MODE === "undefined" ? "" : existing.NUVIO_ACCOUNT_BACKEND_MODE,
     NUVIO_SUPABASE_URL:
       typeof existing.NUVIO_SUPABASE_URL === "undefined" ? "" : existing.NUVIO_SUPABASE_URL,
     NUVIO_SUPABASE_ANON_KEY:
