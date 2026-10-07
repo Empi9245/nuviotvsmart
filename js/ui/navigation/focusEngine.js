@@ -144,7 +144,8 @@ export const FocusEngine = {
   },
 
   handleKey(event) {
-    if (event?.target && !document.contains(event.target)) {
+    const isVidaa = Platform.isVidaa();
+    if (event?.target && !document.contains(event.target) && !isVidaa) {
       return;
     }
 
@@ -155,7 +156,6 @@ export const FocusEngine = {
     const normalizedEvent = buildNormalizedEvent(event);
     noteVidaaNavigationKeyDown(normalizedEvent.keyCode);
     const keyIdentity = this.getKeyIdentity(normalizedEvent);
-    const isVidaa = Platform.isVidaa();
     const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
     const isVidaaSelectKey = isVidaa && normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE;
     if (keyIdentity) {
