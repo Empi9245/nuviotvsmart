@@ -73,6 +73,7 @@ export const SharedPluginScreen = {
       node.dataset.index = i;
       node.addEventListener("focus", () => {
         controls.forEach((control) => control.classList.toggle("focused", control === node));
+        this.ensureFocusedControlVisible(node);
       });
     });
     this.container.querySelector("input")?.addEventListener("input", (event) => { this.url = event.target.value; });
@@ -80,6 +81,27 @@ export const SharedPluginScreen = {
       node.addEventListener("click", () => void this.activate(node));
     });
     ScreenUtils.setInitialFocus(this.container, ".focusable:not(:disabled)");
+  },
+
+  ensureFocusedControlVisible(node) {
+    const scroller = node?.closest?.(".addons-main");
+    if (!scroller || !node) return;
+
+    const scrollerRect = scroller.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    const pad = 48;
+
+    if (nodeRect.bottom > scrollerRect.bottom - pad) {
+      scroller.scrollTop = Math.min(
+        Math.max(0, scroller.scrollHeight - scroller.clientHeight),
+        scroller.scrollTop + nodeRect.bottom - scrollerRect.bottom + pad
+      );
+    } else if (nodeRect.top < scrollerRect.top + pad) {
+      scroller.scrollTop = Math.max(
+        0,
+        scroller.scrollTop - (scrollerRect.top + pad - nodeRect.top)
+      );
+    }
   },
 
   async refresh() {
@@ -157,10 +179,23 @@ export const SharedPluginScreen = {
     }
     const code = Number(event.keyCode || 0);
     const inputFocused = document.activeElement?.tagName === "INPUT";
+
+    // Let the TV/browser handle OK on a focused text field. VIDAA uses this
+    // native activation to open its on-screen keyboard; consuming Enter here
+    // previously moved focus away before text entry could start.
+    if (inputFocused && code === 13) return;
+
+    // Keep left/right available for caret movement while editing the URL.
     if (inputFocused && (code === 37 || code === 39)) return;
-    if (code === 38 || code === 40 || code === 37 || code === 39 || (inputFocused && code === 13)) {
+
+    if (code === 38 || code === 40 || code === 37 || code === 39) {
       event.preventDefault();
-      ScreenUtils.moveFocus(this.container, code === 38 || code === 37 ? -1 : 1, ".focusable:not(:disabled)");
+      ScreenUtils.moveFocus(
+        this.container,
+        code === 38 || code === 37 ? -1 : 1,
+        ".focusable:not(:disabled)"
+      );
+      this.ensureFocusedControlVisible(this.container.querySelector(".focused"));
     } else if (code === 13) {
       event.preventDefault();
       event.stopPropagation();
