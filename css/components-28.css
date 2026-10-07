@@ -461,3 +461,245 @@
   align-items: center;
   gap: 16px;
 }
+
+
+/* Shared-backend Addons uses the same TV surfaces as the upstream Addons and
+   Plugins routes. Keep the custom backend as a data layer, not a visual fork. */
+.addons-shared-main {
+  scroll-padding-block: 32px 72px;
+}
+
+.addons-shared-panel {
+  width: min(100%, 1320px);
+  padding-bottom: 64px;
+}
+
+.addons-shared-header {
+  margin-bottom: 32px;
+}
+
+.addons-shared-header .addons-title {
+  margin-bottom: 8px;
+}
+
+.addons-shared-header .addons-lede {
+  max-width: 980px;
+}
+
+.addons-shared-meta-row,
+.addons-installed-title-row,
+.addons-feedback,
+.addons-shared-notice,
+.addons-shared-empty {
+  display: flex;
+  align-items: center;
+}
+
+.addons-shared-meta-row {
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.addons-shared-meta-copy,
+.addons-shared-help,
+.addons-shared-notice span,
+.addons-shared-empty span {
+  color: var(--addons-text-secondary);
+}
+
+.addons-shared-meta-copy {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.addons-shared-card {
+  margin-top: 28px;
+  border: 1px solid var(--addons-border);
+}
+
+.addons-shared-section-copy {
+  margin-bottom: 22px;
+}
+
+.addons-shared-section-copy .addons-install-heading {
+  margin-bottom: 6px;
+}
+
+.addons-shared-help {
+  margin: 0;
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.addons-install-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 2px solid var(--addons-primary);
+  background: var(--addons-primary);
+  color: var(--on-secondary);
+}
+
+.addons-install-primary .material-icons {
+  font-size: 30px;
+}
+
+.addons-install-primary.focused {
+  background: var(--addons-primary);
+  color: var(--on-secondary);
+  box-shadow: 0 0 0 3px var(--addons-focus-ring);
+  transform: scale(1.02);
+}
+
+.addons-feedback,
+.addons-shared-notice,
+.addons-shared-empty {
+  gap: 16px;
+  margin-top: 20px;
+  padding: 20px 24px;
+  border: 1px solid var(--addons-border);
+  border-radius: 20px;
+  background: var(--addons-elevated);
+  color: var(--addons-text-secondary);
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.addons-feedback .material-icons,
+.addons-shared-notice > .material-icons,
+.addons-shared-empty > .material-icons {
+  flex: 0 0 auto;
+  font-size: 32px;
+}
+
+.addons-feedback.is-success .material-icons {
+  color: #72d477;
+}
+
+.addons-feedback.is-error .material-icons {
+  color: var(--addons-error);
+}
+
+.addons-feedback.is-loading .material-icons {
+  color: var(--addons-primary);
+}
+
+.addons-shared-notice {
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
+.addons-shared-notice > div,
+.addons-shared-empty > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.addons-shared-notice strong,
+.addons-shared-empty strong {
+  color: var(--addons-text);
+  font-size: 22px;
+  line-height: 30px;
+}
+
+.addons-shared-section {
+  margin-top: 42px;
+}
+
+.addons-shared-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.addons-shared-section .addons-subtitle {
+  margin: 0 0 4px;
+}
+
+.addons-shared-installed-list {
+  gap: 18px;
+  padding-bottom: 0;
+}
+
+.addons-shared-installed-list .addons-installed-card {
+  border: 1px solid var(--addons-border);
+  padding: 28px 30px;
+}
+
+.addons-installed-title-row {
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.addons-shared-installed-list .addons-installed-description {
+  margin-top: 8px;
+  font-size: 22px;
+  line-height: 30px;
+}
+
+.addons-shared-installed-list .addons-installed-meta {
+  margin-top: 8px;
+  font-size: 18px;
+  line-height: 26px;
+}
+
+.addons-shared-installed-list .addons-remove-btn {
+  flex: 0 0 auto;
+  gap: 10px;
+  border: 1px solid var(--addons-border);
+}
+
+.addons-shared-installed-list .addons-remove-btn .material-icons {
+  font-size: 28px;
+}
+
+.addons-shared-empty {
+  margin-top: 0;
+  min-height: 104px;
+}
+
+.addons-shared-utility-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.addons-shared-utility-btn {
+  width: 100%;
+  min-height: 80px;
+  gap: 12px;
+  border: 1px solid var(--addons-border);
+  font-size: 20px;
+  line-height: 26px;
+  white-space: normal;
+  text-align: center;
+}
+
+.addons-shared-utility-btn .material-icons {
+  font-size: 30px;
+}
+
+html.no-css-grid .addons-shared-utility-row {
+  display: flex;
+}
+
+html.no-css-grid .addons-shared-utility-btn {
+  flex: 1 1 0;
+}
+
+html.no-flex-gap .addons-shared-meta-row > * + *,
+html.no-flex-gap .addons-feedback > * + *,
+html.no-flex-gap .addons-shared-notice > * + *,
+html.no-flex-gap .addons-shared-empty > * + * {
+  margin-left: 14px;
+}
+
+html.no-flex-gap .addons-shared-utility-row > * + * {
+  margin-left: 14px;
+}

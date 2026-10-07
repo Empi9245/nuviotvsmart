@@ -28,6 +28,7 @@ export const SharedPluginScreen = {
     this.syncing = false;
     this.saving = false;
     this.message = "";
+    this.messageKind = "";
     this.url = "";
     this.render();
   },
@@ -38,52 +39,242 @@ export const SharedPluginScreen = {
     const mutationDisabled = !editable || this.saving;
     const urls = addonRepository.getInstalledAddonUrls();
     const cached = addonRepository.getCachedInstalledAddons(urls, { includeDisabled: true });
-    let index = 0;
-    const button = (action, label, disabled = false, extra = "") =>
-      `<button class="addons-install-btn focusable" data-index="${index++}" data-action="${action}" ${disabled ? "disabled" : ""} ${extra}>${escapeHtml(label)}</button>`;
-    this.container.innerHTML = `<main class="home-main addons-main">
-      <div class="addons-panel">
-        <h1 class="addons-title">${escapeHtml(t("addon_title", "Addons"))}</h1>
-        <p class="addons-lede">${escapeHtml(t("addon_shared_manage_hint", "Install or remove add-ons here. Changes are saved to your account."))}</p>
-        ${!editable ? `<p>${escapeHtml(t("addon_readonly_notice", "Switch to the primary profile to change inherited add-ons."))}</p>` : ""}
-        <section class="addons-install-card">
-          <label class="addons-install-heading" for="shared-addon-url">${escapeHtml(t("web_add_addon_url", "Add addon by URL"))}</label>
-          <div class="addons-install-row">
-            <input id="shared-addon-url" class="addons-install-surface focusable" data-index="${index++}" type="url" value="${escapeHtml(this.url)}" placeholder="https://example.com/manifest.json" autocomplete="off" ${mutationDisabled ? "disabled" : ""}>
-            ${button("install", t("addon_install_btn", "Install"), mutationDisabled)}
-          </div>
-        </section>
-        <p class="addons-sync-status" role="status">${escapeHtml(
-          this.saving
-            ? t("addon_shared_saving", "Saving…")
-            : this.syncing
-              ? t("addon_refresh_action", "Refreshing…")
-              : this.message
-        )}</p>
-        <h2>${escapeHtml(t("addon_installed_section", "Installed"))}</h2>
-        <div class="addons-installed-list">
-          ${urls.map((url) => {
-            const addon = cached.find((item) => item.baseUrl === url || item.url === url);
-            return `<article class="addons-installed-card"><h3>${escapeHtml(addon?.name || addonRepository.getAddonDisplayNameOverride(url) || url)}</h3>
-              <p class="addons-installed-description">${escapeHtml(url)}</p>
-              ${button("remove", t("addon_remove", "Remove"), mutationDisabled, `data-url="${escapeHtml(url)}"`)}</article>`;
-          }).join("") || `<p>${escapeHtml(t("addon_empty", "No addons installed."))}</p>`}
+    const authenticated = AuthManager.isAuthenticated;
+    const statusText = this.saving
+      ? t("addon_shared_saving", "Saving…")
+      : this.syncing
+        ? t("addon_refresh_action", "Refreshing…")
+        : this.message;
+    const statusKind = this.saving || this.syncing ? "loading" : this.messageKind;
+    const statusIcon =
+      statusKind === "error"
+        ? "error_outline"
+        : statusKind === "success"
+          ? "check_circle"
+          : "sync";
+    const installedCount = `${urls.length} ${urls.length === 1 ? "addon" : "addons"}`;
+    const accountHint = authenticated
+      ? t("addon_shared_account_synced", "Changes sync with your account.")
+      : t("addon_shared_local_only", "Guest mode: changes are saved on this TV.");
+
+    this.container.innerHTML = `
+      <div class="addons-shell addons-route-shell">
+        <div class="addons-route-content">
+          <main class="home-main addons-main addons-shared-main">
+            <div class="addons-panel addons-shared-panel">
+              <header class="addons-shared-header">
+                <p class="addons-kicker">${escapeHtml(t("addon_shared_kicker", "PROFILE ADDONS"))}</p>
+                <h1 class="addons-title">${escapeHtml(t("addon_title", "Addons"))}</h1>
+                <p class="addons-lede">${escapeHtml(
+                  t(
+                    "addon_shared_manage_hint",
+                    "Install, remove and refresh add-ons for the current profile."
+                  )
+                )}</p>
+                <div class="addons-shared-meta-row">
+                  <span class="addons-large-row-badge">${escapeHtml(installedCount)}</span>
+                  <span class="addons-shared-meta-copy">${escapeHtml(accountHint)}</span>
+                </div>
+              </header>
+
+              ${
+                !editable
+                  ? `<div class="addons-shared-notice">
+                      <span class="material-icons" aria-hidden="true">lock</span>
+                      <div>
+                        <strong>${escapeHtml(t("addon_readonly_title", "Add-ons are inherited"))}</strong>
+                        <span>${escapeHtml(
+                          t(
+                            "addon_readonly_notice",
+                            "Switch to the primary profile to change inherited add-ons."
+                          )
+                        )}</span>
+                      </div>
+                    </div>`
+                  : ""
+              }
+
+              <section class="addons-install-card addons-shared-card">
+                <div class="addons-shared-section-copy">
+                  <label class="addons-install-heading" for="shared-addon-url">${escapeHtml(
+                    t("web_add_addon_url", "Add addon by URL")
+                  )}</label>
+                  <p class="addons-shared-help">${escapeHtml(
+                    t(
+                      "addon_shared_url_hint",
+                      "Paste the add-on manifest URL, then choose Install."
+                    )
+                  )}</p>
+                </div>
+                <div class="addons-install-row">
+                  <input
+                    id="shared-addon-url"
+                    class="addons-install-surface focusable"
+                    type="url"
+                    value="${escapeHtml(this.url)}"
+                    placeholder="https://example.com/manifest.json"
+                    autocomplete="off"
+                    ${mutationDisabled ? "disabled" : ""}
+                  >
+                  <button
+                    type="button"
+                    class="addons-install-btn addons-install-primary focusable"
+                    data-action="install"
+                    ${mutationDisabled ? "disabled" : ""}
+                  >
+                    <span class="material-icons" aria-hidden="true">add</span>
+                    <span>${escapeHtml(t("addon_install_btn", "Install"))}</span>
+                  </button>
+                </div>
+              </section>
+
+              ${
+                statusText
+                  ? `<div class="addons-feedback is-${escapeHtml(statusKind || "neutral")}" role="status">
+                      <span class="material-icons" aria-hidden="true">${statusIcon}</span>
+                      <span>${escapeHtml(statusText)}</span>
+                    </div>`
+                  : ""
+              }
+
+              <section class="addons-shared-section">
+                <div class="addons-shared-section-heading">
+                  <div>
+                    <h2 class="addons-subtitle">${escapeHtml(
+                      t("addon_installed_section", "Installed")
+                    )}</h2>
+                    <p class="addons-shared-help">${escapeHtml(
+                      t(
+                        "addon_shared_installed_hint",
+                        "These add-ons are available to the current profile."
+                      )
+                    )}</p>
+                  </div>
+                  <span class="addons-large-row-badge">${escapeHtml(installedCount)}</span>
+                </div>
+
+                <div class="addons-installed-list addons-shared-installed-list">
+                  ${
+                    urls
+                      .map((url) => {
+                        const addon = cached.find(
+                          (item) => item.baseUrl === url || item.url === url
+                        );
+                        const name =
+                          addon?.displayName ||
+                          addon?.name ||
+                          addonRepository.getAddonDisplayNameOverride(url) ||
+                          url;
+                        const description =
+                          addon?.description ||
+                          t(
+                            "addon_shared_ready_description",
+                            "Installed and ready for this profile."
+                          );
+                        const version = String(addon?.version || "").trim();
+                        return `<article class="addons-installed-card">
+                          <div class="addons-installed-head">
+                            <div class="addons-installed-copy">
+                              <div class="addons-installed-title-row">
+                                <h3>${escapeHtml(name)}</h3>
+                                ${
+                                  version
+                                    ? `<span class="addons-installed-version">v${escapeHtml(version)}</span>`
+                                    : ""
+                                }
+                              </div>
+                              <p class="addons-installed-description">${escapeHtml(description)}</p>
+                              <p class="addons-installed-meta">${escapeHtml(url)}</p>
+                            </div>
+                            <button
+                              type="button"
+                              class="addons-action-btn addons-remove-btn focusable"
+                              data-action="remove"
+                              data-url="${escapeHtml(url)}"
+                              ${mutationDisabled ? "disabled" : ""}
+                            >
+                              <span class="material-icons" aria-hidden="true">delete_outline</span>
+                              <span>${escapeHtml(t("addon_remove", "Remove"))}</span>
+                            </button>
+                          </div>
+                        </article>`;
+                      })
+                      .join("") ||
+                    `<div class="addons-shared-empty">
+                      <span class="material-icons" aria-hidden="true">extension_off</span>
+                      <div>
+                        <strong>${escapeHtml(t("addon_empty", "No addons installed."))}</strong>
+                        <span>${escapeHtml(
+                          t(
+                            "addon_shared_empty_hint",
+                            "Add a manifest URL above to install your first add-on."
+                          )
+                        )}</span>
+                      </div>
+                    </div>`
+                  }
+                </div>
+              </section>
+
+              <section class="addons-shared-section">
+                <div class="addons-shared-section-heading">
+                  <div>
+                    <h2 class="addons-subtitle">${escapeHtml(
+                      t("addon_shared_tools_title", "Tools")
+                    )}</h2>
+                    <p class="addons-shared-help">${escapeHtml(
+                      t(
+                        "addon_shared_tools_hint",
+                        "Refresh add-ons, reorder Home catalogs or return to Home."
+                      )
+                    )}</p>
+                  </div>
+                </div>
+                <div class="addons-shared-utility-row">
+                  <button
+                    type="button"
+                    class="addons-action-btn addons-shared-utility-btn focusable"
+                    data-action="refresh"
+                    ${this.syncing || this.saving ? "disabled" : ""}
+                  >
+                    <span class="material-icons" aria-hidden="true">sync</span>
+                    <span>${escapeHtml(t("addon_refresh_action", "Refresh Addons"))}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="addons-action-btn addons-shared-utility-btn focusable"
+                    data-action="catalogs"
+                  >
+                    <span class="material-icons" aria-hidden="true">tune</span>
+                    <span>${escapeHtml(t("addon_reorder_title", "Reorder home catalogs"))}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="addons-action-btn addons-shared-utility-btn focusable"
+                    data-action="home"
+                  >
+                    <span class="material-icons" aria-hidden="true">home</span>
+                    <span>${escapeHtml(t("nav_home", "Home"))}</span>
+                  </button>
+                </div>
+              </section>
+            </div>
+          </main>
         </div>
-        <div class="addons-installed-actions">
-          ${button("refresh", t("addon_refresh_action", "Refresh Addons"), this.syncing || this.saving)}
-          ${button("catalogs", t("addon_reorder_title", "Reorder home catalogs"))}
-          ${button("home", t("nav_home", "Home"))}
-        </div>
-      </div></main>`;
+      </div>
+    `;
+
     const controls = [...this.container.querySelectorAll(".focusable:not(:disabled)")];
-    controls.forEach((node, i) => {
-      node.dataset.index = i;
+    controls.forEach((node, index) => {
+      node.dataset.index = String(index);
       node.addEventListener("focus", () => {
         controls.forEach((control) => control.classList.toggle("focused", control === node));
         this.ensureFocusedControlVisible(node);
       });
     });
-    this.container.querySelector("input")?.addEventListener("input", (event) => { this.url = event.target.value; });
+    this.container.querySelector("input")?.addEventListener("input", (event) => {
+      this.url = event.target.value;
+    });
     this.container.querySelectorAll("button[data-action]").forEach((node) => {
       node.addEventListener("click", () => void this.activate(node));
     });
@@ -114,11 +305,21 @@ export const SharedPluginScreen = {
   async refresh() {
     if (this.syncing || this.saving) return;
     this.syncing = true;
+    this.message = "";
+    this.messageKind = "";
     this.render();
     try {
       await LibrarySyncService.pull();
-      this.message = LibrarySyncService.getLastPullStatus().state === "error"
-        ? t("addon_shared_sync_error", "Unable to save or load add-ons. Check your connection and try again.") : "";
+      if (LibrarySyncService.getLastPullStatus().state === "error") {
+        this.message = t(
+          "addon_shared_sync_error",
+          "Unable to save or load add-ons. Check your connection and try again."
+        );
+        this.messageKind = "error";
+      } else {
+        this.message = t("addon_shared_refresh_success", "Add-ons refreshed.");
+        this.messageKind = "success";
+      }
       catalogRepository.clearCache();
     } finally {
       this.syncing = false;
@@ -129,6 +330,8 @@ export const SharedPluginScreen = {
   async change(action, value) {
     if (this.saving || this.syncing || !addonRepository.canEdit()) return;
     this.saving = true;
+    this.message = "";
+    this.messageKind = "";
     const profileId = ProfileManager.getActiveProfileId();
     const generation = AuthManager.sessionGeneration;
     const previousUrls = addonRepository.getInstalledAddonUrls();
@@ -139,11 +342,13 @@ export const SharedPluginScreen = {
       if (action === "install") {
         try { url = normalizeInstallUrl(value); } catch {
           this.message = t("addon_shared_invalid_url", "Enter a valid HTTPS add-on URL.");
+          this.messageKind = "error";
           return;
         }
         const manifest = await addonRepository.fetchAddon(url, { force: true, timeoutMs: 10000 });
         if (manifest.status !== "success" || !manifest.data?.id || !manifest.data?.name) {
           this.message = t("addon_shared_manifest_error", "Could not load this add-on. Check its manifest URL.");
+          this.messageKind = "error";
           return;
         }
       }
@@ -151,6 +356,7 @@ export const SharedPluginScreen = {
       const changed = action === "install" ? await addonRepository.addAddon(url) : await addonRepository.removeAddon(url);
       if (!changed) {
         this.message = t("addon_shared_already_installed", "This add-on is already installed.");
+        this.messageKind = "error";
         return;
       }
       if (AuthManager.isAuthenticated) {
@@ -158,11 +364,14 @@ export const SharedPluginScreen = {
           await addonRepository.setAddonOrder(previousUrls);
           addonRepository.setAddonEnabledStates(Object.entries(previousEnabled).map(([url, enabled]) => ({ url, enabled })), { replace: true });
           this.message = t("addon_shared_sync_error", "Unable to save or load add-ons. Check your connection and try again.");
+          this.messageKind = "error";
           return;
         }
         this.message = t("addon_shared_saved", "Add-ons saved to your account.");
+        this.messageKind = "success";
       } else {
         this.message = t("addon_shared_saved_local", "Add-ons saved on this TV.");
+        this.messageKind = "success";
       }
       catalogRepository.clearCache();
       this.url = "";
