@@ -8,72 +8,299 @@ function isVidaaHomeHydrationBusy(screen) {
   return screen.isVidaaHomeLoadingBusy?.() ?? isVidaaNavigationBusy();
 }
 
-function hydrateVidaaPriorityPoster(image, priority = "auto") {
+const VIDAA_POSTER_SELECTOR = ".content-poster, .home-continue-bg";
+const VIDAA_PENDING_POSTER_SELECTOR = ".content-poster[data-src], .home-continue-bg[data-src]";
+const VIDAA_HORIZONTAL_REPEAT_FLOOR_MS = 80;
+const VIDAA_VERTICAL_REPEAT_FLOOR_MS = 112;
+const VIDAA_DEFAULT_POSTER_READY_MS = 650;
+const VIDAA_PREFETCH_SAFETY_MS = 160;
+const VIDAA_HORIZONTAL_MIN_AHEAD = 5;
+const VIDAA_HORIZONTAL_MAX_AHEAD = 12;
+const VIDAA_VERTICAL_MIN_ROWS_AHEAD = 2;
+const VIDAA_VERTICAL_MAX_ROWS_AHEAD = 8;
+const VIDAA_VERTICAL_PREFETCH_BUDGET = 18;
+const VIDAA_PREFETCH_MAX_INFLIGHT = 18;
+const VIDAA_PREFETCH_WARM_URL_LIMIT = 96;
+
+function clampNumber(value, min, max) {
+  return Math.max(min, Math.min(max, Number(value || 0)));
+}
+
+function recordVidaaPosterReadyLatency(screen, elapsedMs) {
+  const sample = Number(elapsedMs || 0);
+  if (!screen || !Number.isFinite(sample) || sample < 40 || sample > 4000) return;
+  const previous = Number(screen.homeVidaaPosterReadyEwmaMs || 0);
+  const bounded = clampNumber(sample, 220, 1400);
+  screen.homeVidaaPosterReadyEwmaMs = previous > 0
+    ? previous * 0.72 + bounded * 0.28
+    : bounded;
+}
+
+function observeVidaaPosterReady(screen, image, startedAt) {
+  if (!image?.addEventListener) return;
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    recordVidaaPosterReadyLatency(screen, Date.now() - startedAt);
+  };
+  image.addEventListener(
+    "load",
+    () => {
+      try {
+        const decoded = image.decode?.();
+        if (decoded?.then) {
+          decoded.catch(() => {}).finally(finish);
+          return;
+        }
+      } catch (_) {}
+      finish();
+    },
+    { once: true }
+  );
+}
+
+function hydrateVidaaPriorityPoster(screen, image, priority = "auto") {
   if (!(image instanceof HTMLImageElement) || !image.isConnected || !image.dataset.src) return false;
   const src = String(image.dataset.src || "").trim();
+  const startedAt = Date.now();
   image.loading = "eager";
   image.decoding = "async";
   try {
     image.fetchPriority = priority;
   } catch (_) {}
+  observeVidaaPosterReady(screen, image, startedAt);
   image.removeAttribute("data-src");
   if (src) image.src = src;
   return Boolean(src);
 }
 
-function getVidaaPredictedNavigationNodes(screen, anchor, direction = null, count = 5) {
-  if (!anchor || !direction || !Array.isArray(screen.navModel?.rows)) return [];
-  const rowIndex = Number(anchor.dataset?.navRow);
-  const colIndex = Number(anchor.dataset?.navCol);
-  if (!Number.isInteger(rowIndex) || !Number.isInteger(colIndex)) return [];
+function getVidaaPosterSource(screen, node) {
+  if (!node) return "";
+  const direct = String(node.dataset?.posterSrc || "").trim();
+  if (direct) return direct;
 
-  const predicted = [];
-  const limit = Math.max(1, Math.min(5, Number(count || 5)));
+  const liveImage = node.querySelector?.(VIDAA_POSTER_SELECTOR);
+  const liveSource = String(liveImage?.dataset?.src || liveImage?.getAttribute?.("src") || "").trim();
+  if (liveSource) return liveSource;
 
-  if (direction === "left" || direction === "right") {
-    const row = screen.navModel.rows[rowIndex] || [];
-    const step = direction === "right" ? 1 : -1;
-    for (let distance = 1; distance <= limit; distance += 1) {
-      const node = row[colIndex + step * distance] || null;
-      if (node) predicted.push(node);
-    }
-    return predicted;
-  }
-
-  return [];
+  const parkedRecord = screen?.homeVidaaParkedCards?.get?.(node);
+  const parkedImage = parkedRecord?.content?.querySelector?.(VIDAA_POSTER_SELECTOR);
+  return String(parkedImage?.dataset?.src || parkedImage?.getAttribute?.("src") || "").trim();
 }
 
-function getVidaaVerticalPrefetchNodes(screen, anchor, direction = null) {
-  if (
-    !anchor ||
-    (direction !== "up" && direction !== "down") ||
-    !Array.isArray(screen.navModel?.rows)
-  ) {
-    return [];
+function rememberVidaaWarmPosterUrl(screen, src) {
+  const warmed = screen.homeVidaaPosterWarmUrls || (screen.homeVidaaPosterWarmUrls = new Set());
+  if (warmed.has(src)) warmed.delete(src);
+  warmed.add(src);
+  while (warmed.size > VIDAA_PREFETCH_WARM_URL_LIMIT) {
+    const oldest = warmed.values().next().value;
+    warmed.delete(oldest);
+  }
+}
+
+function prefetchVidaaPosterSource(screen, src) {
+  const source = String(src || "").trim();
+  if (!screen || !source || typeof globalThis.Image !== "function") return false;
+
+  const warmed = screen.homeVidaaPosterWarmUrls || (screen.homeVidaaPosterWarmUrls = new Set());
+  if (warmed.has(source)) return true;
+
+  const inflight = screen.homeVidaaPosterPrefetchInflight || (screen.homeVidaaPosterPrefetchInflight = new Map());
+  if (inflight.has(source)) return true;
+  if (inflight.size >= VIDAA_PREFETCH_MAX_INFLIGHT) return false;
+
+  let preload;
+  try {
+    preload = new globalThis.Image();
+  } catch (_) {
+    return false;
   }
 
+  const startedAt = Date.now();
+  const finish = (success) => {
+    if (inflight.get(source) !== preload) return;
+    inflight.delete(source);
+    if (!success) return;
+    rememberVidaaWarmPosterUrl(screen, source);
+    recordVidaaPosterReadyLatency(screen, Date.now() - startedAt);
+  };
+
+  preload.decoding = "async";
+  try {
+    preload.fetchPriority = "low";
+  } catch (_) {}
+  preload.onload = () => {
+    try {
+      const decoded = preload.decode?.();
+      if (decoded?.then) {
+        decoded.catch(() => {}).finally(() => finish(true));
+        return;
+      }
+    } catch (_) {}
+    finish(true);
+  };
+  preload.onerror = () => finish(false);
+  inflight.set(source, preload);
+  preload.src = source;
+  return true;
+}
+
+function warmVidaaPosterNode(screen, node, priority = "low") {
+  if (!node) return false;
+  const livePending = node.querySelector?.(VIDAA_PENDING_POSTER_SELECTOR);
+  if (livePending) {
+    return hydrateVidaaPriorityPoster(screen, livePending, priority);
+  }
+  const livePoster = node.querySelector?.(VIDAA_POSTER_SELECTOR);
+  if (livePoster?.getAttribute?.("src") || livePoster?.src) {
+    return true;
+  }
+  return prefetchVidaaPosterSource(screen, getVidaaPosterSource(screen, node));
+}
+
+function getVidaaNavigationIntervalMs(screen, direction) {
+  const horizontal = direction === "left" || direction === "right";
+  const vertical = direction === "up" || direction === "down";
+  if (!horizontal && !vertical) return 0;
+
+  const floorMs = horizontal ? VIDAA_HORIZONTAL_REPEAT_FLOOR_MS : VIDAA_VERTICAL_REPEAT_FLOOR_MS;
+  const now = Date.now();
+  const state = screen.homeVidaaPrefetchMotion || (screen.homeVidaaPrefetchMotion = {});
+  const sameDirection = state.direction === direction;
+  const elapsed = sameDirection ? now - Number(state.lastAt || 0) : 0;
+  let intervalMs = Number(state.intervalMs || floorMs);
+
+  if (sameDirection && elapsed >= floorMs * 0.75 && elapsed <= 650) {
+    intervalMs = intervalMs * 0.65 + elapsed * 0.35;
+  } else if (!sameDirection || elapsed > 650) {
+    // A new run starts from the fastest accepted VIDAA repeat cadence. This
+    // prevents the first held presses from outrunning a conservative buffer.
+    intervalMs = floorMs;
+  }
+
+  state.direction = direction;
+  state.lastAt = now;
+  state.intervalMs = clampNumber(intervalMs, floorMs, 360);
+  return state.intervalMs;
+}
+
+function getVidaaPrefetchPlan(screen, anchor, direction) {
+  const intervalMs = getVidaaNavigationIntervalMs(screen, direction);
+  if (!intervalMs) {
+    return {
+      horizontalAhead: 0,
+      verticalRowsAhead: 0,
+      verticalVisibleCount: 0,
+      verticalBudget: 0
+    };
+  }
+
+  const posterReadyMs = clampNumber(
+    Number(screen.homeVidaaPosterReadyEwmaMs || VIDAA_DEFAULT_POSTER_READY_MS),
+    280,
+    1200
+  );
+  const readyWindowMs = clampNumber(posterReadyMs + VIDAA_PREFETCH_SAFETY_MS, 480, 1250);
+  const horizontal = direction === "left" || direction === "right";
+
+  if (horizontal) {
+    return {
+      horizontalAhead: clampNumber(
+        Math.ceil(readyWindowMs / intervalMs),
+        VIDAA_HORIZONTAL_MIN_AHEAD,
+        VIDAA_HORIZONTAL_MAX_AHEAD
+      ),
+      verticalRowsAhead: 0,
+      verticalVisibleCount: 0,
+      verticalBudget: 0
+    };
+  }
+
+  const landscape = Boolean(anchor?.classList?.contains?.("is-landscape"));
+  return {
+    horizontalAhead: 0,
+    verticalRowsAhead: clampNumber(
+      Math.ceil(readyWindowMs / intervalMs),
+      VIDAA_VERTICAL_MIN_ROWS_AHEAD,
+      VIDAA_VERTICAL_MAX_ROWS_AHEAD
+    ),
+    verticalVisibleCount: landscape ? 5 : 7,
+    verticalBudget: VIDAA_VERTICAL_PREFETCH_BUDGET
+  };
+}
+
+function getVidaaRowNeighborhoodNodes(screen, anchor, count = 1, rowOffset = 0) {
+  if (!anchor || !Array.isArray(screen.navModel?.rows)) return [];
   const rowIndex = Number(anchor.dataset?.navRow);
   const colIndex = Number(anchor.dataset?.navCol);
   if (!Number.isInteger(rowIndex) || !Number.isInteger(colIndex)) return [];
 
-  const rowStep = direction === "down" ? 1 : -1;
-  const columnOffsets = [0, -1, 1, -2, 2, -3, 3];
-  const predicted = [];
+  const row = screen.navModel.rows[rowIndex + rowOffset] || [];
+  if (!row.length) return [];
 
-  for (let rowDistance = 1; rowDistance <= 2; rowDistance += 1) {
-    const row = screen.navModel.rows[rowIndex + rowStep * rowDistance] || [];
-    if (!row.length) continue;
-
-    const rowNodes = [];
-    for (const offset of columnOffsets) {
-      const node = row[colIndex + offset] || null;
-      if (node && !rowNodes.includes(node)) rowNodes.push(node);
-      if (rowNodes.length >= 4) break;
-    }
-    predicted.push(...rowNodes);
+  const offsets = [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6];
+  const nodes = [];
+  for (const offset of offsets) {
+    const node = row[colIndex + offset] || null;
+    if (node && !nodes.includes(node)) nodes.push(node);
+    if (nodes.length >= count) break;
   }
+  return nodes;
+}
 
-  return predicted;
+function getVidaaHorizontalPrefetchNodes(screen, anchor, direction, count) {
+  if (!anchor || !Array.isArray(screen.navModel?.rows)) return [];
+  const rowIndex = Number(anchor.dataset?.navRow);
+  const colIndex = Number(anchor.dataset?.navCol);
+  if (!Number.isInteger(rowIndex) || !Number.isInteger(colIndex)) return [];
+
+  const row = screen.navModel.rows[rowIndex] || [];
+  const step = direction === "right" ? 1 : -1;
+  const nodes = [];
+  for (let distance = 1; distance <= count; distance += 1) {
+    const node = row[colIndex + step * distance] || null;
+    if (node) nodes.push(node);
+  }
+  return nodes;
+}
+
+function allocateVidaaVerticalPrefetchCounts(rowsAhead, visibleCount, totalBudget) {
+  const rows = Math.max(0, Math.floor(Number(rowsAhead || 0)));
+  if (!rows) return [];
+  const counts = Array(rows).fill(1);
+  let remaining = Math.max(0, Math.floor(Number(totalBudget || 0)) - rows);
+  const caps = counts.map((_, index) =>
+    Math.max(1, Math.min(visibleCount, visibleCount - Math.floor(index * 0.9)))
+  );
+
+  while (remaining > 0) {
+    let changed = false;
+    for (let index = 0; index < counts.length && remaining > 0; index += 1) {
+      if (counts[index] >= caps[index]) continue;
+      counts[index] += 1;
+      remaining -= 1;
+      changed = true;
+    }
+    if (!changed) break;
+  }
+  return counts;
+}
+
+function getVidaaVerticalPrefetchNodes(screen, anchor, direction, plan) {
+  if (direction !== "up" && direction !== "down") return [];
+  const step = direction === "down" ? 1 : -1;
+  const counts = allocateVidaaVerticalPrefetchCounts(
+    plan.verticalRowsAhead,
+    plan.verticalVisibleCount,
+    plan.verticalBudget
+  );
+  const groups = [];
+  counts.forEach((count, index) => {
+    const nodes = getVidaaRowNeighborhoodNodes(screen, anchor, count, step * (index + 1));
+    if (nodes.length) groups.push(...nodes);
+  });
+  return groups;
 }
 
 export function createHomeScreenMethods24() {
@@ -218,20 +445,36 @@ export function createHomeScreenMethods24() {
       const anchor = anchorNode || this.getCurrentFocusedNode();
       this.pendingHomeLazyImageAnchor = anchor;
       this.homeLazyImageHydrationNeedsIndexRefresh ||= refreshIndex;
-      const focusedPoster = anchor?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
-      hydrateVidaaPriorityPoster(focusedPoster, "high");
+      const focusedPoster = anchor?.querySelector?.(VIDAA_PENDING_POSTER_SELECTOR);
+      hydrateVidaaPriorityPoster(this, focusedPoster, "high");
 
-      // Horizontal traversal keeps a five-poster runway. Vertical traversal uses
-      // a rolling two-row buffer, warming only four posters around the current
-      // column in each upcoming catalogue. This avoids blank rows during fast
-      // up/down input without hydrating entire catalogues.
+      const prefetchPlan = getVidaaPrefetchPlan(this, anchor, navigationDirection);
       const horizontalNavigation = navigationDirection === "left" || navigationDirection === "right";
+      const verticalNavigation = navigationDirection === "up" || navigationDirection === "down";
+
+      if (verticalNavigation) {
+        // The row being entered is already visible while its 140 ms camera move
+        // is running. Hydrate its visible neighborhood immediately; future rows
+        // are prefetched below and become cache hits as they approach.
+        getVidaaRowNeighborhoodNodes(this, anchor, prefetchPlan.verticalVisibleCount).forEach((node) => {
+          if (node !== anchor) warmVidaaPosterNode(this, node, "auto");
+        });
+      }
+
       const predictedNodes = horizontalNavigation
-        ? getVidaaPredictedNavigationNodes(this, anchor, navigationDirection, 5)
-        : getVidaaVerticalPrefetchNodes(this, anchor, navigationDirection);
+        ? getVidaaHorizontalPrefetchNodes(
+            this,
+            anchor,
+            navigationDirection,
+            prefetchPlan.horizontalAhead
+          )
+        : getVidaaVerticalPrefetchNodes(this, anchor, navigationDirection, prefetchPlan);
+
       predictedNodes.forEach((node) => {
-        const predictedPoster = node?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
-        hydrateVidaaPriorityPoster(predictedPoster, "low");
+        // Live near-window cards get their real img source now. Parked cards are
+        // fetched through a detached Image request instead, so long runways do
+        // not inflate the hot DOM or undo the card-windowing performance win.
+        warmVidaaPosterNode(this, node, "low");
       });
       if (this.homeLazyImageHydrationSettleTimer) clearTimeout(this.homeLazyImageHydrationSettleTimer);
       if (this.homeLazyImageHydrationRaf) {
