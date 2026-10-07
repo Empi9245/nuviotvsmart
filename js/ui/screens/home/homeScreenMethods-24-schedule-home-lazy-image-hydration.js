@@ -99,12 +99,43 @@ function rememberVidaaWarmPosterUrl(screen, src) {
   }
 }
 
+function cancelVidaaPosterPrefetchRecord(inflight, source, record) {
+  if (!record) return;
+  if (record.timeoutId) clearTimeout(record.timeoutId);
+  const preload = record.image;
+  try {
+    preload.onload = null;
+    preload.onerror = null;
+    preload.src = "";
+  } catch (_) {}
+  if (inflight.get(source) === record) inflight.delete(source);
+}
+
+function reconcileVidaaPosterPrefetches(screen, orderedSources = []) {
+  const inflight = screen.homeVidaaPosterPrefetchInflight || (screen.homeVidaaPosterPrefetchInflight = new Map());
+  const desired = new Set(
+    orderedSources
+      .map((source) => String(source || "").trim())
+      .filter(Boolean)
+      .slice(0, VIDAA_PREFETCH_MAX_INFLIGHT)
+  );
+
+  inflight.forEach((record, source) => {
+    if (!desired.has(source)) cancelVidaaPosterPrefetchRecord(inflight, source, record);
+  });
+  screen.homeVidaaPosterPrefetchDesired = desired;
+  return desired;
+}
+
 function prefetchVidaaPosterSource(screen, src) {
   const source = String(src || "").trim();
   if (!screen || !source || typeof globalThis.Image !== "function") return false;
 
   const warmed = screen.homeVidaaPosterWarmUrls || (screen.homeVidaaPosterWarmUrls = new Set());
   if (warmed.has(source)) return true;
+
+  const desired = screen.homeVidaaPosterPrefetchDesired;
+  if (desired instanceof Set && desired.size && !desired.has(source)) return false;
 
   const inflight = screen.homeVidaaPosterPrefetchInflight || (screen.homeVidaaPosterPrefetchInflight = new Map());
   if (inflight.has(source)) return true;
@@ -117,50 +148,46 @@ function prefetchVidaaPosterSource(screen, src) {
     return false;
   }
 
-  const startedAt = Date.now();
-  let timeoutId = 0;
+  const record = {
+    image: preload,
+    timeoutId: 0,
+    startedAt: Date.now()
+  };
   const finish = (success) => {
-    if (inflight.get(source) !== preload) return;
+    if (inflight.get(source) !== record) return;
     inflight.delete(source);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutId = 0;
+    if (record.timeoutId) {
+      clearTimeout(record.timeoutId);
+      record.timeoutId = 0;
     }
-    if (!success) return;
-    rememberVidaaWarmPosterUrl(screen, source);
-    recordVidaaPosterReadyLatency(screen, Date.now() - startedAt);
+    if (success) rememberVidaaWarmPosterUrl(screen, source);
   };
 
   preload.decoding = "async";
   try {
     preload.fetchPriority = "low";
   } catch (_) {}
-  preload.onload = () => {
-    try {
-      const decoded = preload.decode?.();
-      if (decoded?.then) {
-        decoded.catch(() => {}).finally(() => finish(true));
-        return;
-      }
-    } catch (_) {}
-    finish(true);
-  };
+  // Detached prefetch is deliberately network/cache-only. Calling decode()
+  // here caused a decode storm while held navigation was already repainting.
+  preload.onload = () => finish(true);
   preload.onerror = () => finish(false);
-  inflight.set(source, preload);
-  timeoutId = setTimeout(() => finish(false), 5000);
+  inflight.set(source, record);
+  record.timeoutId = setTimeout(() => finish(false), 5000);
   preload.src = source;
   return true;
 }
 
-function warmVidaaPosterNode(screen, node, priority = "low") {
+function warmVidaaPosterNode(screen, node, priority = "low", { allowLiveHydration = true } = {}) {
   if (!node) return false;
-  const livePending = node.querySelector?.(VIDAA_PENDING_POSTER_SELECTOR);
-  if (livePending) {
-    return hydrateVidaaPriorityPoster(screen, livePending, priority);
-  }
   const livePoster = node.querySelector?.(VIDAA_POSTER_SELECTOR);
   if (livePoster?.getAttribute?.("src") || livePoster?.src) {
     return true;
+  }
+  if (allowLiveHydration) {
+    const livePending = node.querySelector?.(VIDAA_PENDING_POSTER_SELECTOR);
+    if (livePending) {
+      return hydrateVidaaPriorityPoster(screen, livePending, priority);
+    }
   }
   return prefetchVidaaPosterSource(screen, getVidaaPosterSource(screen, node));
 }
@@ -219,6 +246,8 @@ function getVidaaPrefetchPlan(screen, anchor, direction, throttle = {}) {
 
   if (horizontal) {
     return {
+      intervalMs,
+      repeatFloorMs: Number(throttle.horizontalFloorMs || VIDAA_HORIZONTAL_REPEAT_FLOOR_MS),
       horizontalAhead: clampNumber(
         Math.ceil(readyWindowMs / intervalMs),
         VIDAA_HORIZONTAL_MIN_AHEAD,
@@ -232,6 +261,8 @@ function getVidaaPrefetchPlan(screen, anchor, direction, throttle = {}) {
 
   const landscape = Boolean(anchor?.classList?.contains?.("is-landscape"));
   return {
+    intervalMs,
+    repeatFloorMs: Number(throttle.verticalFloorMs || VIDAA_VERTICAL_REPEAT_FLOOR_MS),
     horizontalAhead: 0,
     verticalRowsAhead: clampNumber(
       Math.ceil(readyWindowMs / intervalMs),
@@ -468,14 +499,19 @@ export function createHomeScreenMethods24() {
       const horizontalNavigation = navigationDirection === "left" || navigationDirection === "right";
       const verticalNavigation = navigationDirection === "up" || navigationDirection === "down";
 
-      if (verticalNavigation) {
-        // The row being entered is already visible while its 140 ms camera move
-        // is running. Hydrate its visible neighborhood immediately; future rows
-        // are prefetched below and become cache hits as they approach.
-        getVidaaRowNeighborhoodNodes(this, anchor, prefetchPlan.verticalVisibleCount).forEach((node) => {
-          if (node !== anchor) warmVidaaPosterNode(this, node, "auto");
-        });
-      }
+      const isExtremeNavigation =
+        Number(prefetchPlan.intervalMs || 0) > 0 &&
+        Number(prefetchPlan.intervalMs || 0) <= Number(prefetchPlan.repeatFloorMs || 1) * 1.18;
+
+      const currentRowNodes = verticalNavigation
+        ? getVidaaRowNeighborhoodNodes(
+            this,
+            anchor,
+            isExtremeNavigation
+              ? Math.min(prefetchPlan.verticalVisibleCount, anchor?.classList?.contains?.("is-landscape") ? 3 : 4)
+              : prefetchPlan.verticalVisibleCount
+          )
+        : [];
 
       const predictedNodes = horizontalNavigation
         ? getVidaaHorizontalPrefetchNodes(
@@ -486,11 +522,23 @@ export function createHomeScreenMethods24() {
           )
         : getVidaaVerticalPrefetchNodes(this, anchor, navigationDirection, prefetchPlan);
 
-      predictedNodes.forEach((node) => {
-        // Live near-window cards get their real img source now. Parked cards are
-        // fetched through a detached Image request instead, so long runways do
-        // not inflate the hot DOM or undo the card-windowing performance win.
-        warmVidaaPosterNode(this, node, "low");
+      const predictedSources = predictedNodes.map((node) => getVidaaPosterSource(this, node)).filter(Boolean);
+      reconcileVidaaPosterPrefetches(this, predictedSources);
+
+      if (verticalNavigation) {
+        // Under maximum repeat cadence, keep only the closest visible posters
+        // decoding in the live DOM. The rest of the runway is cache-only and
+        // becomes cheap when focus actually reaches it.
+        currentRowNodes.forEach((node) => {
+          if (node !== anchor) warmVidaaPosterNode(this, node, "auto", { allowLiveHydration: true });
+        });
+      }
+
+      predictedNodes.forEach((node, index) => {
+        // Only the first two horizontal targets are allowed to hydrate live;
+        // farther targets and every future vertical row stay detached prefetches.
+        const allowLiveHydration = horizontalNavigation && index < 2;
+        warmVidaaPosterNode(this, node, "low", { allowLiveHydration });
       });
       if (this.homeLazyImageHydrationSettleTimer) clearTimeout(this.homeLazyImageHydrationSettleTimer);
       if (this.homeLazyImageHydrationRaf) {
