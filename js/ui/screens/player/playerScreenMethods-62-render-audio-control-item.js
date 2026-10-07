@@ -3,8 +3,18 @@ import * as internals from "./playerScreenContext.js";
 import { Platform } from "../../../platform/index.js";
 
 export function createPlayerScreenMethods62() {
-  const { PlayerController, streamRepository, orderStreamsByAddonOrder, DebridStreamPresentation, isSelectKeyCode, t, clamp, escapeHtml, streamMergeKey, streamDirectPlaybackUrl } =
-    internals;
+  const {
+    PlayerController,
+    streamRepository,
+    orderStreamsByAddonOrder,
+    DebridStreamPresentation,
+    isSelectKeyCode,
+    t,
+    clamp,
+    escapeHtml,
+    streamMergeKey,
+    streamDirectPlaybackUrl
+  } = internals;
 
   return {
     renderAudioControlItem(control, index) {
