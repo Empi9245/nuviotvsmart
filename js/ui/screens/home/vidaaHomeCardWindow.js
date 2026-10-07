@@ -10,80 +10,11 @@ function restoreCard(card, record) {
   card.classList.remove("vidaa-card-parked");
 }
 
-function rememberRestoredCard(screen, card, record) {
-  const restored = screen.homeVidaaRestoredCards || (screen.homeVidaaRestoredCards = new Set());
-  const metadata = screen.homeVidaaRestoredCardMeta || (screen.homeVidaaRestoredCardMeta = new WeakMap());
-  restored.add(card);
-  metadata.set(card, {
-    width: Number(record.width || 0),
-    height: Number(record.height || 0),
-    styles: record.styles
-  });
-}
-
-function reparkRestoredCard(screen, card) {
-  const metadata = screen.homeVidaaRestoredCardMeta?.get(card);
-  if (!metadata || !card?.childNodes?.length || card.querySelector("iframe, video")) return false;
-
-  const width = Number(metadata.width || card.offsetWidth || 0);
-  const height = Number(metadata.height || card.offsetHeight || 0);
-  if (width <= 0 || height <= 0) return false;
-
-  const content = card.ownerDocument.createDocumentFragment();
-  while (card.firstChild) content.appendChild(card.firstChild);
-  card.style.setProperty("box-sizing", "border-box");
-  card.style.setProperty("width", `${width}px`);
-  card.style.setProperty("height", `${height}px`);
-  card.classList.add("vidaa-card-parked");
-
-  const parked = screen.homeVidaaParkedCards || (screen.homeVidaaParkedCards = new Map());
-  parked.set(card, {
-    content,
-    styles: metadata.styles,
-    width,
-    height
-  });
-  screen.homeVidaaRestoredCards?.delete(card);
-  screen.homeLazyImageHydrationNeedsIndexRefresh = true;
-  return true;
-}
-
-function trimVidaaRestoredNavigationCards(screen, target) {
-  const restored = screen.homeVidaaRestoredCards;
-  const rows = screen.navModel?.rows;
-  if (!restored?.size || !target || !Array.isArray(rows)) return 0;
-
-  const targetRow = Number(target.dataset?.navRow);
-  const targetCol = Number(target.dataset?.navCol);
-  if (!Number.isInteger(targetRow) || !Number.isInteger(targetCol)) return 0;
-
-  let parked = 0;
-  Array.from(restored).forEach((card) => {
-    if (!card?.isConnected || card === target || card.contains?.(target)) {
-      if (!card?.isConnected) restored.delete(card);
-      return;
-    }
-    const row = Number(card.dataset?.navRow);
-    const col = Number(card.dataset?.navCol);
-    if (!Number.isInteger(row) || !Number.isInteger(col)) return;
-
-    const rowDistance = Math.abs(row - targetRow);
-    const colDistance = Math.abs(col - targetCol);
-    // Keep the current row plus one row on either side for the 140 ms camera
-    // transition. Everything restored farther behind can be re-parked without
-    // geometry reads, preventing held vertical navigation from growing the DOM.
-    const keep = rowDistance === 0 ? colDistance <= 7 : rowDistance === 1 && colDistance <= 4;
-    if (!keep && reparkRestoredCard(screen, card)) parked += 1;
-  });
-  return parked;
-}
-
 export function restoreVidaaHomeCard(screen, card) {
   const record = screen.homeVidaaParkedCards?.get(card);
   if (!record) return false;
   restoreCard(card, record);
   screen.homeVidaaParkedCards.delete(card);
-  rememberRestoredCard(screen, card, record);
   screen.homeLazyImageHydrationNeedsIndexRefresh = true;
   return true;
 }
@@ -91,8 +22,6 @@ export function restoreVidaaHomeCard(screen, card) {
 export function restoreAllVidaaHomeCards(screen) {
   screen.homeVidaaParkedCards?.forEach((record, card) => restoreCard(card, record));
   screen.homeVidaaParkedCards?.clear();
-  screen.homeVidaaRestoredCards?.clear();
-  screen.homeVidaaRestoredCardMeta = new WeakMap();
 }
 
 // Restore only the small navigation neighborhood that can become visible on the
@@ -139,7 +68,6 @@ export function restoreVidaaHomeNavigationNeighborhood(screen, target, direction
   candidates.forEach((card) => {
     if (card && restoreVidaaHomeCard(screen, card)) restored += 1;
   });
-  trimVidaaRestoredNavigationCards(screen, target);
   return restored;
 }
 
@@ -186,9 +114,7 @@ export function updateVidaaHomeCardWindow(screen, viewportRect, focusedNode) {
     }
     const record = {
       content: card.ownerDocument.createDocumentFragment(),
-      styles: STYLE_PROPERTIES.map((property) => [property, card.style.getPropertyValue(property), card.style.getPropertyPriority(property)]),
-      width: change.width,
-      height: change.height
+      styles: STYLE_PROPERTIES.map((property) => [property, card.style.getPropertyValue(property), card.style.getPropertyPriority(property)])
     };
     card.style.setProperty("box-sizing", "border-box");
     card.style.setProperty("width", `${change.width}px`);
@@ -196,7 +122,6 @@ export function updateVidaaHomeCardWindow(screen, viewportRect, focusedNode) {
     while (card.firstChild) record.content.appendChild(card.firstChild);
     card.classList.add("vidaa-card-parked");
     parked.set(card, record);
-    screen.homeVidaaRestoredCards?.delete(card);
   }
   return changes.length;
 }
