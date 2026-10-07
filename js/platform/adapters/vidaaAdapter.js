@@ -87,6 +87,10 @@ export const vidaaAdapter = {
     return normalized;
   },
 
+  shouldPreserveTextInputKey(event) {
+    return shouldPreserveVidaaTextInputKey(event);
+  },
+
   getDeviceLabel() {
     try {
       const model =
