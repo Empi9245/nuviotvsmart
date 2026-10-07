@@ -146,6 +146,10 @@ export function createSettingsScreenMethods14() {
 
       const code = Number(event?.keyCode || 0);
 
+      if (this.textDialog && Platform.shouldPreserveTextInputKey(event)) {
+        return;
+      }
+
       if (this.textDialog) {
         const activeField = document.activeElement?.matches?.("[data-text-dialog-role='field']");
         if ((code === 38 || code === 40) && !(activeField && this.textDialog.multiline)) {
@@ -164,7 +168,7 @@ export function createSettingsScreenMethods14() {
           return;
         }
         if (code === 13 && activeField) {
-          if (this.textDialog.multiline || Platform.isVidaa()) {
+          if (this.textDialog.multiline) {
             return;
           }
           event?.preventDefault?.();
