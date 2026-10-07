@@ -270,11 +270,11 @@ function buildCollectionEntries(collections = []) {
   }));
 }
 
-function buildLocalPayload(profileId = null) {
+function buildLocalPayload(profileId = null, remotePayload = null) {
   return addonRepository.getInstalledAddons().then((addons) => {
     const resolvedProfileId = resolveProfileId(profileId);
     const collections = CollectionsStore.getForProfile(resolvedProfileId);
-    const prefs = HomeCatalogStore.getForProfile(resolvedProfileId);
+    const prefs = remotePayload ? payloadPreferences(remotePayload) : HomeCatalogStore.getForProfile(resolvedProfileId);
     const layout = LayoutPreferences.getForProfile(resolvedProfileId);
     const customTitles = prefs.customTitles || {};
     const catalogEntries = buildCatalogEntries(addons);
@@ -323,7 +323,9 @@ function buildLocalPayload(profileId = null) {
       .filter(Boolean);
 
     return {
-      hide_unreleased_content: Boolean(layout.hideUnreleasedContent),
+      hide_unreleased_content: remotePayload
+        ? Boolean(remotePayload.hide_unreleased_content)
+        : Boolean(layout.hideUnreleasedContent),
       items
     };
   });
@@ -454,7 +456,7 @@ async function fetchBestRemotePayload(profileId, localPayload) {
   };
 }
 
-function applyPayload(profileId, payload = {}) {
+function payloadPreferences(payload = {}) {
   const sortedItems = (payload.items || [])
     .map((item, index) => normalizeSyncItem(item, index))
     .filter(itemHasIdentity)
@@ -473,17 +475,18 @@ function applyPayload(profileId, payload = {}) {
     return accumulator;
   }, {});
 
+  return { order, disabled, customTitles };
+}
+
+function applyPayload(profileId, payload = {}, effectivePayload = payload) {
+  const prefs = payloadPreferences(payload);
+  // Keep remote-only identities, then append installed rows in manifest order,
+  // as Android does when rebuilding its effective Home catalog order.
+  const savedKeys = new Set(prefs.order);
+  prefs.order.push(...(effectivePayload.items || []).map(syncItemKey).filter((key) => !savedKeys.has(key)));
   HomeCatalogSettingsSyncService.syncingFromRemoteProfiles.add(resolveProfileId(profileId));
   try {
-    HomeCatalogStore.setForProfile(
-      profileId,
-      {
-        order,
-        disabled,
-        customTitles
-      },
-      { silentSync: true }
-    );
+    HomeCatalogStore.setForProfile(profileId, prefs, { silentSync: true });
     if (Object.prototype.hasOwnProperty.call(payload, HIDE_UNRELEASED_CONTENT_KEY)) {
       LayoutPreferences.setForProfile(
         profileId,

@@ -59,13 +59,22 @@ export function createHomeCatalogSettingsSyncServiceMethods01() {
           await this.push(resolvedProfileId);
           return false;
         }
-        if (payloadSignature(remote.payload) === payloadSignature(localPayload)) {
+        // Compare the installed rows after remote application, rather than a
+        // partial remote list against the complete local inventory.
+        const effectivePayload = await buildLocalPayload(resolvedProfileId, remote.payload);
+        if (pendingPushVersion(pullToken) != null) {
+          this.completedInitialPullTokens.add(pullToken);
+          await this.push(resolvedProfileId);
+          return false;
+        }
+        const changed = payloadSignature(effectivePayload) !== payloadSignature(localPayload);
+        applyPayload(resolvedProfileId, remote.payload, effectivePayload);
+        if (!changed) {
           if (pullToken) {
             this.completedInitialPullTokens.add(pullToken);
           }
           return false;
         }
-        applyPayload(resolvedProfileId, remote.payload);
         if (pullToken) {
           this.completedInitialPullTokens.add(pullToken);
         }
