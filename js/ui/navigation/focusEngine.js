@@ -1,7 +1,6 @@
 import { Router } from "./routerState.js";
 import { Platform } from "../../platform/index.js";
 import { noteVidaaNavigationKeyDown, noteVidaaNavigationKeyUp } from "./vidaaNavigationActivity.js";
-import { shouldPreserveVidaaTextInputKey } from "../../platform/vidaa/vidaaKeyboard.js";
 
 function buildNormalizedEvent(event) {
   const normalizedKey = Platform.normalizeKey(event);
@@ -175,7 +174,7 @@ export const FocusEngine = {
     }
 
     const preserveNativeTextKey =
-      isVidaa && shouldPreserveVidaaTextInputKey(normalizedEvent);
+      isVidaa && Platform.shouldPreserveTextInputKey(normalizedEvent);
 
     if (
       isVidaa &&
@@ -233,7 +232,7 @@ export const FocusEngine = {
 
     const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
     const preserveNativeTextKey =
-      isVidaa && shouldPreserveVidaaTextInputKey(normalizedEvent);
+      isVidaa && Platform.shouldPreserveTextInputKey(normalizedEvent);
     if (
       isVidaa &&
       (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE) &&
