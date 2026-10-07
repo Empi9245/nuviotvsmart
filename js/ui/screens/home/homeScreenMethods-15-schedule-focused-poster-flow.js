@@ -287,6 +287,9 @@ export function createHomeScreenMethods15() {
       if (!expanded || expanded !== current || expanded === target || !expanded.classList.contains("is-expanded")) {
         return { horizontal: 0, vertical: 0 };
       }
+      if (direction !== "down" || !expanded.classList.contains("is-landscape")) {
+        return { horizontal: 0, vertical: 0 };
+      }
       const targetShell = this.container?.querySelector(".home-screen-shell");
       if (!(targetShell instanceof HTMLElement)) {
         return { horizontal: 0, vertical: 0 };

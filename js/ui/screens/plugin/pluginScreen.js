@@ -8,6 +8,8 @@ import { Platform } from "../../../platform/index.js";
 import { QrCodeGenerator } from "../../../core/qr/qrCodeGenerator.js";
 import { ExperienceModeStore } from "../../../data/local/experienceModeStore.js";
 import { I18n } from "../../../i18n/index.js";
+import { ServerConfigurationStore } from "../../../data/local/serverConfigurationStore.js";
+import { SharedPluginScreen } from "./sharedPluginScreen.js";
 
 function t(key, fallback) {
   return I18n.t(key, {}, { fallback });
@@ -37,6 +39,8 @@ export const PluginScreen = {
   async mount() {
     this.container = document.getElementById("plugin");
     ScreenUtils.show(this.container);
+    this.isShared = ServerConfigurationStore.getActive().isShared === true;
+    if (this.isShared) return SharedPluginScreen.mount(this.container);
     this.pluginRouteEnterPending = true;
     this.contentRow = Number.isFinite(this.contentRow) ? this.contentRow : 0;
     this.contentCol = Number.isFinite(this.contentCol) ? this.contentCol : 0;
@@ -421,6 +425,7 @@ export const PluginScreen = {
   },
 
   consumeBackRequest() {
+    if (this.isShared) return false;
     if (this.qrOverlayOpen) {
       this.closeQrOverlay();
       return true;
@@ -429,6 +434,7 @@ export const PluginScreen = {
   },
 
   async onKeyDown(event) {
+    if (this.isShared) return SharedPluginScreen.onKeyDown(event);
     if (this.qrOverlayOpen) {
       if (Platform.isBackEvent(event)) {
         event?.preventDefault?.();
@@ -476,6 +482,7 @@ export const PluginScreen = {
   },
 
   cleanup() {
+    if (this.isShared) SharedPluginScreen.cleanup();
     if (this.initialRefreshTimer) {
       clearTimeout(this.initialRefreshTimer);
       this.initialRefreshTimer = null;

@@ -1,7 +1,7 @@
 import * as internals from "./homeScreenContext.js";
 
 export function createHomeScreenMethods13() {
-  const { metaRepository, isCollectionFolderItem, resolveTrailerSource, withTimeout, resolveTrailerMetaWithTmdbFallback } = internals;
+  const { Platform, metaRepository, isCollectionFolderItem, resolveTrailerSource, withTimeout, resolveTrailerMetaWithTmdbFallback } = internals;
 
   return {
     mountTrailerLayer(container, source, onReady = null) {
@@ -9,6 +9,10 @@ export function createHomeScreenMethods13() {
         return;
       }
       this.clearTrailerLayer(container);
+      if (Platform.isVidaa()) {
+        this.homeActiveTrailerLayers ||= new Set();
+        this.homeActiveTrailerLayers.add(container);
+      }
       if (source.kind === "youtube" && source.embedUrl) {
         const frame = document.createElement("iframe");
         frame.className = "home-inline-trailer-frame";
@@ -161,21 +165,26 @@ export function createHomeScreenMethods13() {
       if (node instanceof HTMLElement && node !== excludeNode) {
         targets.add(node);
       }
-      Array.from(
-        this.container?.querySelectorAll(".home-main .home-poster-card.is-expanded, .home-main .home-poster-card.is-trailer-active") || []
-      ).forEach((card) => {
-        if (card !== excludeNode) {
-          targets.add(card);
-        }
-      });
+      // VIDAA records the single expanded card after rendering and when it is
+      // expanded. An empty state needs no scan of every mounted card.
+      if (!Platform.isVidaa()) {
+        Array.from(
+          this.container?.querySelectorAll(".home-main .home-poster-card.is-expanded, .home-main .home-poster-card.is-trailer-active") || []
+        ).forEach((card) => {
+          if (card !== excludeNode) targets.add(card);
+        });
+      }
       targets.forEach((target) => {
         const frame = target?.querySelector?.(".home-poster-frame") || null;
-        const previousCardTransition = instant && target instanceof HTMLElement ? target.style.transition : "";
-        const previousFrameTransition = instant && frame instanceof HTMLElement ? frame.style.transition : "";
-        if (instant && target instanceof HTMLElement) {
+        // VIDAA CSS already disables size transitions. Don't flush layout to
+        // temporarily disable and then restore them on the key-input path.
+        const overrideTransition = instant && !Platform.isVidaa();
+        const previousCardTransition = overrideTransition && target instanceof HTMLElement ? target.style.transition : "";
+        const previousFrameTransition = overrideTransition && frame instanceof HTMLElement ? frame.style.transition : "";
+        if (overrideTransition && target instanceof HTMLElement) {
           target.style.setProperty("transition", "none", "important");
         }
-        if (instant && frame instanceof HTMLElement) {
+        if (overrideTransition && frame instanceof HTMLElement) {
           frame.style.setProperty("transition", "none", "important");
         }
         target.classList.remove("is-expanded", "is-trailer-active", "is-expanded-backdrop-ready");
@@ -185,7 +194,7 @@ export function createHomeScreenMethods13() {
         } else {
           this.clearTrailerLayer(trailerLayer);
         }
-        if (instant && target instanceof HTMLElement) {
+        if (overrideTransition && target instanceof HTMLElement) {
           void target.offsetWidth;
           requestAnimationFrame(() => {
             if (target.isConnected) {

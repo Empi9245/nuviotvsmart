@@ -157,6 +157,7 @@ export function createHomeScreenMethods12() {
       if (!container) {
         return;
       }
+      this.homeActiveTrailerLayers?.delete(container);
       const pendingCleanup = this.homeTrailerLayerCleanupTimers?.get?.(container);
       // Home mounts an empty trailer layer for every poster. Leaving Home used
       // to traverse and clear all of those no-op nodes synchronously, which is
@@ -225,6 +226,11 @@ export function createHomeScreenMethods12() {
       if (!container) {
         return;
       }
+      if (Platform.isVidaa() && !container.firstElementChild && !this.homeTrailerLayerCleanupTimers?.has(container)) {
+        this.homeActiveTrailerLayers?.delete(container);
+        container.classList.remove("is-active");
+        return;
+      }
       this.pauseTrailerLayer(container);
       this.homeTrailerLayerCleanupTimers ||= new WeakMap();
       const pendingCleanup = this.homeTrailerLayerCleanupTimers.get(container);
@@ -266,6 +272,12 @@ export function createHomeScreenMethods12() {
       if (!this.shouldUseImmediateFocusScroll()) {
         return;
       }
+      if (Platform.isVidaa()) {
+        // Most cards have empty trailer layers. Only mounted previews can need
+        // cleanup; scanning every card here costs time on every remote repeat.
+        this.homeActiveTrailerLayers?.forEach((layer) => this.scheduleTrailerLayerCleanup(layer));
+        return;
+      }
       const layers = this.container?.querySelectorAll(".home-poster-trailer-layer, .home-hero-trailer-layer");
       layers?.forEach((layer) => {
         const hasPendingCleanup = this.homeTrailerLayerCleanupTimers?.has?.(layer);
@@ -275,6 +287,11 @@ export function createHomeScreenMethods12() {
       });
     },
     clearHomeTrailerLayers() {
+      if (Platform.isVidaa()) {
+        this.homeActiveTrailerLayers?.forEach((layer) => this.clearTrailerLayer(layer));
+        this.homeActiveTrailerLayers?.clear();
+        return;
+      }
       const layers = this.container?.querySelectorAll(".home-poster-trailer-layer, .home-hero-trailer-layer");
       layers?.forEach((layer) => this.clearTrailerLayer(layer));
     },
