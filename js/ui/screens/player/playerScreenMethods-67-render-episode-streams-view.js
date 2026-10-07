@@ -105,6 +105,8 @@ export function createPlayerScreenMethods67() {
                         : "";
                       return `
                         <article class="player-source-card player-episode-stream-card${sourceSide ? "" : " no-side"} focusable${focused ? " focused" : ""}"
+                                 tabindex="-1"
+                                 role="button"
                                  data-episode-stream-index="${index}">
                           <div class="player-source-main">
                             ${topBadges}
