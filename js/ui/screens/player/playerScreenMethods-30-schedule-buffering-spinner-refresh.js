@@ -151,6 +151,17 @@ export function createPlayerScreenMethods30() {
         })
       ) {
         if (!this.startupAudioPreferenceApplied) {
+          // A native frame can arrive before webOS publishes audio languages.
+          // Keep the bounded startup match alive until discovery settles or the
+          // gate deadline expires; fallback would otherwise latch the default.
+          if (
+            Environment.isWebOS() &&
+            Number(this.startupAudioGateDeadline || 0) > 0 &&
+            !gateDeadlineExpired &&
+            this.isAudioPreferenceDiscoveryPending()
+          ) {
+            return false;
+          }
           this.applyStartupAudioFallback();
         }
         return Boolean(this.startupAudioPreferenceApplied) && !this.pendingWebOsAudioSelection;

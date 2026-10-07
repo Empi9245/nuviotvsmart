@@ -177,6 +177,7 @@ export function createPlayerScreenMethods44() {
         const cues = this.parseSubtitleCues(windowData.body);
         const shouldUseHtml =
           isTizenEmbeddedTextSubtitleFallbackTrack(track) ||
+          (Environment.isWebOS() && this.subtitleRenderMode === "html") ||
           this.webOsEmbeddedTextSubtitleUsingHtml ||
           Boolean(windowData.hasAssOverrideTags) ||
           (isAssTrack && cues.length > 0);
