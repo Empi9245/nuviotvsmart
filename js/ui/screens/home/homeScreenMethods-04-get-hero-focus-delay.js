@@ -1,4 +1,5 @@
 import * as internals from "./homeScreenContext.js";
+import { getTvRuntimePerformanceProfile } from "../../../platform/tvRuntimePerformance.js";
 import { startHomeContinueWatchingLoad } from "./homeContinueWatchingLoad.js";
 
 function catalogItemIdentity(item = {}) {
@@ -456,6 +457,7 @@ export function createHomeScreenMethods04() {
       }
       return JSON.stringify([
         settingsSignature,
+        getTvRuntimePerformanceProfile().isPerformanceConstrained,
         addonRepository.getInstalledAddonUrls(),
         addonRepository.getAddonEnabledStates(),
         addons,
