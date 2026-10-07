@@ -26,7 +26,11 @@
     "sync:tizen": "node ./scripts/sync-wrapper.mjs --tizen",
     "sync:webos": "node ./scripts/sync-wrapper.mjs --webos",
     "package:vidaa": "npm run build && node ./scripts/package-vidaa.mjs",
-    "serve:vidaa": "node ./scripts/serve.mjs --vidaa"
+    "serve:vidaa": "node ./scripts/serve.mjs --vidaa",
+    "backend:prepare": "node ./scripts/prepare-shared-backend.mjs",
+    "test:vidaa:backend": "node ./tests/test-vidaa-local-backend.mjs && node ./tests/test-vidaa-shared-backend.mjs",
+    "test:vidaa": "node ./scripts/test-vidaa.mjs",
+    "test:vidaa:live": "node ./tests/test-vidaa-shared-backend.mjs --live --no-email-confirmation"
   },
   "devDependencies": {
     "@csstools/postcss-global-data": "^4.0.0",

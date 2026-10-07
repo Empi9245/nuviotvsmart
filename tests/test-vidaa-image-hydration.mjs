@@ -84,6 +84,8 @@ function homeSurface() {
       const image = Object.assign(new HTMLImageElement(), {
         isConnected: true,
         dataset: { src: `poster-${rowIndex}-${index}` },
+        classList: { contains: () => false },
+        getAttribute(name) { return name === "src" ? this.src || null : null; },
         removeAttribute(name) {
           if (name === "data-src") delete this.dataset.src;
         },
@@ -117,9 +119,12 @@ function homeSurface() {
   };
   const container = {
     isConnected: true,
+    contains: () => true,
     querySelector: () => viewport,
-    querySelectorAll() {
+    querySelectorAll(selector) {
       globalScans += 1;
+      if (selector.includes(".home-content-card")) return [];
+      if (!selector.includes("[data-src]")) return images.filter((image) => image.src);
       return images.filter((image) => image.dataset.src);
     }
   };
@@ -169,7 +174,7 @@ platform("vidaa");
   advance(599);
   assert.equal(globalScans, 0, "Wait for the quiet window after release");
   advance(649);
-  assert.equal(globalScans, 1);
+  assert.equal(globalScans, 3, "Idle passes bound images/cards, then build the deferred index");
   assert.equal(frames.size, 1);
   const loadedBeforeFrame = images.filter((image) => image.src).length;
   frame();
