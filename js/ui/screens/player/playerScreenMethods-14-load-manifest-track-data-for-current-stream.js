@@ -35,6 +35,10 @@ export function createPlayerScreenMethods14() {
         runtimeMimeType ||
         (typeof PlayerController.guessMediaMimeType === "function" ? PlayerController.guessMediaMimeType(probeUrl) : null);
       const headers = this.getCurrentStreamRequestHeaders(currentCandidate);
+      const manifestRequestHeaders =
+        Environment.isVidaa() && typeof PlayerController.normalizePlaybackHeaders === "function"
+          ? PlayerController.normalizePlaybackHeaders(headers)
+          : headers;
       const shouldVerifyRemoteManifestType =
         !runtimeMimeType &&
         Environment.isWebOS() &&
@@ -110,7 +114,7 @@ export function createPlayerScreenMethods14() {
         for (const candidateUrl of urlCandidates) {
           let fetchedManifest = null;
           try {
-            fetchedManifest = await fetchManifestText(candidateUrl, headers);
+            fetchedManifest = await fetchManifestText(candidateUrl, manifestRequestHeaders);
           } catch (_) {
             try {
               fetchedManifest = await fetchManifestText(candidateUrl, {});
@@ -145,7 +149,7 @@ export function createPlayerScreenMethods14() {
               continue;
             }
             try {
-              const variantFetched = await fetchManifestText(variant.uri, headers);
+              const variantFetched = await fetchManifestText(variant.uri, manifestRequestHeaders);
               if (loadToken !== this.manifestLoadToken) {
                 return;
               }

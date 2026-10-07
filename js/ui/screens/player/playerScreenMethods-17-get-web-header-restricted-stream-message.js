@@ -1,34 +1,48 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import {
+  createWebPlaybackHeaderDiagnosticSnapshot,
+  getStandaloneWebPlaybackCompatibility
+} from "../../../core/player/webPlaybackHeaders.js";
 
 export function createPlayerScreenMethods17() {
   const { PlayerController, Environment, t, cleanPlaybackDiagnosticValue, pushPlaybackDiagnosticLine, extractPlaybackHttpStatus } =
     internals;
 
   return {
-    getWebHeaderRestrictedStreamMessage(streamCandidate = this.getCurrentStreamCandidate()) {
+    getWebHeaderRestrictedStreamMessage(
+      streamCandidate = this.getCurrentStreamCandidate(),
+      requestHeadersOverride = null
+    ) {
       const candidate = streamCandidate || {};
       const raw = candidate?.raw || {};
       const rawBehaviorHints = raw?.behaviorHints || {};
       const candidateBehaviorHints = candidate?.behaviorHints || {};
-      const requestHeaders = rawBehaviorHints?.proxyHeaders?.request || candidateBehaviorHints?.proxyHeaders?.request;
+      const requestHeaders =
+        requestHeadersOverride && typeof requestHeadersOverride === "object"
+          ? requestHeadersOverride
+          : rawBehaviorHints?.proxyHeaders?.request || candidateBehaviorHints?.proxyHeaders?.request;
       const notWebReadyValue = rawBehaviorHints?.notWebReady ?? candidateBehaviorHints?.notWebReady;
-      const notWebReady =
-        notWebReadyValue === true ||
-        String(notWebReadyValue || "")
-          .trim()
-          .toLowerCase() === "true";
-      const hasRequiredHeaders =
-        requestHeaders &&
-        typeof requestHeaders === "object" &&
-        Object.entries(requestHeaders).some(([name, value]) => String(name || "").trim() && String(value ?? "").trim());
-      if (!notWebReady || !hasRequiredHeaders) {
+      const compatibility = getStandaloneWebPlaybackCompatibility(requestHeaders, notWebReadyValue);
+
+      if (!Environment.isVidaa()) {
+        if (!compatibility.notWebReady || !compatibility.declaredHeaderNames.length) {
+          return "";
+        }
+        return t(
+          "player_error_web_headers_unsupported",
+          {},
+          "This source is not compatible with this device's player because it requires special request headers. Try a different source or contact the add-on provider."
+        );
+      }
+
+      if (compatibility.compatible) {
         return "";
       }
       return t(
-        "player_error_web_headers_unsupported",
+        "player_error_vidaa_standalone_unsupported",
         {},
-        "This source is not compatible with this device's player because it requires special request headers. Try a different source or contact the add-on provider."
+        "This source requires network features that are not available on this device. Try a different source."
       );
     },
     getPlaybackErrorDetailLines({
@@ -47,7 +61,14 @@ export function createPlayerScreenMethods17() {
       const candidate =
         streamCandidate || this.getStreamCandidateByUrl(playbackUrl || this.activePlaybackUrl) || this.getCurrentStreamCandidate();
       const raw = candidate?.raw || {};
-      const requestHeaders = raw?.behaviorHints?.proxyHeaders?.request || candidate?.behaviorHints?.proxyHeaders?.request || null;
+      const rawBehaviorHints = raw?.behaviorHints || {};
+      const candidateBehaviorHints = candidate?.behaviorHints || {};
+      const requestHeaders = rawBehaviorHints?.proxyHeaders?.request || candidateBehaviorHints?.proxyHeaders?.request || null;
+      const notWebReadyValue = rawBehaviorHints?.notWebReady ?? candidateBehaviorHints?.notWebReady;
+      const headerDiagnostics = createWebPlaybackHeaderDiagnosticSnapshot(requestHeaders, {
+        notWebReady: notWebReadyValue,
+        playbackEngine: PlayerController.playbackEngine
+      });
       const headerNames =
         requestHeaders && typeof requestHeaders === "object" ? Object.keys(requestHeaders).filter(Boolean).join(", ") : "";
       const engineFs = candidate?.engineFs || raw?.engineFs || this.currentEngineFsStream || null;
@@ -70,7 +91,11 @@ export function createPlayerScreenMethods17() {
       const activeUrl =
         playbackUrl || this.activePlaybackUrl || candidate?.url || candidate?.externalUrl || raw?.url || raw?.externalUrl || "";
 
-      pushPlaybackDiagnosticLine(lines, "Platform", Environment.isWebOS() ? "webOS" : Environment.isTizen() ? "Tizen" : "browser");
+      pushPlaybackDiagnosticLine(
+        lines,
+        "Platform",
+        Environment.isVidaa() ? "VIDAA" : Environment.isWebOS() ? "webOS" : Environment.isTizen() ? "Tizen" : "browser"
+      );
       pushPlaybackDiagnosticLine(lines, "Reason", reason);
       pushPlaybackDiagnosticLine(lines, "Media code", this.getPlaybackErrorCodeLabel(mediaErrorCode));
       pushPlaybackDiagnosticLine(lines, "HTTP status", httpStatus);
@@ -120,7 +145,27 @@ export function createPlayerScreenMethods17() {
       pushPlaybackDiagnosticLine(lines, "Source", sourceLabel);
       pushPlaybackDiagnosticLine(lines, "Source type", sourceType);
       pushPlaybackDiagnosticLine(lines, "URL", activeUrl, 420);
-      pushPlaybackDiagnosticLine(lines, "Proxy header names", headerNames);
+      if (Environment.isVidaa()) {
+        pushPlaybackDiagnosticLine(
+          lines,
+          "Proxy headers declared",
+          headerDiagnostics.declaredHeaderNames.length ? headerDiagnostics.declaredHeaderNames.join(", ") : "none"
+        );
+        pushPlaybackDiagnosticLine(
+          lines,
+          "Browser-safe headers forwarded",
+          headerDiagnostics.forwardedHeaderNames.length ? headerDiagnostics.forwardedHeaderNames.join(", ") : "none"
+        );
+        pushPlaybackDiagnosticLine(
+          lines,
+          "Browser-restricted headers ignored",
+          headerDiagnostics.restrictedHeaderNames.length ? headerDiagnostics.restrictedHeaderNames.join(", ") : "none"
+        );
+        pushPlaybackDiagnosticLine(lines, "notWebReady", String(headerDiagnostics.notWebReady));
+        pushPlaybackDiagnosticLine(lines, "VIDAA standalone compatibility", headerDiagnostics.standaloneCompatibility);
+      } else {
+        pushPlaybackDiagnosticLine(lines, "Proxy header names", headerNames);
+      }
       pushPlaybackDiagnosticLine(lines, "Resolver status", resolverStatus);
       pushPlaybackDiagnosticLine(lines, "Resolver detail", resolverDetail);
       if (engineFs) {

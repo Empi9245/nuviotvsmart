@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerController.js";
+import { classifyWebPlaybackHeaders } from "./webPlaybackHeaders.js";
 
 export function createPlayerControllerMethods18() {
   const { Platform, TizenPlaybackProxy, WebOsPlaybackProxy, logEngineFsDebug, logTizenAvPlayDebug, logWebOsPlaybackDebug } = internals;
@@ -72,6 +73,7 @@ export function createPlayerControllerMethods18() {
       this.currentStreamIdentity = streamIdentity || null;
       this.currentPlaybackUrl = requestedUrl;
       this.currentPlaybackHeaders = { ...(requestHeaders || {}) };
+      const playbackHeaderClassification = classifyWebPlaybackHeaders(requestHeaders);
       this.currentPlaybackMediaSourceType = this.resolveRuntimeSourceType(mediaSourceType);
       this.lastPlaybackErrorCode = 0;
       this.lastHlsErrorDiagnostic = null;
@@ -84,16 +86,23 @@ export function createPlayerControllerMethods18() {
           return;
         }
       }
-      if (!forceEngine && this.isTizenHlsSource(url, sourceType)) {
-        // Load hls.js before choosing the engine so getPlaybackEngineCandidates()
-        // can distinguish a supported MSE path from a platform that needs the
-        // existing AVPlay/native-HLS fallback ladder.
+      const vidaaHlsNeedsBrowserHeaderForwarding =
+        Platform.isVidaa() &&
+        this.isLikelyHlsMimeType(sourceType) &&
+        Object.keys(playbackHeaderClassification.forwardableHeaders).length > 0;
+      if (!forceEngine && (this.isTizenHlsSource(url, sourceType) || vidaaHlsNeedsBrowserHeaderForwarding)) {
+        // Tizen probes hls.js for its existing fallback ladder. VIDAA loads it
+        // only when browser-safe request headers actually need an XHR/fetch
+        // capable HLS pipeline; native <video> cannot attach those headers.
         await this.ensureAdaptiveLibrariesForSource(sourceType, "hls.js");
         if (!this.isPlaybackRequestActive(playToken, requestedUrl)) {
           return;
         }
       }
       let preferredEngine = forceEngine || this.choosePlaybackEngine(url, sourceType, itemType);
+      if (!forceEngine && vidaaHlsNeedsBrowserHeaderForwarding && this.canUseHlsJs()) {
+        preferredEngine = "hls.js";
+      }
       await this.ensureAdaptiveLibrariesForSource(sourceType, preferredEngine);
       if (!this.isPlaybackRequestActive(playToken, requestedUrl)) {
         return;

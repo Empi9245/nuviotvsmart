@@ -40,6 +40,15 @@ export function createPlayerScreenMethods18() {
         ...(context && typeof context === "object" ? context : {}),
         ...(Object.keys(requestHeaders).length ? { requestHeaders } : {})
       };
+      const standaloneCompatibilityMessage = this.getWebHeaderRestrictedStreamMessage(sourceCandidate, requestHeaders);
+      if (standaloneCompatibilityMessage) {
+        this.showStartupError(standaloneCompatibilityMessage, {
+          streamCandidate: sourceCandidate,
+          playbackUrl,
+          reason: "vidaa-standalone-incompatible"
+        });
+        return Promise.resolve();
+      }
       PlayerController.setStartupPresentationAudioMuted?.(true);
       return Promise.resolve(PlayerController.play(playbackUrl, playbackContext)).catch((error) => {
         if (!this.isActiveMountToken(mountToken) || this.isExternalFrameMode()) {

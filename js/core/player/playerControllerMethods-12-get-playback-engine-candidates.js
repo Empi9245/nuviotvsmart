@@ -1,5 +1,9 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerController.js";
+import {
+  classifyWebPlaybackHeaders,
+  isBrowserRestrictedPlaybackHeader
+} from "./webPlaybackHeaders.js";
 
 export function createPlayerControllerMethods12() {
   const { Platform, nativeVideoEngine, WEBOS_MEDIA_TYPE_PROBE_TIMEOUT_MS } = internals;
@@ -256,40 +260,11 @@ export function createPlayerControllerMethods12() {
       }
     },
     shouldForwardHeaderToHls(name) {
-      const lower = String(name || "")
-        .trim()
-        .toLowerCase();
-      if (!lower) {
-        return false;
-      }
-      if (lower === "range") {
-        return false;
-      }
-      if (lower.startsWith("sec-")) {
-        return false;
-      }
-      const forbidden = new Set([
-        "host",
-        "origin",
-        "referer",
-        "referrer",
-        "user-agent",
-        "content-length",
-        "accept-encoding",
-        "connection",
-        "cookie"
-      ]);
-      return !forbidden.has(lower);
+      const normalized = String(name || "").trim();
+      return Boolean(normalized) && !isBrowserRestrictedPlaybackHeader(normalized);
     },
     normalizePlaybackHeaders(headers) {
-      if (!headers || typeof headers !== "object") {
-        return {};
-      }
-      const entries = Object.entries(headers)
-        .map(([key, value]) => [String(key || "").trim(), String(value ?? "").trim()])
-        .filter(([key, value]) => key && value)
-        .filter(([key]) => this.shouldForwardHeaderToHls(key));
-      return Object.fromEntries(entries);
+      return classifyWebPlaybackHeaders(headers).forwardableHeaders;
     },
     async probeRemoteMediaSourceType(url, requestHeaders = {}) {
       if (!Platform.isWebOS() || !this.isRemoteDirectHttpSource(url)) {
