@@ -118,9 +118,14 @@ function prefetchVidaaPosterSource(screen, src) {
   }
 
   const startedAt = Date.now();
+  let timeoutId = 0;
   const finish = (success) => {
     if (inflight.get(source) !== preload) return;
     inflight.delete(source);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = 0;
+    }
     if (!success) return;
     rememberVidaaWarmPosterUrl(screen, source);
     recordVidaaPosterReadyLatency(screen, Date.now() - startedAt);
@@ -142,6 +147,7 @@ function prefetchVidaaPosterSource(screen, src) {
   };
   preload.onerror = () => finish(false);
   inflight.set(source, preload);
+  timeoutId = setTimeout(() => finish(false), 5000);
   preload.src = source;
   return true;
 }
@@ -159,12 +165,19 @@ function warmVidaaPosterNode(screen, node, priority = "low") {
   return prefetchVidaaPosterSource(screen, getVidaaPosterSource(screen, node));
 }
 
-function getVidaaNavigationIntervalMs(screen, direction) {
+function getVidaaNavigationIntervalMs(
+  screen,
+  direction,
+  {
+    horizontalFloorMs = VIDAA_HORIZONTAL_REPEAT_FLOOR_MS,
+    verticalFloorMs = VIDAA_VERTICAL_REPEAT_FLOOR_MS
+  } = {}
+) {
   const horizontal = direction === "left" || direction === "right";
   const vertical = direction === "up" || direction === "down";
   if (!horizontal && !vertical) return 0;
 
-  const floorMs = horizontal ? VIDAA_HORIZONTAL_REPEAT_FLOOR_MS : VIDAA_VERTICAL_REPEAT_FLOOR_MS;
+  const floorMs = horizontal ? horizontalFloorMs : verticalFloorMs;
   const now = Date.now();
   const state = screen.homeVidaaPrefetchMotion || (screen.homeVidaaPrefetchMotion = {});
   const sameDirection = state.direction === direction;
@@ -185,8 +198,8 @@ function getVidaaNavigationIntervalMs(screen, direction) {
   return state.intervalMs;
 }
 
-function getVidaaPrefetchPlan(screen, anchor, direction) {
-  const intervalMs = getVidaaNavigationIntervalMs(screen, direction);
+function getVidaaPrefetchPlan(screen, anchor, direction, throttle = {}) {
+  const intervalMs = getVidaaNavigationIntervalMs(screen, direction, throttle);
   if (!intervalMs) {
     return {
       horizontalAhead: 0,
@@ -448,7 +461,10 @@ export function createHomeScreenMethods24() {
       const focusedPoster = anchor?.querySelector?.(VIDAA_PENDING_POSTER_SELECTOR);
       hydrateVidaaPriorityPoster(this, focusedPoster, "high");
 
-      const prefetchPlan = getVidaaPrefetchPlan(this, anchor, navigationDirection);
+      const prefetchPlan = getVidaaPrefetchPlan(this, anchor, navigationDirection, {
+        horizontalFloorMs: MODERN_HOME_CONSTANTS.keyRepeatThrottleMs,
+        verticalFloorMs: MODERN_HOME_CONSTANTS.verticalKeyRepeatThrottleMs
+      });
       const horizontalNavigation = navigationDirection === "left" || navigationDirection === "right";
       const verticalNavigation = navigationDirection === "up" || navigationDirection === "down";
 
