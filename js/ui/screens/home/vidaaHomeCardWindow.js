@@ -24,6 +24,53 @@ export function restoreAllVidaaHomeCards(screen) {
   screen.homeVidaaParkedCards?.clear();
 }
 
+// Restore only the small navigation neighborhood that can become visible on the
+// next D-pad step. This stays off the geometry-heavy full window scan, so held
+// navigation can reveal content before the idle hydration pass without giving
+// up the CPU/memory savings from parking distant card subtrees.
+export function restoreVidaaHomeNavigationNeighborhood(screen, target, direction = null) {
+  const parked = screen.homeVidaaParkedCards;
+  if (!parked?.size || !target) return 0;
+
+  const rows = screen.navModel?.rows;
+  const rowIndex = Number(target.dataset?.navRow);
+  const colIndex = Number(target.dataset?.navCol);
+  if (!Array.isArray(rows) || !Number.isInteger(rowIndex) || !Number.isInteger(colIndex)) {
+    return restoreVidaaHomeCard(screen, target) ? 1 : 0;
+  }
+
+  const candidates = new Set();
+  const addRange = (nodes, from, to) => {
+    if (!Array.isArray(nodes) || !nodes.length) return;
+    const start = Math.max(0, from);
+    const end = Math.min(nodes.length - 1, to);
+    for (let index = start; index <= end; index += 1) {
+      candidates.add(nodes[index]);
+    }
+  };
+
+  const targetRow = rows[rowIndex] || [];
+  const horizontalRadius = direction === "up" || direction === "down" ? 4 : 3;
+  addRange(targetRow, colIndex - horizontalRadius, colIndex + horizontalRadius);
+
+  if (direction === "left") {
+    addRange(targetRow, colIndex - 5, colIndex - 4);
+  } else if (direction === "right") {
+    addRange(targetRow, colIndex + 4, colIndex + 5);
+  } else if (direction === "up" || direction === "down") {
+    const nextRowIndex = rowIndex + (direction === "down" ? 1 : -1);
+    const nextRow = rows[nextRowIndex] || [];
+    const predictedCol = Math.max(0, Math.min(nextRow.length - 1, colIndex));
+    addRange(nextRow, predictedCol - 2, predictedCol + 2);
+  }
+
+  let restored = 0;
+  candidates.forEach((card) => {
+    if (card && restoreVidaaHomeCard(screen, card)) restored += 1;
+  });
+  return restored;
+}
+
 // Keep the card anchor (identity, focus, flex slot and measured dimensions)
 // mounted, but detach its visual subtree outside a small viewport neighborhood.
 // This works on older engines without content-visibility/IntersectionObserver.
