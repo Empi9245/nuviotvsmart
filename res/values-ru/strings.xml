@@ -2507,4 +2507,14 @@
     <string name="auth_qr_manual_instruction">Или перейдите на %1$s и введите</string>
     <string name="unsupported_device_warning">Вы можете всё равно попробовать запустить Nuvio TV, но приложение может работать на этом телевизоре некорректно. Эта конфигурация официально не поддерживается.</string>
     <string name="unsupported_device_try_anyway">Всё равно запустить</string>
+
+    <string name="player_post_play_because">Потому что вы смотрели «%1$s»</string>
+    <string name="player_post_play_recommended">Рекомендуем вам</string>
+    <string name="player_post_play_play">Смотреть</string>
+    <string name="player_post_play_previous_recommendation">Предыдущая рекомендация</string>
+    <string name="player_post_play_next_recommendation">Следующая рекомендация</string>
+    <string name="player_post_play_return_to_player">Вернуться в плеер</string>
+    <string name="player_post_play_trailer_countdown">Трейлер через %1$d</string>
+    <string name="player_post_play_trailer_playing">Воспроизводится трейлер</string>
+    <string name="player_post_play_trailer">Трейлер</string>
 </resources>

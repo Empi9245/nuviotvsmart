@@ -2817,4 +2817,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">Yine de Nuvio TV'yi başlatmayı deneyebilirsiniz, ancak uygulama bu TV'de düzgün çalışmayabilir. Bu yapılandırma resmi olarak desteklenmiyor.</string>
     <string name="unsupported_device_try_anyway">Yine de başlat</string>
+
+    <string name="player_post_play_because">%1$s izlediğiniz için</string>
+    <string name="player_post_play_recommended">Sizin için önerilenler</string>
+    <string name="player_post_play_play">Oynat</string>
+    <string name="player_post_play_previous_recommendation">Önceki öneri</string>
+    <string name="player_post_play_next_recommendation">Sonraki öneri</string>
+    <string name="player_post_play_return_to_player">Oynatıcıya dön</string>
+    <string name="player_post_play_trailer_countdown">Fragman %1$d sonra</string>
+    <string name="player_post_play_trailer_playing">Fragman oynatılıyor</string>
+    <string name="player_post_play_trailer">Fragman</string>
 </resources>

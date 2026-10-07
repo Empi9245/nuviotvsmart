@@ -1403,4 +1403,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">Ennek ellenére megpróbálhatja elindítani a Nuvio TV-t, de előfordulhat, hogy az alkalmazás nem működik megfelelően ezen a tévén. Ez a konfiguráció hivatalosan nem támogatott.</string>
     <string name="unsupported_device_try_anyway">Próbálja meg mégis</string>
+
+    <string name="player_post_play_because">Mert megnézted: %1$s</string>
+    <string name="player_post_play_recommended">Neked ajánlott</string>
+    <string name="player_post_play_play">Lejátszás</string>
+    <string name="player_post_play_previous_recommendation">Előző ajánlás</string>
+    <string name="player_post_play_next_recommendation">Következő ajánlás</string>
+    <string name="player_post_play_return_to_player">Vissza a lejátszóhoz</string>
+    <string name="player_post_play_trailer_countdown">Előzetes %1$d múlva</string>
+    <string name="player_post_play_trailer_playing">Előzetes lejátszása</string>
+    <string name="player_post_play_trailer">Előzetes</string>
 </resources>

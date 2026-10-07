@@ -119,9 +119,9 @@ html[dir="rtl"] .player-post-play-synopsis {
 .player-post-play-synopsis.focused,
 .player-post-play-synopsis:focus,
 .player-post-play-synopsis:focus-visible {
-  outline: 4px solid var(--player-focus-ring);
-  outline-offset: 6px;
-  border-radius: 4px;
+  outline: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .player-post-play-actions {
@@ -352,6 +352,7 @@ html[dir="rtl"] .player-post-play-trailer-slot.is-visible {
 .player-post-play-player-window:focus,
 .player-post-play-player-window:focus-visible {
   outline: none;
+  background: transparent;
   border-color: var(--player-focus-ring);
   box-shadow: 0 0 0 4px var(--player-focus-ring);
 }

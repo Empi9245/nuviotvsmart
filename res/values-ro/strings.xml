@@ -1154,4 +1154,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">Puteți încerca totuși să porniți Nuvio TV, dar este posibil ca aplicația să nu funcționeze corect pe acest televizor. Această configurație nu este acceptată oficial.</string>
     <string name="unsupported_device_try_anyway">Încearcă oricum</string>
+
+    <string name="player_post_play_because">Pentru că ai vizionat %1$s</string>
+    <string name="player_post_play_recommended">Recomandat pentru tine</string>
+    <string name="player_post_play_play">Redă</string>
+    <string name="player_post_play_previous_recommendation">Recomandarea anterioară</string>
+    <string name="player_post_play_next_recommendation">Recomandarea următoare</string>
+    <string name="player_post_play_return_to_player">Înapoi la player</string>
+    <string name="player_post_play_trailer_countdown">Trailer în %1$d</string>
+    <string name="player_post_play_trailer_playing">Trailer în redare</string>
+    <string name="player_post_play_trailer">Trailer</string>
 </resources>

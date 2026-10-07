@@ -1904,4 +1904,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">それでも Nuvio TV の起動を試すことはできますが、このテレビではアプリが正しく動作しない可能性があります。この構成は公式にはサポートされていません。</string>
     <string name="unsupported_device_try_anyway">それでも起動</string>
+
+    <string name="player_post_play_because">%1$sを視聴したあなたに</string>
+    <string name="player_post_play_recommended">あなたへのおすすめ</string>
+    <string name="player_post_play_play">再生</string>
+    <string name="player_post_play_previous_recommendation">前のおすすめ</string>
+    <string name="player_post_play_next_recommendation">次のおすすめ</string>
+    <string name="player_post_play_return_to_player">プレーヤーに戻る</string>
+    <string name="player_post_play_trailer_countdown">%1$d秒後に予告編</string>
+    <string name="player_post_play_trailer_playing">予告編を再生中</string>
+    <string name="player_post_play_trailer">予告編</string>
 </resources>

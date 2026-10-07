@@ -77,4 +77,14 @@
     <string name="unsupported_device_close">Luk</string>
     <string name="unsupported_device_try_anyway">Prøv alligevel</string>
     <string name="unsupported_device_unavailable">Ikke tilgængelig</string>
+
+    <string name="player_post_play_because">Fordi du så %1$s</string>
+    <string name="player_post_play_recommended">Anbefalet til dig</string>
+    <string name="player_post_play_play">Afspil</string>
+    <string name="player_post_play_previous_recommendation">Forrige anbefaling</string>
+    <string name="player_post_play_next_recommendation">Næste anbefaling</string>
+    <string name="player_post_play_return_to_player">Tilbage til afspilleren</string>
+    <string name="player_post_play_trailer_countdown">Trailer om %1$d</string>
+    <string name="player_post_play_trailer_playing">Trailer afspilles</string>
+    <string name="player_post_play_trailer">Trailer</string>
 </resources>

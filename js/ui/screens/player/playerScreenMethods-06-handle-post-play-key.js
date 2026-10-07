@@ -75,11 +75,16 @@ export function createPlayerScreenMethods06() {
       }
       if (keyCode === 38) {
         const state = this.getPostPlayState();
-        if (this.postPlayFocusedAction === "synopsis" && !state.hasAutoPlayedTrailer) {
-          this.focusPostPlayAction("playerWindow");
+        // Android's player window is the topmost focus target. Its Up key
+        // must not route back down into the recommendation summary.
+        if (this.postPlayFocusedAction === "playerWindow" || (this.postPlayFocusedAction === "primary" && state.isTrailerPlaying)) {
+          return true;
+        }
+        if (this.postPlayFocusedAction === "synopsis") {
+          if (state.canReturnToPlayer) this.focusPostPlayAction("playerWindow");
         } else if (this.postPlayDescriptionTruncated) {
           this.focusPostPlayAction("synopsis");
-        } else if (!state.hasAutoPlayedTrailer) {
+        } else if (state.canReturnToPlayer) {
           this.focusPostPlayAction("playerWindow");
         }
         return true;

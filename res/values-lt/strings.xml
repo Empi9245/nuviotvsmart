@@ -1313,4 +1313,14 @@ Klaida: Bandomoji simuliuojama klaida — tai nėra tikras gedimas. Šaltinis gr
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">Vis tiek galite pabandyti paleisti „Nuvio TV“, tačiau programa šiame televizoriuje gali veikti netinkamai. Ši konfigūracija oficialiai nepalaikoma.</string>
     <string name="unsupported_device_try_anyway">Vis tiek paleisti</string>
+
+    <string name="player_post_play_because">Nes žiūrėjote %1$s</string>
+    <string name="player_post_play_recommended">Rekomenduojama jums</string>
+    <string name="player_post_play_play">Leisti</string>
+    <string name="player_post_play_previous_recommendation">Ankstesnė rekomendacija</string>
+    <string name="player_post_play_next_recommendation">Kita rekomendacija</string>
+    <string name="player_post_play_return_to_player">Grįžti į leistuvą</string>
+    <string name="player_post_play_trailer_countdown">Anonsas po %1$d</string>
+    <string name="player_post_play_trailer_playing">Anonsas leidžiamas</string>
+    <string name="player_post_play_trailer">Anonsas</string>
 </resources>
