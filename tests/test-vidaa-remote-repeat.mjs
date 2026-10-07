@@ -109,13 +109,19 @@ for (const code of [37, 38, 39, 40]) {
   assert.equal(downs.at(-1).repeat, true);
 }
 
-// VIDAA keyup still releases a cycle when navigation detaches the old target.
+// VIDAA keydown/keyup must survive a rerender that detaches the old focused node.
 {
   const focus = engine();
-  focus.handleKey(remoteEvent(39));
-  focus.handleKeyUp(remoteEvent(39, false, { target: { isConnected: false } }));
-  focus.handleKey(remoteEvent(39));
-  assert.equal(downs.at(-1).repeat, false);
+  const before = downs.length;
+  const detached = { isConnected: false, tagName: "BUTTON" };
+  const down = remoteEvent(40, false, { target: detached });
+  focus.handleKey(down);
+  assert.equal(downs.length, before + 1, "Detached VIDAA keydown must still reach the mounted screen");
+  assert.deepEqual(down.calls, ["prevent", "stop", "stopImmediate"]);
+
+  focus.handleKeyUp(remoteEvent(40, false, { target: detached }));
+  focus.handleKey(remoteEvent(40));
+  assert.equal(downs.at(-1).repeat, false, "Detached VIDAA keyup must release the key cycle");
 }
 
 // Enter repeat suppression and its held duration keep their previous semantics.
