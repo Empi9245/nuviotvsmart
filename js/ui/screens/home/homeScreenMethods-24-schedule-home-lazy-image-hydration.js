@@ -21,25 +21,35 @@ function hydrateVidaaPriorityPoster(image, priority = "auto") {
   return Boolean(src);
 }
 
-function getVidaaPredictedNavigationNode(screen, anchor, direction = null) {
-  if (!anchor || !direction || !Array.isArray(screen.navModel?.rows)) return null;
+function getVidaaPredictedNavigationNodes(screen, anchor, direction = null, count = 2) {
+  if (!anchor || !direction || !Array.isArray(screen.navModel?.rows)) return [];
   const rowIndex = Number(anchor.dataset?.navRow);
   const colIndex = Number(anchor.dataset?.navCol);
-  if (!Number.isInteger(rowIndex) || !Number.isInteger(colIndex)) return null;
+  if (!Number.isInteger(rowIndex) || !Number.isInteger(colIndex)) return [];
+
+  const predicted = [];
+  const limit = Math.max(1, Math.min(2, Number(count || 2)));
 
   if (direction === "left" || direction === "right") {
     const row = screen.navModel.rows[rowIndex] || [];
-    const nextCol = colIndex + (direction === "right" ? 1 : -1);
-    return row[nextCol] || null;
+    const step = direction === "right" ? 1 : -1;
+    for (let distance = 1; distance <= limit; distance += 1) {
+      const node = row[colIndex + step * distance] || null;
+      if (node) predicted.push(node);
+    }
+    return predicted;
   }
 
   if (direction === "up" || direction === "down") {
-    const nextRowIndex = rowIndex + (direction === "down" ? 1 : -1);
-    const row = screen.navModel.rows[nextRowIndex] || [];
-    if (!row.length) return null;
-    return row[Math.max(0, Math.min(row.length - 1, colIndex))] || null;
+    const step = direction === "down" ? 1 : -1;
+    for (let distance = 1; distance <= limit; distance += 1) {
+      const row = screen.navModel.rows[rowIndex + step * distance] || [];
+      if (!row.length) continue;
+      predicted.push(row[Math.max(0, Math.min(row.length - 1, colIndex))] || null);
+    }
+    return predicted.filter(Boolean);
   }
-  return null;
+  return [];
 }
 
 export function createHomeScreenMethods24() {
@@ -187,12 +197,14 @@ export function createHomeScreenMethods24() {
       const focusedPoster = anchor?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
       hydrateVidaaPriorityPoster(focusedPoster, "high");
 
-      // Start just the next likely poster one D-pad step early. This hides CDN
-      // latency on fast traversal while keeping the hot path bounded to one
-      // additional image request instead of waking the whole visible row.
-      const predictedNode = getVidaaPredictedNavigationNode(this, anchor, navigationDirection);
-      const predictedPoster = predictedNode?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
-      hydrateVidaaPriorityPoster(predictedPoster, "low");
+      // Keep a tiny two-step runway ahead of the remote. One poster was not
+      // always enough to hide network + decode latency during held D-pad input,
+      // while two stays bounded and does not scan or hydrate the whole row.
+      const predictedNodes = getVidaaPredictedNavigationNodes(this, anchor, navigationDirection, 2);
+      predictedNodes.forEach((node) => {
+        const predictedPoster = node?.querySelector?.(".content-poster[data-src], .home-continue-bg[data-src]");
+        hydrateVidaaPriorityPoster(predictedPoster, "low");
+      });
       if (this.homeLazyImageHydrationSettleTimer) clearTimeout(this.homeLazyImageHydrationSettleTimer);
       if (this.homeLazyImageHydrationRaf) {
         cancelAnimationFrame(this.homeLazyImageHydrationRaf);
