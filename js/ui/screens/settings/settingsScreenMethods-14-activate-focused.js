@@ -164,7 +164,7 @@ export function createSettingsScreenMethods14() {
           return;
         }
         if (code === 13 && activeField) {
-          if (this.textDialog.multiline) {
+          if (this.textDialog.multiline || Platform.isVidaa()) {
             return;
           }
           event?.preventDefault?.();

@@ -1,3 +1,38 @@
+export function shouldPreserveVidaaTextInputKey(event, documentRef = globalThis.document) {
+  const keyCode = Number(event?.keyCode || event?.which || 0);
+  if (![13, 37, 39].includes(keyCode)) {
+    return false;
+  }
+
+  const isTextEditingTarget = (target) => {
+    const tagName = String(target?.tagName || "").toUpperCase();
+    if (tagName === "TEXTAREA") {
+      return true;
+    }
+    if (tagName === "INPUT") {
+      const type = String(target?.type || "text").toLowerCase();
+      return ![
+        "button",
+        "checkbox",
+        "color",
+        "file",
+        "hidden",
+        "image",
+        "radio",
+        "range",
+        "reset",
+        "submit"
+      ].includes(type);
+    }
+    return target?.isContentEditable === true || target?.contentEditable === "true";
+  };
+
+  return (
+    isTextEditingTarget(event?.target || null) ||
+    isTextEditingTarget(documentRef?.activeElement || null)
+  );
+}
+
 // Some VIDAA keyboards update value without emitting DOM input events.
 // Observe only the focused text field; leave the native value setter intact.
 export function installVidaaKeyboardFix(root = globalThis) {

@@ -5,6 +5,8 @@ import { I18n } from "../../../i18n/index.js";
 import { Router } from "../../navigation/routerState.js";
 import { ScreenUtils } from "../../navigation/screen.js";
 import { LocalStore } from "../../../core/storage/localStore.js";
+import { Platform } from "../../../platform/index.js";
+import { shouldPreserveVidaaTextInputKey } from "../../../platform/vidaa/vidaaKeyboard.js";
 
 function text(key, fallback, params = {}) {
   return I18n.t(key, params, { fallback });
@@ -507,6 +509,9 @@ export const ServerConnectionScreen = {
         return;
       }
       this.returnToPrevious();
+      return;
+    }
+    if (Platform.isVidaa() && shouldPreserveVidaaTextInputKey(event)) {
       return;
     }
     const navigationContainer =
