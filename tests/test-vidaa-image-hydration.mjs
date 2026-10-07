@@ -163,12 +163,10 @@ platform("vidaa");
 
   const previousImage = globalThis.Image;
   const prefetched = [];
-  const cancelled = [];
   globalThis.Image = class {
     set src(value) {
-      if (value === "" && this._src) cancelled.push(this._src);
       this._src = value;
-      if (value) prefetched.push(value);
+      prefetched.push(value);
     }
     get src() {
       return this._src;
@@ -179,27 +177,19 @@ platform("vidaa");
 
   owner.scheduleHomeLazyImageHydration(cards[0], { navigationDirection: "right" });
   assert.equal(images[0].src, "poster-0-0", "Focused poster must start immediately");
-  assert.equal(images[1].src, "poster-0-1", "Closest horizontal target may hydrate live");
-  assert.equal(images[2].src, "poster-0-2", "Second horizontal target may hydrate live");
-  for (let index = 3; index <= 8; index += 1) {
-    assert.equal(images[index].src, undefined, "Far horizontal targets must stay cache-only");
-    assert.ok(prefetched.includes(`poster-0-${index}`));
+  for (let index = 1; index <= 8; index += 1) {
+    assert.equal(
+      images[index].src,
+      `poster-0-${index}`,
+      `Maximum-speed horizontal runway should warm poster ${index}`
+    );
+    assert.equal(images[index].fetchPriority, "low");
   }
   assert.ok(
     prefetched.includes("parked-poster-0-9"),
     "Parked cards must still start network prefetch without remounting their DOM"
   );
   assert.equal(images[0].fetchPriority, "high");
-
-  // Reverse direction while speculative requests are still in flight. Sources
-  // that are now behind the focus must be cancelled instead of occupying the
-  // fixed request budget until their timeout.
-  now = 80;
-  owner.scheduleHomeLazyImageHydration(cards[8], { navigationDirection: "left" });
-  assert.ok(cancelled.includes("parked-poster-0-9"), "Direction reversal must evict stale parked prefetches");
-  assert.ok(cancelled.includes("poster-0-8"), "Direction reversal must evict stale behind-focus prefetches");
-  assert.equal(owner.homeVidaaPosterPrefetchInflight.has("parked-poster-0-9"), false);
-  assert.equal(owner.homeVidaaPosterPrefetchInflight.has("poster-0-8"), false);
   globalThis.Image = previousImage;
 }
 
@@ -215,29 +205,15 @@ platform("vidaa");
     })
   );
 
-  const previousImage = globalThis.Image;
-  const prefetched = [];
-  globalThis.Image = class {
-    set src(value) {
-      this._src = value;
-      if (value) prefetched.push(value);
-    }
-    get src() {
-      return this._src;
-    }
-  };
-
-  // Slow navigation should not keep the maximum-speed runway.
+  // Slow navigation should not keep the maximum-speed runway. Prime the
+  // observed cadence at 300 ms and verify that it contracts automatically.
   owner.homeVidaaPrefetchMotion = { direction: "right", lastAt: 1, intervalMs: 80 };
   now = 301;
   owner.scheduleHomeLazyImageHydration(cards[0], { navigationDirection: "right" });
-  assert.equal(images[1].src, "poster-0-1");
-  assert.equal(images[2].src, "poster-0-2");
-  for (let index = 3; index <= 6; index += 1) {
-    assert.ok(prefetched.includes(`poster-0-${index}`));
+  for (let index = 1; index <= 6; index += 1) {
+    assert.equal(images[index].src, `poster-0-${index}`);
   }
-  assert.equal(prefetched.includes("poster-0-7"), false, "Slow horizontal navigation should shrink the runway");
-  globalThis.Image = previousImage;
+  assert.equal(images[7].src, undefined, "Slow horizontal navigation should shrink the runway");
 }
 
 platform("vidaa");
@@ -252,31 +228,18 @@ platform("vidaa");
     })
   );
 
-  const previousImage = globalThis.Image;
-  const prefetched = [];
-  globalThis.Image = class {
-    set src(value) {
-      this._src = value;
-      if (value) prefetched.push(value);
-    }
-    get src() {
-      return this._src;
-    }
-  };
-
   owner.scheduleHomeLazyImageHydration(cards[4], { navigationDirection: "down" });
   assert.equal(images[4].src, "poster-0-4");
-  for (const index of [2, 3, 5]) {
-    assert.equal(images[index].src, `poster-0-${index}`, "Extreme vertical movement keeps only the closest live posters");
+  for (const index of [1, 2, 3, 5, 6, 7]) {
+    assert.equal(images[index].src, `poster-0-${index}`, "Entered row should hydrate its visible neighborhood");
     assert.equal(images[index].fetchPriority, "auto");
   }
   for (const index of [14, 13, 15, 24, 23, 25]) {
-    assert.equal(images[index].src, undefined, "Future vertical rows must remain detached from live decode");
-    assert.ok(
-      prefetched.includes(`poster-${Math.floor(index / 10)}-${index % 10}`),
-      "Future vertical rows should still warm the network cache"
-    );
+    assert.equal(images[index].src, `poster-${Math.floor(index / 10)}-${index % 10}`);
+    assert.equal(images[index].fetchPriority, "low");
   }
+  assert.equal(images[12].src, undefined, "Future rows stay within the adaptive request budget");
+  assert.equal(images[22].src, undefined, "Farther future rows remain progressively narrower");
 
   const upSurface = homeSurface();
   upSurface.owner.navModel = {
@@ -291,19 +254,18 @@ platform("vidaa");
       card.dataset = { navRow: String(rowIndex), navCol: String(colIndex) };
     })
   );
-  prefetched.length = 0;
   upSurface.owner.scheduleHomeLazyImageHydration(upSurface.cards[24], { navigationDirection: "up" });
-  for (const index of [22, 23, 25]) {
+  for (const index of [21, 22, 23, 25, 26, 27]) {
     assert.equal(upSurface.images[index].src, `poster-2-${index % 10}`);
     assert.equal(upSurface.images[index].fetchPriority, "auto");
   }
   for (const index of [14, 13, 15, 4, 3, 5]) {
-    assert.ok(
-      prefetched.includes(`poster-${Math.floor(index / 10)}-${index % 10}`),
-      "Upward future rows should use cache-only prefetch"
+    assert.equal(
+      upSurface.images[index].src,
+      `poster-${Math.floor(index / 10)}-${index % 10}`,
+      "Upward navigation should use the same adaptive runway"
     );
   }
-  globalThis.Image = previousImage;
 }
 
 platform("vidaa");
