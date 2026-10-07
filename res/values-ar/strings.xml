@@ -2297,4 +2297,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">يمكنك محاولة تشغيل Nuvio TV رغم ذلك، لكن قد لا يعمل التطبيق بشكل صحيح على هذا التلفاز. هذا الإعداد غير مدعوم رسميًا.</string>
     <string name="unsupported_device_try_anyway">حاول رغم ذلك</string>
+
+    <string name="player_post_play_because">لأنك شاهدت %1$s</string>
+    <string name="player_post_play_recommended">موصى به لك</string>
+    <string name="player_post_play_play">تشغيل</string>
+    <string name="player_post_play_previous_recommendation">التوصية السابقة</string>
+    <string name="player_post_play_next_recommendation">التوصية التالية</string>
+    <string name="player_post_play_return_to_player">العودة إلى المشغل</string>
+    <string name="player_post_play_trailer_countdown">العرض الدعائي خلال %1$d</string>
+    <string name="player_post_play_trailer_playing">العرض الدعائي قيد التشغيل</string>
+    <string name="player_post_play_trailer">العرض الدعائي</string>
 </resources>

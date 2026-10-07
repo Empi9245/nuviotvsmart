@@ -2456,4 +2456,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">இருந்தாலும் Nuvio TV-ஐ தொடங்க முயற்சிக்கலாம், ஆனால் இந்தத் தொலைக்காட்சியில் பயன்பாடு சரியாக இயங்காமல் இருக்கலாம். இந்த அமைப்பு அதிகாரப்பூர்வமாக ஆதரிக்கப்படவில்லை.</string>
     <string name="unsupported_device_try_anyway">இருந்தாலும் தொடங்கு</string>
+
+    <string name="player_post_play_because">நீங்கள் %1$s பார்த்ததால்</string>
+    <string name="player_post_play_recommended">உங்களுக்கான பரிந்துரைகள்</string>
+    <string name="player_post_play_play">இயக்கு</string>
+    <string name="player_post_play_previous_recommendation">முந்தைய பரிந்துரை</string>
+    <string name="player_post_play_next_recommendation">அடுத்த பரிந்துரை</string>
+    <string name="player_post_play_return_to_player">பிளேயருக்குத் திரும்பு</string>
+    <string name="player_post_play_trailer_countdown">%1$d இல் டிரெய்லர்</string>
+    <string name="player_post_play_trailer_playing">டிரெய்லர் இயங்குகிறது</string>
+    <string name="player_post_play_trailer">டிரெய்லர்</string>
 </resources>

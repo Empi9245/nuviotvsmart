@@ -1805,4 +1805,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">Du kan ändå försöka starta Nuvio TV, men appen kanske inte fungerar korrekt på den här TV:n. Den här konfigurationen stöds inte officiellt.</string>
     <string name="unsupported_device_try_anyway">Försök ändå</string>
+
+    <string name="player_post_play_because">Eftersom du såg %1$s</string>
+    <string name="player_post_play_recommended">Rekommenderat för dig</string>
+    <string name="player_post_play_play">Spela upp</string>
+    <string name="player_post_play_previous_recommendation">Föregående rekommendation</string>
+    <string name="player_post_play_next_recommendation">Nästa rekommendation</string>
+    <string name="player_post_play_return_to_player">Tillbaka till spelaren</string>
+    <string name="player_post_play_trailer_countdown">Trailer om %1$d</string>
+    <string name="player_post_play_trailer_playing">Trailer spelas upp</string>
+    <string name="player_post_play_trailer">Trailer</string>
 </resources>

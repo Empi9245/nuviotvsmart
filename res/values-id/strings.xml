@@ -2468,4 +2468,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">Anda tetap dapat mencoba memulai Nuvio TV, tetapi aplikasi mungkin tidak berfungsi dengan baik di TV ini. Konfigurasi ini tidak didukung secara resmi.</string>
     <string name="unsupported_device_try_anyway">Coba tetap mulai</string>
+
+    <string name="player_post_play_because">Karena Anda menonton %1$s</string>
+    <string name="player_post_play_recommended">Direkomendasikan untuk Anda</string>
+    <string name="player_post_play_play">Putar</string>
+    <string name="player_post_play_previous_recommendation">Rekomendasi sebelumnya</string>
+    <string name="player_post_play_next_recommendation">Rekomendasi berikutnya</string>
+    <string name="player_post_play_return_to_player">Kembali ke pemutar</string>
+    <string name="player_post_play_trailer_countdown">Trailer dalam %1$d</string>
+    <string name="player_post_play_trailer_playing">Trailer sedang diputar</string>
+    <string name="player_post_play_trailer">Trailer</string>
 </resources>

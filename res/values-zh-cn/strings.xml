@@ -2575,4 +2575,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">您仍可尝试启动 Nuvio TV，但应用可能无法在此电视上正常运行。此配置不受官方支持。</string>
     <string name="unsupported_device_try_anyway">仍要启动</string>
+
+    <string name="player_post_play_because">因为您观看了 %1$s</string>
+    <string name="player_post_play_recommended">为您推荐</string>
+    <string name="player_post_play_play">播放</string>
+    <string name="player_post_play_previous_recommendation">上一个推荐</string>
+    <string name="player_post_play_next_recommendation">下一个推荐</string>
+    <string name="player_post_play_return_to_player">返回播放器</string>
+    <string name="player_post_play_trailer_countdown">%1$d 秒后播放预告片</string>
+    <string name="player_post_play_trailer_playing">正在播放预告片</string>
+    <string name="player_post_play_trailer">预告片</string>
 </resources>

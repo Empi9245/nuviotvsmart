@@ -2582,4 +2582,14 @@
     <string name="auth_qr_manual_instruction">O ve a %1$s e ingresa</string>
     <string name="unsupported_device_warning">Puedes intentar iniciar Nuvio TV de todos modos, pero es posible que la aplicación no funcione correctamente en este televisor. Esta configuración no cuenta con soporte oficial.</string>
     <string name="unsupported_device_try_anyway">Intentar de todos modos</string>
+
+    <string name="player_post_play_because">Porque viste %1$s</string>
+    <string name="player_post_play_recommended">Recomendado para ti</string>
+    <string name="player_post_play_play">Reproducir</string>
+    <string name="player_post_play_previous_recommendation">Recomendación anterior</string>
+    <string name="player_post_play_next_recommendation">Siguiente recomendación</string>
+    <string name="player_post_play_return_to_player">Volver al reproductor</string>
+    <string name="player_post_play_trailer_countdown">Tráiler en %1$d</string>
+    <string name="player_post_play_trailer_playing">Reproduciendo tráiler</string>
+    <string name="player_post_play_trailer">Tráiler</string>
 </resources>

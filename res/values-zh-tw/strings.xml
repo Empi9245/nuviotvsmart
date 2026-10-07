@@ -79,4 +79,14 @@
     <string name="unsupported_device_close">關閉</string>
     <string name="unsupported_device_try_anyway">仍要啟動</string>
     <string name="unsupported_device_unavailable">無法使用</string>
+
+    <string name="player_post_play_because">因為您觀看了 %1$s</string>
+    <string name="player_post_play_recommended">為您推薦</string>
+    <string name="player_post_play_play">播放</string>
+    <string name="player_post_play_previous_recommendation">上一個推薦</string>
+    <string name="player_post_play_next_recommendation">下一個推薦</string>
+    <string name="player_post_play_return_to_player">返回播放器</string>
+    <string name="player_post_play_trailer_countdown">%1$d 秒後播放預告片</string>
+    <string name="player_post_play_trailer_playing">正在播放預告片</string>
+    <string name="player_post_play_trailer">預告片</string>
 </resources>

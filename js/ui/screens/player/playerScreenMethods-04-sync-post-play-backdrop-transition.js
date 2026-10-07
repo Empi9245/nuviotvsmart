@@ -262,7 +262,7 @@ export function createPlayerScreenMethods04() {
         return false;
       }
       this.postPlayFocusedAction = String(node.dataset.playerPostPlayAction || action);
-      mount.querySelectorAll(".focusable.focused").forEach((entry) => {
+      actions.forEach((entry) => {
         entry.classList.toggle("focused", entry === node);
       });
       try {

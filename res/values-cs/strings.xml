@@ -2387,4 +2387,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">Nuvio TV můžete přesto zkusit spustit, ale aplikace nemusí na tomto televizoru fungovat správně. Tato konfigurace není oficiálně podporována.</string>
     <string name="unsupported_device_try_anyway">Přesto spustit</string>
+
+    <string name="player_post_play_because">Protože jste sledovali %1$s</string>
+    <string name="player_post_play_recommended">Doporučeno pro vás</string>
+    <string name="player_post_play_play">Přehrát</string>
+    <string name="player_post_play_previous_recommendation">Předchozí doporučení</string>
+    <string name="player_post_play_next_recommendation">Další doporučení</string>
+    <string name="player_post_play_return_to_player">Zpět do přehrávače</string>
+    <string name="player_post_play_trailer_countdown">Upoutávka za %1$d</string>
+    <string name="player_post_play_trailer_playing">Upoutávka se přehrává</string>
+    <string name="player_post_play_trailer">Upoutávka</string>
 </resources>

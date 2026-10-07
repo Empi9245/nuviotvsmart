@@ -1307,4 +1307,14 @@
     <string name="auth_qr_manual_instruction">Of ga naar %1$s en voer in</string>
     <string name="unsupported_device_warning">Je kunt Nuvio TV toch proberen te starten, maar de app werkt mogelijk niet goed op deze tv. Deze configuratie wordt officieel niet ondersteund.</string>
     <string name="unsupported_device_try_anyway">Toch starten</string>
+
+    <string name="player_post_play_because">Omdat je %1$s hebt gekeken</string>
+    <string name="player_post_play_recommended">Aanbevolen voor jou</string>
+    <string name="player_post_play_play">Afspelen</string>
+    <string name="player_post_play_previous_recommendation">Vorige aanbeveling</string>
+    <string name="player_post_play_next_recommendation">Volgende aanbeveling</string>
+    <string name="player_post_play_return_to_player">Terug naar de speler</string>
+    <string name="player_post_play_trailer_countdown">Trailer over %1$d</string>
+    <string name="player_post_play_trailer_playing">Trailer wordt afgespeeld</string>
+    <string name="player_post_play_trailer">Trailer</string>
 </resources>

@@ -1432,4 +1432,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">आप फिर भी Nuvio TV शुरू करने का प्रयास कर सकते हैं, लेकिन यह ऐप इस टीवी पर सही ढंग से काम नहीं कर सकता। यह कॉन्फ़िगरेशन आधिकारिक रूप से समर्थित नहीं है।</string>
     <string name="unsupported_device_try_anyway">फिर भी शुरू करें</string>
+
+    <string name="player_post_play_because">क्योंकि आपने %1$s देखा</string>
+    <string name="player_post_play_recommended">आपके लिए सुझाया गया</string>
+    <string name="player_post_play_play">चलाएँ</string>
+    <string name="player_post_play_previous_recommendation">पिछला सुझाव</string>
+    <string name="player_post_play_next_recommendation">अगला सुझाव</string>
+    <string name="player_post_play_return_to_player">प्लेयर पर वापस जाएँ</string>
+    <string name="player_post_play_trailer_countdown">%1$d में ट्रेलर</string>
+    <string name="player_post_play_trailer_playing">ट्रेलर चल रहा है</string>
+    <string name="player_post_play_trailer">ट्रेलर</string>
 </resources>

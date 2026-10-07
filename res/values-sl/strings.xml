@@ -2569,4 +2569,14 @@
     <string name="auth_qr_manual_instruction">Or go to %1$s and enter</string>
     <string name="unsupported_device_warning">Kljub temu lahko poskusite zagnati Nuvio TV, vendar aplikacija na tem televizorju morda ne bo delovala pravilno. Ta konfiguracija ni uradno podprta.</string>
     <string name="unsupported_device_try_anyway">Vseeno zaženi</string>
+
+    <string name="player_post_play_because">Ker ste gledali %1$s</string>
+    <string name="player_post_play_recommended">Priporočeno za vas</string>
+    <string name="player_post_play_play">Predvajaj</string>
+    <string name="player_post_play_previous_recommendation">Prejšnje priporočilo</string>
+    <string name="player_post_play_next_recommendation">Naslednje priporočilo</string>
+    <string name="player_post_play_return_to_player">Nazaj na predvajalnik</string>
+    <string name="player_post_play_trailer_countdown">Napovednik čez %1$d</string>
+    <string name="player_post_play_trailer_playing">Napovednik se predvaja</string>
+    <string name="player_post_play_trailer">Napovednik</string>
 </resources>
