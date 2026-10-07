@@ -4,6 +4,7 @@ import * as internals from "./discoverScreen.js";
 export function createDiscoverScreenMethods05() {
   const {
     ScreenUtils,
+    Platform,
     LayoutPreferences,
     renderContentFilterPicker,
     bindRootSidebarEvents,
@@ -287,6 +288,15 @@ export function createDiscoverScreenMethods05() {
       this.syncOpenPickerScroll();
     },
     scheduleDiscoverPosterHydration() {
+      if (this.isVidaaDiscoverLoadingBusy()) {
+        if (!this.vidaaDiscoverHydrationTimer) {
+          this.vidaaDiscoverHydrationTimer = setTimeout(() => {
+            this.vidaaDiscoverHydrationTimer = null;
+            this.scheduleDiscoverPosterHydration();
+          }, 60);
+        }
+        return;
+      }
       if (!this.container || this.discoverPosterHydrationRaf) {
         return;
       }
@@ -296,6 +306,10 @@ export function createDiscoverScreenMethods05() {
       }
       this.discoverPosterHydrationRaf = requestAnimationFrame(() => {
         this.discoverPosterHydrationRaf = 0;
+        if (this.isVidaaDiscoverLoadingBusy()) {
+          this.scheduleDiscoverPosterHydration();
+          return;
+        }
         this.hydrateDiscoverPosterImages();
       });
     },
@@ -306,6 +320,7 @@ export function createDiscoverScreenMethods05() {
       }
       const viewport = scroller.getBoundingClientRect();
       const margin = DISCOVER_POSTER_PREFETCH_MARGIN_PX;
+      const queued = [];
       this.container?.querySelectorAll(".seeall-card-poster-image[data-src]").forEach((image) => {
         if (!(image instanceof HTMLImageElement) || !image.isConnected) {
           return;
@@ -324,12 +339,34 @@ export function createDiscoverScreenMethods05() {
           image.removeAttribute("data-src");
           return;
         }
+        if (Platform.isVidaa()) {
+          queued.push({ image, src });
+          return;
+        }
         // The app owns the visible-image decision. Do not delegate it to native
         // lazy loading, which can delay posters inside the TV scroll container.
         image.loading = "eager";
         image.removeAttribute("data-src");
         image.src = src;
       });
+      if (!queued.length) return;
+      const commitBatch = () => {
+        this.discoverPosterHydrationRaf = 0;
+        if (this.isVidaaDiscoverLoadingBusy()) {
+          // Retain data-src and recompute the visible window after navigation.
+          this.scheduleDiscoverPosterHydration();
+          return;
+        }
+        for (let assigned = 0; queued.length && assigned < 4; assigned += 1) {
+          const { image, src } = queued.shift();
+          if (!image.isConnected || !image.dataset.src) continue;
+          image.loading = "eager";
+          image.removeAttribute("data-src");
+          image.src = src;
+        }
+        if (queued.length) this.discoverPosterHydrationRaf = requestAnimationFrame(commitBatch);
+      };
+      this.discoverPosterHydrationRaf = requestAnimationFrame(commitBatch);
     }
   };
 }

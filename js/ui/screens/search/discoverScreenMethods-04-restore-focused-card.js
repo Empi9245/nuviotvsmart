@@ -1,9 +1,11 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./discoverScreen.js";
+import { animateVidaaFocusScroll } from "../../navigation/vidaaFocusScroll.js";
 
 export function createDiscoverScreenMethods04() {
   const {
     MODERN_HOME_CONSTANTS,
+    Platform,
     focusWithoutAutoScroll,
     setLegacySidebarExpanded,
     groupNodesByOffsetTop,
@@ -48,10 +50,14 @@ export function createDiscoverScreenMethods04() {
       focusWithoutAutoScroll(target);
       this.rememberRowFocus(target);
       if (scrollMode !== "none") {
-        scrollNodeIntoContainerView(target, this.getContentScroller(), {
-          center: scrollMode === "center",
-          padding: 20
-        });
+        if (Platform.isVidaa()) {
+          this.scrollVidaaDiscoverFocusNode(target, { center: scrollMode === "center" });
+        } else {
+          scrollNodeIntoContainerView(target, this.getContentScroller(), {
+            center: scrollMode === "center",
+            padding: 20
+          });
+        }
       }
       this.lastFocusedKey = target.dataset.focusKey || this.lastFocusedKey;
     },
@@ -114,14 +120,17 @@ export function createDiscoverScreenMethods04() {
       const scroller = this.getContentScroller();
       const isFirstRow = Number(target.dataset.navRow || 0) === 0;
       const shouldLoadMore = this.shouldAutoLoadMore(target.dataset.itemIndex);
-      // Instant scroll on per-keypress focus (smooth scrollTo jittered on held repeats).
-      const nextScrollTop = isFirstRow
-        ? setContainerScrollTop(scroller, 0, "auto")
-        : scrollNodeIntoContainerView(target, scroller, {
-            center: false,
-            padding: 20,
-            behavior: "auto"
-          });
+      // VIDAA retargets one short animation while native scroll remains the
+      // established path on the other TV platforms.
+      const nextScrollTop = Platform.isVidaa()
+        ? this.scrollVidaaDiscoverFocusNode(target, { toTop: isFirstRow })
+        : isFirstRow
+          ? setContainerScrollTop(scroller, 0, "auto")
+          : scrollNodeIntoContainerView(target, scroller, {
+              center: false,
+              padding: 20,
+              behavior: "auto"
+            });
       if (Number.isFinite(nextScrollTop)) {
         this.savedScrollTop = nextScrollTop;
       }
@@ -135,6 +144,32 @@ export function createDiscoverScreenMethods04() {
         setLegacySidebarExpanded(this.container, false);
       }
       return true;
+    },
+    scrollVidaaDiscoverFocusNode(target, { center = false, toTop = false } = {}) {
+      const scroller = this.getContentScroller();
+      if (!scroller || !target) {
+        return null;
+      }
+      const currentTop = Number(scroller.scrollTop || 0);
+      let nextTop = toTop ? 0 : currentTop;
+      if (!toTop) {
+        const viewport = scroller.getBoundingClientRect();
+        const rect = target.getBoundingClientRect();
+        const itemTop = rect.top - viewport.top + currentTop;
+        const itemBottom = rect.bottom - viewport.top + currentTop;
+        const padding = 20;
+        if (center) {
+          nextTop = itemTop - (scroller.clientHeight - rect.height) / 2;
+        } else if (itemTop < currentTop + padding) {
+          nextTop = itemTop - padding;
+        } else if (itemBottom > currentTop + scroller.clientHeight - padding) {
+          nextTop = itemBottom - scroller.clientHeight + padding;
+        }
+      }
+      const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      nextTop = Math.max(0, Math.min(maxTop, Math.round(nextTop)));
+      animateVidaaFocusScroll(this, scroller, "y", nextTop);
+      return nextTop;
     },
     endDiscoverVerticalFastScroll({ land = true } = {}) {
       const state = this.discoverVerticalFastScrollState || null;
@@ -176,6 +211,10 @@ export function createDiscoverScreenMethods04() {
       }
 
       this.endDiscoverVerticalFastScroll({ land: true });
+      if (Platform.isVidaa()) {
+        // The held-scroll loop becomes the sole writer until it lands focus.
+        animateVidaaFocusScroll(this, scroller, "y", scroller.scrollTop, { duration: 0 });
+      }
       const state = {
         scroller,
         direction,

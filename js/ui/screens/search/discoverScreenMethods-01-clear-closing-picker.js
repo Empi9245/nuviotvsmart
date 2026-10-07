@@ -1,9 +1,11 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./discoverScreen.js";
+import { isVidaaNavigationBusy } from "../../navigation/vidaaNavigationActivity.js";
 
 export function createDiscoverScreenMethods01() {
   const {
     Router,
+    Platform,
     ScreenUtils,
     addonRepository,
     watchedItemsRepository,
@@ -52,6 +54,10 @@ export function createDiscoverScreenMethods01() {
       }, PICKER_MENU_EXIT_MS);
     },
     cancelScheduledRender() {
+      if (this.vidaaDiscoverRenderTimer) {
+        clearTimeout(this.vidaaDiscoverRenderTimer);
+        this.vidaaDiscoverRenderTimer = null;
+      }
       if (this.renderFrame) {
         cancelAnimationFrame(this.renderFrame);
         this.renderFrame = null;
@@ -59,6 +65,15 @@ export function createDiscoverScreenMethods01() {
     },
     requestRender() {
       if (!this.container || Router.getCurrent() !== "discover") {
+        return;
+      }
+      if (this.isVidaaDiscoverLoadingBusy() && this.container.querySelector(".seeall-card")) {
+        if (!this.vidaaDiscoverRenderTimer) {
+          this.vidaaDiscoverRenderTimer = setTimeout(() => {
+            this.vidaaDiscoverRenderTimer = null;
+            this.requestRender();
+          }, 60);
+        }
         return;
       }
       if (this.renderFrame) {
@@ -69,8 +84,17 @@ export function createDiscoverScreenMethods01() {
         if (!this.container || Router.getCurrent() !== "discover") {
           return;
         }
+        if (this.isVidaaDiscoverLoadingBusy() && this.container.querySelector(".seeall-card")) {
+          this.requestRender();
+          return;
+        }
         this.render();
       });
+    },
+    isVidaaDiscoverLoadingBusy() {
+      if (!Platform.isVidaa()) return false;
+      const scroller = this.getContentScroller();
+      return Boolean(isVidaaNavigationBusy() || this.discoverVerticalFastScrollState || this.scrollAnimations?.get(scroller)?.y);
     },
     async refreshWatchedTitleIds(items = this.items) {
       const watchedItems = await watchedItemsRepository.getAll(5000).catch(() => []);

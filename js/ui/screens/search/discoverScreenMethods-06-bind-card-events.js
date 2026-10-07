@@ -337,6 +337,10 @@ export function createDiscoverScreenMethods06() {
       resetDpadRepeat(this);
       this.endDiscoverVerticalFastScroll({ land: false });
       this.cancelScheduledRender();
+      for (const timerKey of ["vidaaDiscoverHydrationTimer", "vidaaDiscoverPaginationTimer"]) {
+        if (this[timerKey]) clearTimeout(this[timerKey]);
+        this[timerKey] = null;
+      }
       if (this.discoverPosterHydrationRaf) {
         cancelAnimationFrame(this.discoverPosterHydrationRaf);
         this.discoverPosterHydrationRaf = 0;
