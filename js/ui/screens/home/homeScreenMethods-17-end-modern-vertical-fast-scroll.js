@@ -1,7 +1,7 @@
 import * as internals from "./homeScreenContext.js";
 
 export function createHomeScreenMethods17() {
-  const { MODERN_HOME_CONSTANTS } = internals;
+  const { Platform, MODERN_HOME_CONSTANTS } = internals;
 
   return {
     endModernVerticalFastScroll({ land = true } = {}) {
@@ -138,6 +138,16 @@ export function createHomeScreenMethods17() {
     },
     ensureMainVerticalVisibility(target, direction = null, current = null, layoutAdjustment = 0) {
       if (this.layoutMode === "modern") {
+        if (
+          Platform.isVidaa() &&
+          (direction === "left" || direction === "right") &&
+          current &&
+          this.getMainFocusAnchor(current) === this.getMainFocusAnchor(target)
+        ) {
+          // Preserve a pending vertical move when the next key only changes
+          // cards in that row; it still needs to bring the row into view.
+          return;
+        }
         if (this._mainVertRaf) {
           cancelAnimationFrame(this._mainVertRaf);
         }
@@ -152,6 +162,11 @@ export function createHomeScreenMethods17() {
           }
           const next = this.getModernMainAlignedScrollTarget(_target, _direction, _current, _adj);
           if (!next?.container) {
+            return;
+          }
+          if (Platform.isVidaa()) {
+            this.modernCameraFollowLastVerticalContainer = next.container;
+            this.animateScroll(next.container, "y", next.value, 140);
             return;
           }
           const delta = Math.abs(Number(next.container.scrollTop || 0) - Number(next.value || 0));
@@ -224,7 +239,7 @@ export function createHomeScreenMethods17() {
           cancelAnimationFrame(this._trackHorizRaf);
           this._trackHorizRaf = null;
         }
-        if (this.shouldUseImmediateHorizontalScrollForNode(target) || this.shouldUseImmediateFocusScroll()) {
+        if (!Platform.isVidaa() && (this.shouldUseImmediateHorizontalScrollForNode(target) || this.shouldUseImmediateFocusScroll())) {
           const next = this.getModernTrackAlignedScrollTarget(target, layoutAdjustment);
           if (next?.container) {
             this.cancelScrollAnimation(next.container, "x");
@@ -243,6 +258,11 @@ export function createHomeScreenMethods17() {
           }
           const next = this.getModernTrackAlignedScrollTarget(_target, _adj);
           if (!next?.container) {
+            return;
+          }
+          if (Platform.isVidaa()) {
+            this.modernCameraFollowLastHorizontalContainer = next.container;
+            this.animateScroll(next.container, "x", next.value, 140);
             return;
           }
           if (Math.abs(Number(next.container.scrollLeft || 0) - Number(next.value || 0)) <= 1) {
@@ -268,9 +288,10 @@ export function createHomeScreenMethods17() {
       const targetRight = targetLeft + target.offsetWidth;
       const visibleLeft = metrics.visibleLeft;
       const visibleRight = metrics.visibleRight;
+      const useImmediateHorizontalScroll = !Platform.isVidaa() && this.shouldUseImmediateHorizontalScrollForNode(target);
 
       if (targetLeft < visibleLeft) {
-        if (this.shouldUseImmediateHorizontalScrollForNode(target)) {
+        if (useImmediateHorizontalScroll) {
           this.cancelScrollAnimation(track, "x");
           track.scrollLeft = Math.max(0, Math.round(targetLeft - metrics.leftPadding));
           return;
@@ -279,7 +300,7 @@ export function createHomeScreenMethods17() {
         return;
       }
       if (targetRight > visibleRight) {
-        if (this.shouldUseImmediateHorizontalScrollForNode(target)) {
+        if (useImmediateHorizontalScroll) {
           this.cancelScrollAnimation(track, "x");
           const maxScrollLeft = Math.max(0, Number(track.scrollWidth || 0) - Number(track.clientWidth || 0));
           track.scrollLeft = Math.max(0, Math.min(maxScrollLeft, Math.round(targetRight - track.clientWidth + metrics.safeRightPadding)));
@@ -291,7 +312,7 @@ export function createHomeScreenMethods17() {
       if (this.layoutMode !== "modern" && !direction) {
         const targetCenter = targetLeft + target.offsetWidth / 2;
         const centeredLeft = targetCenter - track.clientWidth / 2;
-        if (this.shouldUseImmediateHorizontalScrollForNode(target)) {
+        if (useImmediateHorizontalScroll) {
           this.cancelScrollAnimation(track, "x");
           const maxScrollLeft = Math.max(0, Number(track.scrollWidth || 0) - Number(track.clientWidth || 0));
           track.scrollLeft = Math.max(0, Math.min(maxScrollLeft, Math.round(centeredLeft)));

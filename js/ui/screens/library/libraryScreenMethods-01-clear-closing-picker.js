@@ -1,10 +1,12 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./libraryScreen.js";
+import { animateVidaaFocusScroll } from "../../navigation/vidaaFocusScroll.js";
 
 export function createLibraryScreenMethods01() {
   const {
     Router,
     ScreenUtils,
+    Platform,
     LayoutPreferences,
     LibraryController,
     LIBRARY_VIEW_MODE,
@@ -234,7 +236,9 @@ export function createLibraryScreenMethods01() {
       }
       if (!sidebarFocused) {
         this.lastMainFocus = target;
-        scrollIntoNearestView(target);
+        if (!this.scrollVidaaLibraryCardIntoView(target)) {
+          scrollIntoNearestView(target);
+        }
         if (target.closest?.(".library-actions-row") && target.dataset.action) {
           this.lastActionsRowAction = String(target.dataset.action);
         }
@@ -245,6 +249,29 @@ export function createLibraryScreenMethods01() {
       if (target.dataset.focusKey) {
         this.controller.setFocusedPosterKey(target.dataset.focusKey);
       }
+    },
+    scrollVidaaLibraryCardIntoView(target) {
+      if (!Platform.isVidaa() || !target.matches?.(".library-grid-card")) {
+        return false;
+      }
+      const scroller = target.closest?.(".library-main");
+      if (!scroller) {
+        return false;
+      }
+      const viewport = scroller.getBoundingClientRect();
+      const rect = target.getBoundingClientRect();
+      const currentTop = Number(scroller.scrollTop || 0);
+      const itemTop = rect.top - viewport.top + currentTop;
+      const itemBottom = rect.bottom - viewport.top + currentTop;
+      const padding = 20;
+      let nextTop = currentTop;
+      if (itemTop < currentTop + padding) {
+        nextTop = itemTop - padding;
+      } else if (itemBottom > currentTop + scroller.clientHeight - padding) {
+        nextTop = itemBottom - scroller.clientHeight + padding;
+      }
+      animateVidaaFocusScroll(this, scroller, "y", nextTop);
+      return true;
     },
     isModalFocusLocked() {
       return Boolean(this.posterOptionsController?.dialog);

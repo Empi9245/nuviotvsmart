@@ -1,7 +1,7 @@
 import * as internals from "./homeScreenContext.js";
 
 export function createHomeScreenMethods16() {
-  const { Router, MODERN_HOME_CONSTANTS, HOME_PERF_DEBUG, homePerfNow, logHomePerf } = internals;
+  const { Router, Platform, MODERN_HOME_CONSTANTS, HOME_PERF_DEBUG, homePerfNow, logHomePerf } = internals;
 
   return {
     getModernMainAlignedScrollTarget(target, direction = null, current = null, layoutAdjustment = 0) {
@@ -10,6 +10,14 @@ export function createHomeScreenMethods16() {
         return null;
       }
       const anchor = this.getMainFocusAnchor(target);
+      const currentAnchor = this.getMainFocusAnchor(current);
+      const sameAnchor = Boolean(currentAnchor && currentAnchor === anchor);
+      const isHorizontalMove = direction === "left" || direction === "right";
+      if (Platform.isVidaa() && isHorizontalMove && sameAnchor) {
+        // A card change within a row cannot change its vertical alignment.
+        // Avoid flushing layout just to return null below.
+        return null;
+      }
       const mainRect = main.getBoundingClientRect();
       const anchorRect = anchor.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
@@ -21,9 +29,6 @@ export function createHomeScreenMethods16() {
       const targetTop = targetRect.top - mainRect.top + main.scrollTop - Number(layoutAdjustment || 0);
       const adjustedTop = mainRect.top + anchorTop - main.scrollTop;
       const adjustedBottom = mainRect.top + anchorBottom - main.scrollTop;
-      const currentAnchor = this.getMainFocusAnchor(current);
-      const sameAnchor = Boolean(currentAnchor && currentAnchor === anchor);
-      const isHorizontalMove = direction === "left" || direction === "right";
       const isVerticalMove = direction === "up" || direction === "down";
       const isEnteringMainFromSidebar = direction === "right" && current && !this.isMainNode(current);
 

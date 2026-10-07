@@ -1,11 +1,21 @@
 import * as internals from "./homeScreenContext.js";
 
 export function createHomeScreenMethods14() {
-  const { limitTextToWordCount, applyTrailerAudioPreferences } = internals;
+  const { Router, Platform, limitTextToWordCount, applyTrailerAudioPreferences } = internals;
 
   return {
     async activateFocusedPosterFlow(node, flowToken = Number(this.focusedPosterFlowToken || 0)) {
       if (!this.isModernPosterNode(node) || !node.classList.contains("focused")) {
+        return;
+      }
+      const isVidaa = Platform.isVidaa();
+      const isCurrentVidaaFlow = () =>
+        Router.getCurrent() === "home" &&
+        Number(this.focusedPosterFlowToken || 0) === Number(flowToken || 0) &&
+        this.getCurrentFocusedNode() === node &&
+        node.isConnected &&
+        node.classList.contains("focused");
+      if (isVidaa && (!(await this.waitForVidaaHomeLoadingIdle(isCurrentVidaaFlow)) || !isCurrentVidaaFlow())) {
         return;
       }
       if (this.isCollectionFolderNode(node)) {
@@ -40,8 +50,14 @@ export function createHomeScreenMethods14() {
         }
       }
 
+      if (isVidaa && (!(await this.waitForVidaaHomeLoadingIdle(isCurrentVidaaFlow)) || !isCurrentVidaaFlow())) {
+        return;
+      }
       const baseSource = await this.prefetchFocusedPosterTrailer(node);
       if (Number(this.focusedPosterFlowToken || 0) !== Number(flowToken || 0)) {
+        return;
+      }
+      if (isVidaa && (!(await this.waitForVidaaHomeLoadingIdle(isCurrentVidaaFlow)) || !isCurrentVidaaFlow())) {
         return;
       }
       const source = applyTrailerAudioPreferences(baseSource, prefs);
