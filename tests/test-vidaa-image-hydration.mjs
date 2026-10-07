@@ -162,12 +162,33 @@ platform("vidaa");
   );
   owner.scheduleHomeLazyImageHydration(cards[0], { navigationDirection: "right" });
   assert.equal(images[0].src, "poster-0-0", "Focused poster must start immediately");
-  assert.equal(images[1].src, "poster-0-1", "First likely poster should start one step early");
-  assert.equal(images[2].src, "poster-0-2", "Second likely poster should start two steps early");
-  assert.equal(images[3].src, undefined, "Predictive loading must stay bounded to two extra posters");
+  for (let index = 1; index <= 5; index += 1) {
+    assert.equal(
+      images[index].src,
+      `poster-0-${index}`,
+      `Horizontal poster ${index} should start early`
+    );
+    assert.equal(images[index].fetchPriority, "low");
+  }
+  assert.equal(images[6].src, undefined, "Horizontal predictive loading must stop after five posters");
   assert.equal(images[0].fetchPriority, "high");
-  assert.equal(images[1].fetchPriority, "low");
-  assert.equal(images[2].fetchPriority, "low");
+}
+
+platform("vidaa");
+{
+  const { owner, images, cards } = homeSurface();
+  owner.navModel = {
+    rows: [cards.slice(0, 10), cards.slice(10, 20), cards.slice(20, 30)]
+  };
+  owner.navModel.rows.forEach((rowNodes, rowIndex) =>
+    rowNodes.forEach((card, colIndex) => {
+      card.dataset = { navRow: String(rowIndex), navCol: String(colIndex) };
+    })
+  );
+  owner.scheduleHomeLazyImageHydration(cards[0], { navigationDirection: "down" });
+  assert.equal(images[0].src, "poster-0-0");
+  assert.equal(images[10].src, "poster-1-0", "Vertical navigation should warm only the next catalogue");
+  assert.equal(images[20].src, undefined, "Vertical navigation must not preload multiple catalogues");
 }
 
 platform("vidaa");
