@@ -178,6 +178,17 @@ for (const code of [37, 38, 39, 40]) {
   focus.handleKey(checkbox);
   assert.deepEqual(checkbox.calls, ["prevent", "stop", "stopImmediate"]);
 
+  document.activeElement = null;
+  const afterKeyboardClose = remoteEvent(40, false, { target });
+  const beforeReturn = downs.length;
+  focus.handleKey(afterKeyboardClose);
+  assert.equal(
+    downs.length,
+    beforeReturn + 1,
+    "After keyboard focusout, VIDAA D-pad must return immediately to the mounted screen"
+  );
+  assert.deepEqual(afterKeyboardClose.calls, ["prevent", "stop", "stopImmediate"]);
+
   document.activeElement = previousActiveElement;
 }
 
