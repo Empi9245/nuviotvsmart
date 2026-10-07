@@ -31,7 +31,13 @@ function key(node) {
 }
 
 function signature(node) {
-  return node.nodeType === 1 ? node.outerHTML : node.textContent;
+  if (node.nodeType !== 1) return node.textContent;
+  // Rows/cards are useful unchanged-subtree boundaries. Serializing every
+  // wrapper and descendant repeats the same markup at each ancestor depth.
+  // Other elements still reconcile attributes and children from source nodes.
+  return node.dataset.rowKey || node.classList.contains("home-content-card")
+    ? node.outerHTML
+    : undefined;
 }
 
 function snapshot(source) {
@@ -107,7 +113,8 @@ function updateAttributes(node, previous, next) {
 
 function updateNode(node, source, protectedNode) {
   const previous = sourceByNode.get(node);
-  if (previous.markup === signature(source)) return;
+  const markup = signature(source);
+  if (markup !== undefined && previous.markup === markup) return;
   if (node.nodeType === 1) {
     updateAttributes(node, previous.node, source);
     updateChildren(node, source, protectedNode);

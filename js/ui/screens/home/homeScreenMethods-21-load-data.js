@@ -36,6 +36,7 @@ export function createHomeScreenMethods21() {
     async loadData({ background = false, preserveReturnState = false, refreshManifests = true } = {}) {
       const loadStart = HOME_PERF_DEBUG ? homePerfNow() : 0;
       const token = this.homeLoadToken;
+      this.loadedHomeRouteInputSignature = "";
       const preserveHomeReturnState = Boolean(background && preserveReturnState);
       const preservedHeroItem = preserveHomeReturnState ? this.heroItem : null;
       const preservedHeroIdentity = preserveHomeReturnState ? buildHeroIdentity(this.heroItem) : "";
@@ -144,6 +145,7 @@ export function createHomeScreenMethods21() {
       HomeCatalogStore.ensureOrderKeys(
         uniqueCatalogDescriptors.map((catalog) => buildCatalogOrderKey(catalog.addonId, catalog.type, catalog.catalogId))
       );
+      const routeInputSignature = this.buildHomeRouteInputSignature(addons);
 
       const initialCatalogLoad = this.getInitialCatalogLoadCount();
       const initialDescriptors = uniqueCatalogDescriptors.slice(0, initialCatalogLoad);
@@ -238,6 +240,9 @@ export function createHomeScreenMethods21() {
       this.loadedWatchProgressSourceKey = watchProgressRepository.getContinueWatchingSourceKey();
       this.releaseInitialHomeLoading();
       this.hasLoadedOnce = true;
+      if (!deferredDescriptors.length) {
+        this.loadedHomeRouteInputSignature = routeInputSignature;
+      }
       this.render();
       this.maybeStartPendingHomeBackgroundRefresh();
       logHomePerf("loadData", {
@@ -285,6 +290,7 @@ export function createHomeScreenMethods21() {
             if (token !== this.homeLoadToken || Router.getCurrent() !== "home") {
               return;
             }
+            this.loadedHomeRouteInputSignature = routeInputSignature;
             const combinedByKey = new Map();
             [...this.rows, ...extraRows].forEach((row) => {
               combinedByKey.set(row.homeCatalogKey, row);

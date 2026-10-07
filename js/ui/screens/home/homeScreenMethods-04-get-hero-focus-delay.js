@@ -88,6 +88,9 @@ export function createHomeScreenMethods04() {
     watchProgressRepository,
     watchedItemsRepository,
     LayoutPreferences,
+    HomeCatalogStore,
+    getSidebarProfileState,
+    buildSidebarProfileSignature,
     getContinueWatchingNextUpSeedOptions,
     buildCatalogOrderKey,
     catalogShouldShowOnHome,
@@ -445,6 +448,48 @@ export function createHomeScreenMethods04() {
       });
       this.homeCatalogRefreshPromise = refreshPromise;
       return refreshPromise;
+    },
+    buildHomeRouteInputSignature(addons = addonRepository.getCachedInstalledAddons()) {
+      const settingsSignature = this.buildSyncSensitiveHomeSignature();
+      if (!settingsSignature) {
+        return "";
+      }
+      return JSON.stringify([
+        settingsSignature,
+        addonRepository.getInstalledAddonUrls(),
+        addonRepository.getAddonEnabledStates(),
+        addons,
+        HomeCatalogStore.get(),
+        CollectionsStore.get()
+      ]);
+    },
+    async refreshHomeAfterRouteReturn({ preserveReturnState = true, reason = "route-return" } = {}) {
+      // Android retains Home's rows on resume. Rebuild only for changed inputs
+      // or an interrupted catalog load; otherwise reconcile watch state and
+      // merge catalog page one only after the shared freshness window expires.
+      const signature = this.buildHomeRouteInputSignature();
+      if (!signature || signature !== this.loadedHomeRouteInputSignature) {
+        return this.requestHomeBackgroundRefresh({ preserveReturnState, reason });
+      }
+      this.retryPendingCatalogRows();
+      const token = this.homeLoadToken;
+      return Promise.all([
+        this.refreshHomeContinueWatchingAfterSync(),
+        this.refreshHomeCatalogsIfStale({ reason }),
+        getSidebarProfileState()
+          .catch(() => null)
+          .then((profile) => {
+            if (
+              token === this.homeLoadToken &&
+              Router.getCurrent() === "home" &&
+              profile &&
+              buildSidebarProfileSignature(profile) !== buildSidebarProfileSignature(this.sidebarProfile)
+            ) {
+              this.sidebarProfile = profile;
+              this.requestBackgroundRender();
+            }
+          })
+      ]);
     },
     ensureStartupSyncSubscription() {
       if (this.unsubscribeStartupSyncPullCompleted) {

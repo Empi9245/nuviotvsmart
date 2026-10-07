@@ -157,7 +157,7 @@ export function createHomeScreenMethods20() {
         this.scheduleHomeLazyImageHydration();
         this.scheduleReturnFocusRestore();
         this.ensureStartupSyncSubscription();
-        this.requestHomeBackgroundRefresh({
+        this.refreshHomeAfterRouteReturn({
           preserveReturnState: true,
           reason: "route-resume"
         }).catch((error) => {
@@ -186,7 +186,7 @@ export function createHomeScreenMethods20() {
         this.homeLoadToken = (this.homeLoadToken || 0) + 1;
         this.render();
         this.ensureStartupSyncSubscription();
-        this.requestHomeBackgroundRefresh({
+        this.refreshHomeAfterRouteReturn({
           preserveReturnState: Boolean(navigationContext?.isBackNavigation || returnFocusState?.layoutMode),
           reason: "route-return"
         }).catch((error) => {
