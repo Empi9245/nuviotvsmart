@@ -16,6 +16,12 @@ tests/*
 !tests/test-vidaa-image-hydration.mjs
 !tests/test-vidaa-collections.mjs
 !tests/test-vidaa-discover-loading.mjs
+!tests/test-vidaa-local-backend.mjs
+!tests/test-vidaa-home-patching.html
+!tests/test-vidaa-home-window.html
+!tests/test-vidaa-home-focus-cost.mjs
+!tests/test-vidaa-shared-backend.mjs
+!tests/test-vidaa-*.mjs
 *.ipk
 *.wgt
 dist/

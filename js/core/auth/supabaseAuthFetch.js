@@ -1,6 +1,7 @@
 import { ServerConfigurationStore } from "../../data/local/serverConfigurationStore.js";
 import { recordSyncFailure } from "../sync/syncBackoffPolicy.js";
 import { trackSessionRequest } from "./sessionLifecycle.js";
+import { requireAccountBackend } from "../server/serverConfiguration.js";
 
 const RETRYABLE_AUTH_STATUSES = new Set([
   408, 500, 502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 530
@@ -47,7 +48,7 @@ async function isRetryableResponse(response) {
 }
 
 async function fetchSupabaseAuthInternal(endpoint, init = {}) {
-  const configuration = ServerConfigurationStore.getActive();
+  const configuration = requireAccountBackend(ServerConfigurationStore.getActive());
   const primaryBaseUrl = normalizeBaseUrl(configuration.backendUrl);
   const fallbackBaseUrl = normalizeBaseUrl(configuration.fallbackBackendUrl);
   const canFallback =

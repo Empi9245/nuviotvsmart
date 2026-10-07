@@ -1,4 +1,5 @@
 const runtimeEnv = globalThis.__NUVIO_ENV__ || {};
+export const ACCOUNT_BACKEND_MODE = String(runtimeEnv.NUVIO_ACCOUNT_BACKEND_MODE || "").trim().toLowerCase();
 
 export const SUPABASE_URL = String(runtimeEnv.NUVIO_SUPABASE_URL || "").trim();
 export const SUPABASE_ANON_KEY = String(runtimeEnv.NUVIO_SUPABASE_ANON_KEY || "").trim();

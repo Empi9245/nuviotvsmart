@@ -4,6 +4,7 @@ import { SessionStore } from "../storage/sessionStore.js";
 import { fetchSupabaseAuth } from "./supabaseAuthFetch.js";
 import { PluginCodeStore } from "../../data/local/pluginCodeStore.js";
 import { ServerConfigurationStore } from "../../data/local/serverConfigurationStore.js";
+import { accountAuthorizationHeaders } from "../server/serverConfiguration.js";
 import {
   notifySessionTeardownHandlers,
   waitForPendingSessionRequests
@@ -168,6 +169,18 @@ class AuthManagerClass {
   // BOOTSTRAP (equivalente observeSessionStatus)
   // ------------------------------------
   async bootstrap() {
+    const configuration = ServerConfigurationStore.getActive();
+    if (configuration.isShared && localStorage.getItem("nuvioSharedBackendV1") !== configuration.backendUrl) {
+      await this._teardownAccountSession({ serverSwitch: true, verify: true, resetLocalData: true, notifyState: false });
+      localStorage.setItem("nuvioSharedBackendV1", configuration.backendUrl);
+    }
+    if (ServerConfigurationStore.getActive().isLocal) {
+      if (SessionStore.accessToken || SessionStore.refreshToken) {
+        await this._teardownAccountSession({ serverSwitch: true, verify: true, notifyState: false });
+      }
+      this.setState(AuthState.SIGNED_OUT);
+      return;
+    }
     const token = SessionStore.accessToken;
 
     if (!token) {
@@ -248,6 +261,29 @@ class AuthManagerClass {
     return this._teardownAccountSession({ serverSwitch: false, verify: false });
   }
 
+  async signUpWithEmail(email, password) {
+    const configuration = ServerConfigurationStore.getActive();
+    if (!configuration.isShared) throw new Error("Account registration is unavailable on this server");
+    const generation = this.sessionGeneration;
+    const res = await fetchSupabaseAuth("/auth/v1/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: publishableKey() },
+      body: JSON.stringify({ email, password }),
+      signal: this.getSessionSignal()
+    });
+    if (!res.ok) throw new Error(await parseResponseError(res, "Registration failed"));
+    const data = await res.json();
+    if (generation !== this.sessionGeneration) throw new Error("Registration was cancelled because the server changed");
+    if (data?.access_token && data?.refresh_token) {
+      SessionStore.accessToken = data.access_token;
+      SessionStore.refreshToken = data.refresh_token;
+      SessionStore.isAnonymousSession = false;
+      this.setState(AuthState.AUTHENTICATED);
+      return { confirmationRequired: false };
+    }
+    return { confirmationRequired: true };
+  }
+
   clearAnonymousSession() {
     if (!SessionStore.isAnonymousSession) {
       return false;
@@ -272,17 +308,17 @@ class AuthManagerClass {
     return true;
   }
 
-  async prepareForServerSwitch() {
-    return this._teardownAccountSession({ serverSwitch: true, verify: true });
+  async prepareForServerSwitch({ resetLocalData = false } = {}) {
+    return this._teardownAccountSession({ serverSwitch: true, verify: true, resetLocalData });
   }
 
-  async _teardownAccountSession({ serverSwitch = false, verify = false } = {}) {
+  async _teardownAccountSession({ serverSwitch = false, verify = false, resetLocalData = false, notifyState = true } = {}) {
     const wasSignedOut = this.state === AuthState.SIGNED_OUT;
     const hadAccountSession =
       !SessionStore.isAnonymousSession &&
       (this.state === AuthState.AUTHENTICATED ||
         Boolean(SessionStore.accessToken || SessionStore.refreshToken));
-    const shouldClearAccountData = !serverSwitch || hadAccountSession;
+    const shouldClearAccountData = !serverSwitch || hadAccountSession || resetLocalData;
     this.sessionGeneration += 1;
 
     if (this.sessionAbortController && !this.sessionAbortController.signal.aborted) {
@@ -320,7 +356,7 @@ class AuthManagerClass {
     // their in-flight work. The app-level signed-out listener also calls
     // StartupSyncService.stop(), so changing state earlier would discard the
     // promises we need to await here.
-    if (!wasSignedOut) {
+    if (!wasSignedOut && notifyState) {
       this.setState(AuthState.SIGNED_OUT);
     }
 
@@ -457,7 +493,7 @@ class AuthManagerClass {
         headers: {
           "Content-Type": "application/json",
           apikey: publishableKey(),
-          Authorization: `Bearer ${SessionStore.accessToken || publishableKey()}`
+          ...accountAuthorizationHeaders(publishableKey(), SessionStore.accessToken)
         },
         body: JSON.stringify({
           p_device_nonce: deviceNonce,
@@ -504,7 +540,7 @@ class AuthManagerClass {
       headers: {
         "Content-Type": "application/json",
         apikey: key,
-        Authorization: `Bearer ${SessionStore.accessToken || key}`
+        ...accountAuthorizationHeaders(key, SessionStore.accessToken)
       },
       body: JSON.stringify({
         p_device_nonce: deviceNonce,
@@ -573,7 +609,7 @@ class AuthManagerClass {
       headers: {
         "Content-Type": "application/json",
         apikey: publishableKey(),
-        Authorization: `Bearer ${SessionStore.accessToken || publishableKey()}`
+        ...accountAuthorizationHeaders(publishableKey(), SessionStore.accessToken)
       },
       body: JSON.stringify({
         p_code: code,
@@ -594,7 +630,7 @@ class AuthManagerClass {
       headers: {
         "Content-Type": "application/json",
         apikey: publishableKey(),
-        Authorization: `Bearer ${SessionStore.accessToken || publishableKey()}`
+        ...accountAuthorizationHeaders(publishableKey(), SessionStore.accessToken)
       },
       body: JSON.stringify({
         code,
@@ -640,7 +676,7 @@ class AuthManagerClass {
     const authHeaders = {
       "Content-Type": "application/json",
       apikey: key,
-      Authorization: `Bearer ${SessionStore.accessToken || key}`
+      ...accountAuthorizationHeaders(key, SessionStore.accessToken)
     };
 
     let res = await fetchSupabaseAuth("/rest/v1/rpc/get_sync_owner", {

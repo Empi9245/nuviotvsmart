@@ -8,6 +8,20 @@
   caret-color: var(--addons-primary);
 }
 
+#shared-addon-url {
+  width: 100%;
+  color: var(--addons-text);
+  font: 400 28px/40px var(--app-font-family);
+}
+
+.addons-installed-card p {
+  overflow-wrap: anywhere;
+}
+
+.addons-install-btn:disabled {
+  opacity: 0.5;
+}
+
 .addons-install-input::placeholder {
   color: var(--addons-text-tertiary);
 }
