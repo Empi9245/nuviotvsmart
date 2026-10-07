@@ -4,7 +4,6 @@ export const VIDAA_NAVIGATION_SETTLE_MS = 250;
 const HELD_KEY_EXPIRY_MS = 1000;
 const heldDirections = new Set();
 let lastInputAt = Number.NEGATIVE_INFINITY;
-let activityVersion = 0;
 
 function isDirection(keyCode) {
   return keyCode >= 37 && keyCode <= 40;
@@ -14,7 +13,6 @@ export function noteVidaaNavigationKeyDown(keyCode) {
   if (!Platform.isVidaa() || !isDirection(keyCode)) return;
   heldDirections.add(keyCode);
   lastInputAt = Date.now();
-  activityVersion += 1;
 }
 
 export function noteVidaaNavigationKeyUp(keyCode) {
@@ -30,12 +28,7 @@ export function isVidaaNavigationBusy({ quietMs = VIDAA_NAVIGATION_SETTLE_MS } =
   return elapsed < quietMs || (heldDirections.size > 0 && elapsed < HELD_KEY_EXPIRY_MS);
 }
 
-export function getVidaaNavigationActivityVersion() {
-  return activityVersion;
-}
-
 export function resetVidaaNavigationActivity() {
   heldDirections.clear();
   lastInputAt = Number.NEGATIVE_INFINITY;
-  activityVersion += 1;
 }

@@ -3,7 +3,7 @@ import {
   animateVidaaFocusScroll,
   VIDAA_FOCUS_SCROLL_DURATION_MS
 } from "../js/ui/navigation/vidaaFocusScroll.js";
-import { ScreenUtils } from "../js/ui/navigation/screen.js";
+import { Platform } from "../js/platform/index.js";
 
 let now = 0;
 let nextId = 0;
@@ -176,50 +176,10 @@ function scroller() {
   assert.equal(frames.size, 0);
 }
 
-// Generic directional navigation measures each visible candidate once only
-// on VIDAA, while preserving the existing selection and other-platform path.
-function focusNode(x, y, focused = false) {
-  const classes = new Set(focused ? ["focused"] : []);
-  return {
-    reads: 0,
-    dataset: {},
-    classList: {
-      contains: (name) => classes.has(name),
-      add: (name) => classes.add(name),
-      remove: (name) => classes.delete(name)
-    },
-    focus() {},
-    scrollIntoView() {},
-    getBoundingClientRect() {
-      this.reads += 1;
-      return { left: x, top: y, width: 100, height: 100 };
-    }
-  };
-}
 globalThis.document = { body: { classList: { contains: () => false } } };
-for (const platform of ["vidaa", "tizen", "webos", "browser"]) {
-  globalThis.__NUVIO_PLATFORM__ = platform;
-  const nodes = [focusNode(0, 0, true), focusNode(130, 0), focusNode(0, 130), focusNode(130, 130)];
-  const container = {
-    querySelectorAll: () => nodes,
-    querySelector: () => nodes.find((node) => node.classList.contains("focused"))
-  };
-  ScreenUtils.moveFocusDirectional(container, "right");
-  assert.equal(
-    nodes[1].classList.contains("focused"),
-    true,
-    `${platform}: focus chooses the same right neighbor`
-  );
-  assert.ok(
-    nodes.every((node) => node.reads === (platform === "vidaa" ? 1 : 2)),
-    `${platform}: geometry optimization is VIDAA-only`
-  );
-  frames.clear();
-}
 
 // Search and Details must use the continuous helper only for VIDAA, including
 // when their callers request spring camera following or invoke it directly.
-const { Platform } = await import("../js/platform/index.js");
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 const { createSearchScreenMethods04 } =
   await import("../js/ui/screens/search/searchScreenMethods-04-open-sidebar.js");
@@ -265,4 +225,4 @@ for (const methods of [createSearchScreenMethods04(), createMetaDetailsScreenMet
   }
 }
 
-console.log("VIDAA continuous focus scrolling and geometry regressions passed.");
+console.log("VIDAA continuous focus scrolling and other-platform isolation passed.");

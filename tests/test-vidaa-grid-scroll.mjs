@@ -8,6 +8,8 @@ const { createLibraryScreenMethods01 } =
   await import("../js/ui/screens/library/libraryScreenMethods-01-clear-closing-picker.js");
 const { createDiscoverScreenMethods04 } =
   await import("../js/ui/screens/search/discoverScreenMethods-04-restore-focused-card.js");
+const { createDiscoverScreenMethods01 } =
+  await import("../js/ui/screens/search/discoverScreenMethods-01-clear-closing-picker.js");
 
 let now = 0;
 let nextId = 0;
@@ -117,6 +119,7 @@ function libraryOwner(container) {
 
 function discoverOwner(container, scroller) {
   return {
+    ...createDiscoverScreenMethods01(),
     ...createDiscoverScreenMethods04(),
     container,
     layoutPrefs: { modernSidebar: true },

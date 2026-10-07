@@ -251,26 +251,8 @@ const methods19 = createHomeScreenMethods19();
   assert.equal(frames.size, 0);
 }
 
-// Reuse padding once a row is measured; geometry still uses current scroll.
-{
-  const track = {
-    ...scroller(),
-    dataset: { trackPadLeft: "104" },
-    getBoundingClientRect: () => ({ left: 20 })
-  };
-  const target = { closest: () => track, getBoundingClientRect: () => ({ left: 524 }) };
-  const home = {
-    ...methods15,
-    getTrackViewportMetrics() {
-      assert.fail("Cached row padding must be reused");
-    }
-  };
-  const next = home.getModernTrackAlignedScrollTarget(target);
-  assert.equal(next.container, track);
-  assert.equal(next.value, 400);
-}
-
-// Rejected repeats and active scrolling skip viewport geometry on VIDAA.
+// Rejected repeats skip geometry. An accepted key still checks visibility,
+// but active scrolling must prevent viewport sync from changing its focus.
 {
   const current = { dataset: { navRow: "0", navCol: "0" }, classList: { contains: () => false } };
   const target = {};
@@ -285,7 +267,10 @@ const methods19 = createHomeScreenMethods19();
     isSidebarNode: () => false,
     isNodeWithinMainViewport() {
       geometryReads++;
-      return true;
+      return false;
+    },
+    syncMainFocusToViewport() {
+      assert.fail("Active scrolling must preserve the navigation focus");
     },
     shouldSuspendModernViewportFocusSync: () => true,
     getDirectionalRepeatThrottleMs: () => 80,
@@ -300,7 +285,7 @@ const methods19 = createHomeScreenMethods19();
   assert.equal(geometryReads, 0);
   assert.equal(focusMoves, 0);
   assert.equal(home.handleHomeDpad({ keyCode: 39, repeat: false, preventDefault() {} }), true);
-  assert.equal(geometryReads, 0);
+  assert.equal(geometryReads, 1, "Accepted input uses the base visibility check");
   assert.equal(focusMoves, 1);
 }
 

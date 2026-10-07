@@ -8,6 +8,7 @@ const { createHomeScreenMethods12 } = await import("../js/ui/screens/home/homeSc
 const { createHomeScreenMethods13 } = await import("../js/ui/screens/home/homeScreenMethods-13-mount-trailer-layer.js");
 const { createHomeScreenMethods15 } = await import("../js/ui/screens/home/homeScreenMethods-15-schedule-focused-poster-flow.js");
 const { createHomeScreenMethods04 } = await import("../js/ui/screens/home/homeScreenMethods-04-get-hero-focus-delay.js");
+const { createHomeScreenMethods03 } = await import("../js/ui/screens/home/homeScreenMethods-03-is-scroll-animation-active.js");
 
 let frames = [];
 globalThis.requestAnimationFrame = (callback) => { frames.push(callback); return frames.length; };
@@ -97,7 +98,7 @@ platform("vidaa");
 // All VIDAA layouts defer background renders throughout held navigation, even
 // between animations. They resume when input and scrolling have settled.
 for(const layoutMode of ["modern","classic","grid"]) {
-  const screen={...createHomeScreenMethods04(),layoutMode,hasUserInteractedSinceHomePaint:true,isVidaaHomeLoadingBusy:()=>true};
+  const screen={...createHomeScreenMethods03(),...createHomeScreenMethods04(),layoutMode,hasUserInteractedSinceHomePaint:true,isVidaaHomeLoadingBusy:()=>true};
   assert.equal(screen.shouldDeferHomeRenderForInput(),true);
   screen.isVidaaHomeLoadingBusy=()=>false;
   assert.equal(screen.shouldDeferHomeRenderForInput(),false);
