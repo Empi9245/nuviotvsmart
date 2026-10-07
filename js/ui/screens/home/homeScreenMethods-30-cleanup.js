@@ -91,6 +91,23 @@ export function createHomeScreenMethods30() {
       this.homeLazyImageHydrationNeedsIndexRefresh = false;
       this.homeLazyImageHydrationIndex = null;
       this.lastHomeLazyImageHydrationAnchorRow = null;
+      if (this.homeVidaaPosterPrefetchInflight) {
+        this.homeVidaaPosterPrefetchInflight.forEach((record) => {
+          if (record?.timeoutId) clearTimeout(record.timeoutId);
+          try {
+            if (record?.image) {
+              record.image.onload = null;
+              record.image.onerror = null;
+              record.image.src = "";
+            }
+          } catch (_) {}
+        });
+        this.homeVidaaPosterPrefetchInflight.clear();
+      }
+      this.homeVidaaPosterPrefetchDesired = null;
+      this.homeVidaaPosterWarmUrls?.clear?.();
+      this.homeVidaaPrefetchMotion = null;
+      this.homeVidaaPosterReadyEwmaMs = 0;
       this.lastDirectionalKeyAtByDirection = {};
       this.homeTruncationScope = null;
       if (this.boundHomeEventContainer) {
