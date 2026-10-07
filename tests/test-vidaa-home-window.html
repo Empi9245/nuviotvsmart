@@ -56,6 +56,17 @@ try {
   assert(warmed>0 && warmed<=14,"Navigation warming must restore only a bounded target neighborhood");
   assert(warmTarget.querySelector(".home-poster-frame"),"The next focus row must regain its visual subtree before settling");
   assert(screen.homeVidaaParkedCards.size===parkedBeforeWarm-warmed,"Only warmed cards should leave the parked set");
+
+  // Repeated held vertical navigation must not accumulate every restored visual
+  // subtree. Older restored rows are re-parked without a geometry-heavy scan.
+  for (let rowIndex=6;rowIndex<=8;rowIndex+=1) {
+    restoreVidaaHomeNavigationNeighborhood(screen,screen.navModel.rows[rowIndex][15],"down");
+  }
+  assert(
+    screen.homeVidaaRestoredCards.size<=28,
+    "Held vertical navigation must keep the restored-card hot set bounded"
+  );
+
   assert(restoreVidaaHomeCard(screen,distant),"A remote target restores synchronously");
   assert(distant.querySelector("button")===child,"Restore must preserve actual nodes and listeners");
   assert(!distant.querySelector("img").hasAttribute("src") && distant.querySelector("img").dataset.src===imageUrl,"Distant images must be deferred and restorable");
