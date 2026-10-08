@@ -1,15 +1,25 @@
 import * as internals from "./homeScreenContext.js";
 import { forgetHomeMarkup } from "./patchHomeMarkup.js";
-import { restoreAllVidaaHomeCards } from "./vidaaHomeCardWindow.js";
+import { suspendVidaaHomeCardWindow, discardVidaaHomeCards } from "./vidaaHomeCardWindow.js";
 
 import { cancelVidaaHomePosterPrefetches } from "./vidaaHomePosterPrefetch.js";
 
 export function createHomeScreenMethods30() {
-  const { ScreenUtils, Platform } = internals;
+  const { ScreenUtils, Platform, getTvRuntimePerformanceProfile } = internals;
 
   return {
     cleanup() {
-      if (Platform.isVidaa()) restoreAllVidaaHomeCards(this);
+      const preserveRenderedTvHome = Boolean(
+        getTvRuntimePerformanceProfile().isTvRuntime &&
+        this.hasLoadedOnce &&
+        Array.isArray(this.rows) &&
+        this.rows.length &&
+        this.container?.childNodes?.length
+      );
+      if (Platform.isVidaa()) {
+        if (preserveRenderedTvHome) suspendVidaaHomeCardWindow(this);
+        else discardVidaaHomeCards(this);
+      }
       if (this.unsubscribeStartupSyncPullCompleted) {
         this.unsubscribeStartupSyncPullCompleted();
         this.unsubscribeStartupSyncPullCompleted = null;
@@ -109,13 +119,6 @@ export function createHomeScreenMethods30() {
       }
       this.cachedModernPortraitPosterMetrics = null;
       this.cachedModernLandscapePosterMetrics = null;
-      const preserveRenderedTvHome = Boolean(
-        (Platform.isTizen() || Platform.isWebOS()) &&
-        this.hasLoadedOnce &&
-        Array.isArray(this.rows) &&
-        this.rows.length &&
-        this.container?.childNodes?.length
-      );
       if (preserveRenderedTvHome) {
         // Keep the rendered TV Home alive while another screen is shown. Rebuilding
         // a large catalog after display:none forces a full parse/layout/paint on

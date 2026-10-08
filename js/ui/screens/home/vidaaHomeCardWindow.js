@@ -25,15 +25,26 @@ export function restoreVidaaHomeCard(screen, card) {
   return true;
 }
 
-export function restoreAllVidaaHomeCards(screen) {
+export function suspendVidaaHomeCardWindow(screen) {
   if (screen.homeVidaaCardWindowTimer) clearTimeout(screen.homeVidaaCardWindowTimer);
   if (screen.homeVidaaCardWindowRaf) cancelAnimationFrame(screen.homeVidaaCardWindowRaf);
   screen.homeVidaaCardWindowTimer = 0;
   screen.homeVidaaCardWindowRaf = 0;
-  screen.homeVidaaParkedCards?.forEach((record, card) => restoreCard(card, record));
+}
+
+// A preserved Home keeps its bounded visual window intact while hidden. If its
+// DOM is being removed, drop the detached fragments without reattaching them.
+export function discardVidaaHomeCards(screen) {
+  suspendVidaaHomeCardWindow(screen);
   screen.homeVidaaParkedCards?.clear();
   screen.homeVidaaActiveCards = null;
   screen.homeVidaaCardWindowBaseSize = 0;
+}
+
+export function restoreAllVidaaHomeCards(screen) {
+  suspendVidaaHomeCardWindow(screen);
+  screen.homeVidaaParkedCards?.forEach((record, card) => restoreCard(card, record));
+  discardVidaaHomeCards(screen);
 }
 
 // This is a throttle, not a trailing debounce: uninterrupted arrows must still

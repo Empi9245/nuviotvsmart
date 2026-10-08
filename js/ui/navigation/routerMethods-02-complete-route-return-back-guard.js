@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./router.js";
+import { resetVidaaNavigationActivity } from "./vidaaNavigationActivity.js";
 
 export function createRouterMethods02() {
   const {
@@ -100,6 +101,9 @@ export function createRouterMethods02() {
         console.error("Route not found:", routeName);
         return;
       }
+      // A held arrow belongs to the previous screen. A missed firmware keyup
+      // must not keep the newly opened screen's loading paused for one second.
+      if (Platform.isVidaa()) resetVidaaNavigationActivity();
 
       const bootGuard = globalThis.NuvioBootGuard;
       if (bootGuard && typeof bootGuard.stage === "function") {

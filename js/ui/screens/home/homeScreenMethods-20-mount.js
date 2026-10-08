@@ -9,7 +9,7 @@ export function createHomeScreenMethods20() {
     LayoutPreferences,
     CollectionsStore,
     ProfileManager,
-    Platform,
+    getTvRuntimePerformanceProfile,
     buildWatchedTitleIdSet,
     getSidebarProfileState,
     setModernSidebarPillIconOnly,
@@ -105,7 +105,7 @@ export function createHomeScreenMethods20() {
         );
       }
       const canResumePreservedTvHome = Boolean(
-        (Platform.isTizen() || Platform.isWebOS()) &&
+        getTvRuntimePerformanceProfile().isTvRuntime &&
         isHomeRouteReturn &&
         this.homeDomPreserved &&
         this.hasLoadedOnce &&
