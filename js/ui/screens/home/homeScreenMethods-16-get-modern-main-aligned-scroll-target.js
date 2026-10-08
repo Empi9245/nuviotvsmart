@@ -291,6 +291,9 @@ export function createHomeScreenMethods16() {
         if (Router.getCurrent() !== "home") {
           return;
         }
+        if (Platform.isVidaa() && this.isVidaaHomeLoadingBusy()) {
+          return;
+        }
         this.syncMainFocusToViewport({ suppressFlows: true });
       }, 120);
     }

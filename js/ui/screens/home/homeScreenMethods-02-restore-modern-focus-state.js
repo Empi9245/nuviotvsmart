@@ -1,5 +1,6 @@
 import * as internals from "./homeScreenContext.js";
 import { animateVidaaFocusScroll } from "../../navigation/vidaaFocusScroll.js";
+import { settleVidaaHomeReturnFocus } from "./vidaaHomeReturnFocus.js";
 
 export function createHomeScreenMethods02() {
   const { Platform, MODERN_HOME_CONSTANTS, findHomeFocusIdentityMatch, MODERN_CAMERA_PAN_EASING } = internals;
@@ -38,7 +39,10 @@ export function createHomeScreenMethods02() {
         return false;
       }
 
-      this.setFocusedNode(target);
+      this.setFocusedNode(target, { suppressDelegatedFocus: Platform.isVidaa() && this.isRestoringFocusFromBack });
+      if (Platform.isVidaa() && this.isRestoringFocusFromBack) {
+        settleVidaaHomeReturnFocus(this, target, viewport);
+      }
       this.syncFocusedCollectionCardState();
       this.lastMainFocus = target;
       this.rememberMainRowFocus(target);
@@ -91,7 +95,10 @@ export function createHomeScreenMethods02() {
         return false;
       }
 
-      this.setFocusedNode(target);
+      this.setFocusedNode(target, { suppressDelegatedFocus: Platform.isVidaa() && this.isRestoringFocusFromBack });
+      if (Platform.isVidaa() && this.isRestoringFocusFromBack) {
+        settleVidaaHomeReturnFocus(this, target, main);
+      }
       this.syncFocusedCollectionCardState();
       this.lastMainFocus = target;
       this.rememberMainRowFocus(target);

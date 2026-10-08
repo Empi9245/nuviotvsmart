@@ -10,6 +10,7 @@ tests/*
 !tests/test-vidaa-home-patching.html
 !tests/test-vidaa-home-window.html
 !tests/test-vidaa-navigation-stress.html
+!tests/test-vidaa-route-return.html
 !tests/test-vidaa-*.mjs
 *.ipk
 *.wgt

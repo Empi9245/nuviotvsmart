@@ -1,0 +1,259 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>VIDAA Home return regression</title>
+<style>
+  body {
+    margin: 0;
+    background: #111;
+    color: white;
+    font: 16px monospace;
+  }
+  .home-modern-rows-viewport {
+    height: 720px;
+    width: 1920px;
+    overflow: auto;
+    overflow-anchor: none;
+  }
+  .home-track {
+    display: flex;
+    width: 1920px;
+    gap: 20px;
+    overflow: auto;
+    overflow-anchor: none;
+  }
+  .home-content-card {
+    flex: 0 0 var(--test-width);
+    width: var(--test-width);
+    height: var(--test-height);
+    box-sizing: border-box;
+  }
+  .home-poster-frame,
+  img {
+    width: var(--test-width);
+    height: var(--test-height);
+  }
+  .home-modern-row {
+    margin-bottom: 20px;
+  }
+  .vidaa-card-parked {
+    visibility: hidden;
+  }
+  #home.home-dom-preserved {
+    display: none !important;
+  }
+  #result {
+    white-space: pre-wrap;
+  }
+</style>
+<div id="home"></div>
+<pre id="result">Testing...</pre>
+<script type="module">
+  globalThis.__NUVIO_PLATFORM__ = "vidaa";
+  document.documentElement.classList.add("vidaa-tv");
+  const { HomeScreen, Router, ProfileManager, watchProgressRepository, LayoutPreferences } =
+    await import("../js/ui/screens/home/homeScreen.js");
+  const { updateVidaaHomeCardWindow } =
+    await import("../js/ui/screens/home/vidaaHomeCardWindow.js");
+  const { noteVidaaNavigationKeyDown, noteVidaaNavigationKeyUp, resetVidaaNavigationActivity } =
+    await import("../js/ui/navigation/vidaaNavigationActivity.js");
+  const landscape = new URLSearchParams(location.search).get("mode") === "landscape";
+  const container = document.getElementById("home");
+  container.style.setProperty("--test-width", landscape ? "318px" : "212px");
+  container.style.setProperty("--test-height", landscape ? "179px" : "318px");
+  const result = document.getElementById("result");
+  const assert = (condition, message) => {
+    if (!condition) throw Error(message);
+  };
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const image =
+    "data:image/svg+xml," +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="212" height="318"><rect width="212" height="318" fill="teal"/></svg>'
+    );
+  const screen = { ...HomeScreen };
+  let route = "home";
+  Router.getCurrent = () => route;
+  LayoutPreferences.set({
+    homeLayout: "modern",
+    heroSectionEnabled: false,
+    continueWatchingEnabled: false,
+    modernLandscapePostersEnabled: landscape,
+    focusedPosterBackdropExpandEnabled: false,
+    focusedPosterBackdropTrailerEnabled: false
+  });
+  Object.assign(screen, {
+    container,
+    layoutMode: "modern",
+    layoutPrefs: LayoutPreferences.get(),
+    rows: Array.from({ length: 20 }, (_, row) => ({
+      addonId: "test",
+      addonName: "Test",
+      addonBaseUrl: "https://invalid.test",
+      catalogId: `row${row}`,
+      type: "movie",
+      homeCatalogKey: `test:movie:row${row}`,
+      result: {
+        status: "success",
+        data: {
+          items: Array.from({ length: 30 }, (_, col) => ({
+            id: `${row}-${col}`,
+            type: "movie",
+            name: `${row}-${col}`,
+            poster: image
+          })),
+          hasMore: false
+        }
+      }
+    })),
+    hasLoadedOnce: true,
+    loadedProfileId: String(ProfileManager.getActiveProfileId() || ""),
+    loadedWatchProgressSourceKey: watchProgressRepository.getContinueWatchingSourceKey(),
+    continueWatchingInitialResolved: true,
+    collections: [],
+    watchedTitleIds: new Set(),
+    heroCandidates: [],
+    heroItem: null,
+    // No external IO: exercise actual render, cleanup, mount, restore and D-pad.
+    ensureAddonManifestSubscriptions() {},
+    ensureStartupSyncSubscription() {},
+    refreshHomeAfterRouteReturn: async () => {},
+    scheduleModernHeroUpdate() {},
+    scheduleFocusedPosterFlow() {},
+    getRowItemLimit: () => 30
+  });
+  const arrow = (code) => screen.onKeyDown({ keyCode: code, preventDefault() {} });
+  const returnHome = async () => {
+    screen.rememberReturnFocusForNode(screen.getCurrentFocusedNode());
+    const state = screen.captureRouteState();
+    screen.cleanup();
+    route = "detail";
+    route = "home";
+    resetVidaaNavigationActivity();
+    await screen.mount(
+      {},
+      { isBackNavigation: true, previousRoute: "detail", restoredState: state }
+    );
+  };
+  try {
+    screen.render();
+    await sleep(500);
+    const viewport = screen.getHomeViewport();
+    assert(
+      screen.navModel.rows.flat().length === 600,
+      "Fixture must contain 600 real navigation anchors"
+    );
+    let returns = 0;
+    for (const axis of ["vertical", "horizontal"]) {
+      for (let trip = 0; trip < 5; trip++) {
+        const row = axis === "vertical" ? 5 : 15;
+        const track = screen.navModel.tracks[row];
+        const anchor = screen.navModel.rows[row][axis === "vertical" ? 0 : 5];
+        viewport.scrollTop = track.parentElement.offsetTop - viewport.offsetTop;
+        track.scrollLeft = axis === "vertical" ? 0 : 5 * ((landscape ? 318 : 212) + 20);
+        screen.setFocusedNode(anchor, { suppressDelegatedFocus: true });
+        await sleep(180);
+        // Interrupt before any queued camera frame, simulating quick arrows + OK.
+        for (let press = 0; press < (axis === "vertical" ? 5 : 12); press++)
+          arrow(axis === "vertical" ? 40 : 39);
+        const selected = screen.getCurrentFocusedNode();
+        const selectedRow = selected.dataset.navRow;
+        const selectedCol = Number(selected.dataset.navCol);
+        await returnHome();
+        assert(
+          screen.getCurrentFocusedNode() === selected,
+          "Back must restore the actual selected node"
+        );
+        assert(
+          screen.isNodeWithinMainViewport(selected),
+          "Selected row must be visible before the first arrow"
+        );
+        const rect = selected.getBoundingClientRect();
+        const trackRect = selected.closest(".home-track").getBoundingClientRect();
+        assert(
+          rect.right > trackRect.left && rect.left < trackRect.right,
+          "Selected poster must be visible horizontally"
+        );
+        assert(
+          !screen.shouldSuspendModernViewportFocusSync(),
+          "Return must not leave stale scroll work running"
+        );
+        // No frame or timeout between return and the first input.
+        arrow(39);
+        assert(
+          screen.getCurrentFocusedNode().dataset.navRow === selectedRow,
+          "The first arrow must not teleport to the old viewport row"
+        );
+        assert(
+          Number(screen.getCurrentFocusedNode().dataset.navCol) === selectedCol + 1,
+          "The first arrow must select the adjacent poster"
+        );
+        await sleep(240);
+        assert(
+          screen.getCurrentFocusedNode().dataset.navRow === selectedRow,
+          "Late scroll events must not undo the first input"
+        );
+        returns++;
+      }
+    }
+    // Establish current generated markup, then test repeated no-op refreshes.
+    screen.render();
+    updateVidaaHomeCardWindow(
+      screen,
+      viewport.getBoundingClientRect(),
+      screen.getCurrentFocusedNode()
+    );
+    const parked = screen.homeVidaaParkedCards.size;
+    const contentCount = container.querySelectorAll(".home-poster-frame").length;
+    const focus = screen.getCurrentFocusedNode();
+    assert(parked > 300, "Most distant card trees must be parked");
+    const markup = screen.renderedMarkup;
+    for (let refresh = 0; refresh < 4; refresh++) {
+      screen.render();
+      assert(screen.renderedMarkup === markup, "Refresh fixture must produce identical markup");
+      assert(
+        screen.homeVidaaParkedCards.size === parked,
+        "No-op refresh must not reattach every distant poster"
+      );
+      assert(
+        container.querySelectorAll(".home-poster-frame").length === contentCount,
+        "No-op refresh must retain the bounded visual window"
+      );
+      assert(
+        screen.getCurrentFocusedNode() === focus,
+        "No-op refresh must preserve the selected node"
+      );
+    }
+    // A previously queued viewport sync must not steal focus during a new hold.
+    let syncs = 0;
+    const sync = screen.syncMainFocusToViewport;
+    screen.syncMainFocusToViewport = function (...args) {
+      syncs++;
+      return sync.apply(this, args);
+    };
+    screen.scheduleHomeViewportFocusSync();
+    noteVidaaNavigationKeyDown(39);
+    await sleep(150);
+    assert(syncs === 0, "Delayed viewport sync must not run during held navigation");
+    noteVidaaNavigationKeyUp(39);
+    screen.cleanup();
+    route = "detail";
+    result.textContent = JSON.stringify(
+      {
+        status: "PASS",
+        mode: landscape ? "landscape" : "portrait",
+        anchors: 600,
+        returns,
+        parked,
+        contentCount,
+        immediateInput: true,
+        noDelayedFocusJump: true,
+        unchangedRefreshes: 4
+      },
+      null,
+      2
+    );
+  } catch (error) {
+    result.textContent = `FAIL: ${error.stack}`;
+    screen.cleanup();
+  }
+</script>

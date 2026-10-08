@@ -451,7 +451,8 @@ export function createHomeScreenMethods04() {
         if (changedRowCount) {
           this.collections = CollectionsStore.get();
           this.rows = this.sortAndFilterRows(nextRows, this.collections);
-          this.render();
+          if (Platform.isVidaa()) this.requestBackgroundRender();
+          else this.render();
         }
         logHomePerf("catalogRefresh", {
           reason,

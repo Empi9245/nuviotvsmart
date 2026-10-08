@@ -20,8 +20,18 @@ const { createHomeScreenMethods14 } =
   await import("../js/ui/screens/home/homeScreenMethods-14-activate-focused-poster-flow.js");
 const { createHomeScreenMethods15 } =
   await import("../js/ui/screens/home/homeScreenMethods-15-schedule-focused-poster-flow.js");
-const { metaRepository, mdbListRepository, TmdbSettingsStore } =
-  await import("../js/ui/screens/home/homeScreenContext.js");
+const { createHomeScreenMethods21 } =
+  await import("../js/ui/screens/home/homeScreenMethods-21-load-data.js");
+const {
+  metaRepository,
+  mdbListRepository,
+  TmdbSettingsStore,
+  addonRepository,
+  watchedItemsRepository,
+  watchProgressRepository,
+  LayoutPreferences,
+  buildCatalogOrderKey
+} = await import("../js/ui/screens/home/homeScreenContext.js");
 const { heroImagePreloadCache } =
   await import("../js/ui/screens/home/homeScreenHelpers-02-extract-release-date-text.js");
 
@@ -350,6 +360,99 @@ for (const name of ["tizen", "webos", "browser"]) {
   await advance(150);
   assert.deepEqual(trailers, [name], `${name} retains 150ms trailer prefetch`);
   assert.equal(state.isVidaaHomeLoadingBusy(), false);
+}
+
+// A resumed Home refresh must use the same input-aware render scheduler as
+// progressive responses. Previously these two completion paths rendered inline
+// despite a held arrow, reattaching the whole catalog during navigation.
+const originalAddons = addonRepository.getInstalledAddons;
+const originalWatched = watchedItemsRepository.getAll;
+const originalAllProgress = watchProgressRepository.getAllForContinueWatching;
+const originalRecent = watchProgressRepository.getRecent;
+const originalPrefs = LayoutPreferences.get;
+const never = () => new Promise(() => {});
+watchedItemsRepository.getAll = never;
+watchProgressRepository.getAllForContinueWatching = never;
+watchProgressRepository.getRecent = never;
+LayoutPreferences.get = () => ({ homeLayout: "modern", continueWatchingEnabled: false });
+addonRepository.getInstalledAddons = async () => [
+  {
+    id: "test",
+    baseUrl: "https://invalid.test",
+    displayName: "Test",
+    catalogs: [{ id: "demo", apiType: "movie", name: "Demo" }]
+  }
+];
+try {
+  for (const name of ["vidaa", "tizen", "webos", "browser"]) {
+    for (const operation of ["background-load", "catalog-refresh", "cold-load"]) {
+      reset(name);
+      let renders = 0;
+      const row = {
+        addonId: "test",
+        addonBaseUrl: "https://invalid.test",
+        type: "movie",
+        catalogId: "demo",
+        homeCatalogKey: buildCatalogOrderKey("test", "movie", "demo"),
+        result: { status: "success", data: { items: [{ id: "old", type: "movie" }] } }
+      };
+      const fresh = {
+        ...row,
+        result: { status: "success", data: { items: [{ id: "new", type: "movie" }] } }
+      };
+      const state = {
+        ...createHomeScreenMethods03(),
+        ...createHomeScreenMethods04(),
+        ...createHomeScreenMethods21(),
+        container: {},
+        layoutMode: "modern",
+        hasLoadedOnce: true,
+        continueWatchingInitialResolved: true,
+        hasUserInteractedSinceHomePaint: true,
+        rows: [row],
+        heroCandidates: [],
+        buildSyncSensitiveHomeSignature: () => "inputs",
+        buildHomeRouteInputSignature: () => "inputs",
+        fetchCatalogRows: async () => [fresh],
+        sortAndFilterRows: (rows) => rows,
+        collectHeroCandidates: () => [],
+        pickInitialHero: () => null,
+        retryPendingCatalogRows() {},
+        refreshWatchedTitleState() {},
+        captureCurrentFocusState: () => null,
+        getInitialCatalogLoadCount: () => 1,
+        getDeferredCatalogBatchSize: () => 1,
+        getBackgroundRenderDelay: () => 0,
+        isPerformanceConstrained: () => false,
+        render() {
+          renders++;
+        }
+      };
+      noteVidaaNavigationKeyDown(39);
+      if (operation === "catalog-refresh") await state.refreshHomeCatalogsIfStale();
+      else
+        await state.loadData({
+          background: operation === "background-load",
+          preserveReturnState: true
+        });
+      const deferred = name === "vidaa" && operation !== "cold-load";
+      assert.equal(renders, deferred ? 0 : 1, `${name} ${operation}: completion render policy`);
+      if (deferred) {
+        await paint();
+        assert.equal(renders, 0, `${operation}: held arrows must keep the live Home responsive`);
+        noteVidaaNavigationKeyUp(39);
+        await advance(400);
+        await paint();
+        assert.equal(renders, 1, `${operation}: refreshed data must render after input settles`);
+      }
+    }
+  }
+} finally {
+  addonRepository.getInstalledAddons = originalAddons;
+  watchedItemsRepository.getAll = originalWatched;
+  watchProgressRepository.getAllForContinueWatching = originalAllProgress;
+  watchProgressRepository.getRecent = originalRecent;
+  LayoutPreferences.get = originalPrefs;
 }
 
 console.log(

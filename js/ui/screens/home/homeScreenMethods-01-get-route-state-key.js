@@ -1,8 +1,10 @@
 import * as internals from "./homeScreenContext.js";
+import { settleVidaaHomeReturnFocus } from "./vidaaHomeReturnFocus.js";
 
 export function createHomeScreenMethods01() {
   const {
     Router,
+    Platform,
     getLegacySidebarNodes,
     getLegacySidebarSelectedNode,
     getModernSidebarNodes,
@@ -210,6 +212,7 @@ export function createHomeScreenMethods01() {
       this.setFocusedNode(target, { suppressDelegatedFocus: true });
       viewport.scrollTop = Math.max(0, Math.min(maxScrollTop, Number(focusState.mainScrollTop || 0)));
       this.lastMainFocus = target;
+      if (Platform.isVidaa()) settleVidaaHomeReturnFocus(this, target, viewport);
       this.rememberMainRowFocus(target);
       this.syncFocusedCollectionCardState();
       this.scheduleModernHeroUpdate(target, { immediate: true });

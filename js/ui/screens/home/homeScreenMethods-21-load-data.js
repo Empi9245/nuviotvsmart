@@ -4,6 +4,7 @@ import { startHomeContinueWatchingLoad } from "./homeContinueWatchingLoad.js";
 export function createHomeScreenMethods21() {
   const {
     Router,
+    Platform,
     addonRepository,
     watchProgressRepository,
     watchedItemsRepository,
@@ -243,7 +244,8 @@ export function createHomeScreenMethods21() {
       if (!deferredDescriptors.length) {
         this.loadedHomeRouteInputSignature = routeInputSignature;
       }
-      this.render();
+      if (background && Platform.isVidaa()) this.requestBackgroundRender();
+      else this.render();
       this.maybeStartPendingHomeBackgroundRefresh();
       logHomePerf("loadData", {
         phase: "first-render",

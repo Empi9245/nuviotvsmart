@@ -41,7 +41,6 @@ export function createHomeScreenMethods23() {
   return {
     render() {
       const renderStart = HOME_PERF_DEBUG ? homePerfNow() : 0;
-      if (Platform.isVidaa()) restoreAllVidaaHomeCards(this);
       this.cancelScheduledRender();
       const liveFocusedNode = this.getCurrentFocusedNode();
       if (this.hasUserInteractedSinceHomePaint) {
@@ -299,6 +298,7 @@ export function createHomeScreenMethods23() {
 
       let updatedInPlace = canUpdateInPlace && markupUnchanged;
       if (!markupUnchanged) {
+        if (Platform.isVidaa()) restoreAllVidaaHomeCards(this);
         if (!canUpdateInPlace) {
           this.cancelModernCameraFollow({ stopAnimations: true });
           this.cancelFocusedPosterFlow();
