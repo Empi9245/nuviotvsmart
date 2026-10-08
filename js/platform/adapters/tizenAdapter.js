@@ -43,6 +43,7 @@ function applyTizenViewport() {
 
 export const tizenAdapter = {
   name: "tizen",
+  nativeTextInput: true,
 
   init() {
     applyTizenViewport();

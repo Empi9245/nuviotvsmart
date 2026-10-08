@@ -41,21 +41,10 @@ export function createPluginsScreenMethods01() {
       this.render();
     },
     isNativeTextInputEditingActive(event = null) {
-      if (!Platform.isTizen() && !Platform.isWebOS()) {
-        return false;
-      }
-      if (Platform.isWebOS() && this.keyboardVisible === false) {
-        // webOS keeps the input as activeElement after its native keyboard has
-        // disappeared; the D-pad must be handed back to the page at that point.
-        return false;
-      }
-      const active = document.activeElement;
-      const eventTarget = event?.target || null;
-      return Boolean(
-        (active && this.container?.contains?.(active) && active.matches?.("input, textarea")) ||
-        eventTarget?.matches?.("input, textarea") ||
-        eventTarget?.closest?.("input, textarea")
-      );
+      return Platform.isNativeTextInputEditingActive(event, {
+        container: this.container,
+        keyboardVisible: this.keyboardVisible
+      });
     },
     async probeRuntime() {
       try {

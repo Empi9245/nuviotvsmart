@@ -1,5 +1,11 @@
 import { isBackEvent, normalizeKeyEvent } from "../sharedKeys.js";
-import { installVidaaKeyboardFix } from "../vidaa/vidaaKeyboard.js";
+import {
+  installVidaaKeyboardFix,
+  isVidaaTextInputEditingActive,
+  shouldPreserveVidaaTextInputKey,
+  handleVidaaTextInputKey,
+  getVidaaTextInputKeyCode
+} from "../vidaa/vidaaKeyboard.js";
 
 // Preserve the optional HTTP-domain compatibility call without registering
 // unrelated services at startup. A completed call does not prove TV permission.
@@ -48,6 +54,10 @@ const VIDAA_BACK_CODES = [8, 461, 10009, 27];
 
 export const vidaaAdapter = {
   name: "vidaa",
+  nativeTextInput: true,
+  isNativeTextInputEditingActive: isVidaaTextInputEditingActive,
+  shouldPreserveTextInputKey: shouldPreserveVidaaTextInputKey,
+  handleTextInputKey: handleVidaaTextInputKey,
 
   init() {
     applyVidaaViewport();
@@ -73,11 +83,31 @@ export const vidaaAdapter = {
   },
 
   isBackEvent(event) {
+    const code = Number(event?.keyCode || event?.which || 0);
+    if (code === 8 || event?.key === "Backspace") {
+      if (isVidaaTextInputEditingActive(event)) return false;
+      // A dismissed keyboard can leave a stale input target on VIDAA.
+      return isBackEvent(
+        {
+          target: null,
+          key: event?.key,
+          code: event?.code,
+          keyName: event?.keyName || event?.detail?.keyName,
+          keyCode: code
+        },
+        VIDAA_BACK_CODES
+      );
+    }
     return isBackEvent(event, VIDAA_BACK_CODES);
   },
 
   normalizeKey(event) {
     const normalized = normalizeKeyEvent(event, VIDAA_BACK_CODES);
+    if (!normalized.keyCode) {
+      normalized.keyCode = getVidaaTextInputKeyCode(event);
+      normalized.originalKeyCode = normalized.keyCode;
+    }
+    normalized.isBack = this.isBackEvent(event);
     // Route channel seek shortcuts through Nuvio's normal media controls.
     // The adapter must not manipulate a video behind an open menu or dialog.
     if (normalized.keyCode === 427 || normalized.keyCode === 428) {

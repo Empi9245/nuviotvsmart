@@ -2,6 +2,8 @@ import * as internals from "./homeScreenContext.js";
 import { forgetHomeMarkup } from "./patchHomeMarkup.js";
 import { restoreAllVidaaHomeCards } from "./vidaaHomeCardWindow.js";
 
+import { cancelVidaaHomePosterPrefetches } from "./vidaaHomePosterPrefetch.js";
+
 export function createHomeScreenMethods30() {
   const { ScreenUtils, Platform } = internals;
 
@@ -91,20 +93,7 @@ export function createHomeScreenMethods30() {
       this.homeLazyImageHydrationNeedsIndexRefresh = false;
       this.homeLazyImageHydrationIndex = null;
       this.lastHomeLazyImageHydrationAnchorRow = null;
-      if (this.homeVidaaPosterPrefetchInflight) {
-        this.homeVidaaPosterPrefetchInflight.forEach((record) => {
-          if (record?.timeoutId) clearTimeout(record.timeoutId);
-          try {
-            if (record?.image) {
-              record.image.onload = null;
-              record.image.onerror = null;
-              record.image.src = "";
-            }
-          } catch (_) {}
-        });
-        this.homeVidaaPosterPrefetchInflight.clear();
-      }
-      this.homeVidaaPosterPrefetchDesired = null;
+      cancelVidaaHomePosterPrefetches(this);
       this.homeVidaaPosterWarmUrls?.clear?.();
       this.homeVidaaPrefetchMotion = null;
       this.homeVidaaPosterReadyEwmaMs = 0;

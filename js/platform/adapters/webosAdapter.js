@@ -3,6 +3,7 @@ import { WebOSPlayerExtensions } from "../webos/webosPlayerExtensions.js";
 
 export const webosAdapter = {
   name: "webos",
+  nativeTextInput: true,
 
   exitApp() {
     if (globalThis.webOSSystem && typeof globalThis.webOSSystem.close === "function") {

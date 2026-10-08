@@ -43,6 +43,8 @@
  *   dialog.destroy();              // animated exit then removes from DOM
  */
 
+import { Platform } from "../../platform/index.js";
+
 export class NuvioDialog {
   constructor({
     title,
@@ -75,6 +77,7 @@ export class NuvioDialog {
     this._panel = null;
     this._buttonEls = [];
     this._enterSuppressed = this.suppressEnterUntilKeyUp;
+    this._nativeTextKeys = new Set();
     this._keyHandler = this._onKey.bind(this);
     this._keyUpHandler = this._onKeyUp.bind(this);
   }
@@ -258,6 +261,10 @@ export class NuvioDialog {
 
   _onKey(e) {
     if (this._destroyed) return;
+    if (Platform.handleTextInputKey(e)) {
+      this._nativeTextKeys.add(Platform.normalizeKey(e).keyCode);
+      return;
+    }
     const key = this._eventKey(e);
 
     if (key.isBack) {
@@ -313,6 +320,14 @@ export class NuvioDialog {
 
   _onKeyUp(e) {
     if (this._destroyed) return;
+    if (
+      this._nativeTextKeys.delete(Platform.normalizeKey(e).keyCode) ||
+      Platform.handleTextInputKey(e, { keyUp: true })
+    ) {
+      e.stopPropagation();
+      e.stopImmediatePropagation?.();
+      return;
+    }
     const key = this._eventKey(e);
     if (key.isEnter || key.isSpace) {
       this._enterSuppressed = false;

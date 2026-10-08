@@ -1,6 +1,5 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./searchScreen.js";
-import { shouldPreserveVidaaTextInputKey } from "../../../platform/vidaa/vidaaKeyboard.js";
 
 export function createSearchScreenMethods06() {
   const {
@@ -172,7 +171,7 @@ export function createSearchScreenMethods06() {
     },
     async onKeyDown(event) {
       const code = Number(event?.keyCode || 0);
-      if (Platform.isVidaa() && shouldPreserveVidaaTextInputKey(event)) {
+      if (Platform.handleTextInputKey(event)) {
         return;
       }
       if (this.suppressHoldMenuEnterUntilKeyUp && code === 13) {

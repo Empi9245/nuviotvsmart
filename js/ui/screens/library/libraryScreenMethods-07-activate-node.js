@@ -187,6 +187,7 @@ export function createLibraryScreenMethods07() {
       }
     },
     async onKeyDown(event) {
+      if (Platform.handleTextInputKey(event)) return;
       if (Environment.isBackEvent(event)) {
         event?.preventDefault?.();
         if (this.closeTopOverlay()) {

@@ -3,7 +3,6 @@ import { ScreenUtils } from "../../navigation/screen.js";
 import { LocalStore } from "../../../core/storage/localStore.js";
 import { I18n } from "../../../i18n/index.js";
 import { Platform } from "../../../platform/index.js";
-import { shouldPreserveVidaaTextInputKey } from "../../../platform/vidaa/vidaaKeyboard.js";
 
 const KEY = "manualSyncCode";
 
@@ -74,13 +73,11 @@ export const SyncCodeScreen = {
   },
 
   onKeyDown(event) {
+    if (Platform.handleTextInputKey(event)) return;
     if (this.textDialog) {
       if (event.keyCode === 27 || event.keyCode === 461) {
         this.textDialog = false;
         this.render();
-        return;
-      }
-      if (Platform.isVidaa() && shouldPreserveVidaaTextInputKey(event)) {
         return;
       }
       if (ScreenUtils.handleDpadNavigation(event, this.container)) {

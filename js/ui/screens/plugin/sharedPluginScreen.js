@@ -392,6 +392,7 @@ export const SharedPluginScreen = {
   },
 
   async onKeyDown(event) {
+    if (Platform.handleTextInputKey(event)) return;
     if (Platform.isBackEvent(event)) {
       event.preventDefault();
       await Router.back();
@@ -405,10 +406,9 @@ export const SharedPluginScreen = {
 
     // Let the TV/browser handle OK on a focused text field. VIDAA uses this
     // native activation to open its on-screen keyboard.
-    if (inputFocused && code === 13) return;
-
-    // Keep left/right available for caret movement while editing the URL.
-    if (inputFocused && (code === 37 || code === 39)) return;
+    if (Platform.shouldPreserveTextInputKey(event, inputFocused && [13, 37, 39].includes(code))) {
+      return;
+    }
 
     if (code === 38 || code === 40 || code === 37 || code === 39) {
       event.preventDefault();

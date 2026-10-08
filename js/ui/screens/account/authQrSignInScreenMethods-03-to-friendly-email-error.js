@@ -195,6 +195,7 @@ export function createAuthQrSignInScreenMethods03() {
       return this.onboardingMode ? I18n.t("auth.qr.continue") : I18n.t("auth.qr.back");
     },
     async onKeyDown(event) {
+      if (Platform.handleTextInputKey(event)) return;
       const keyCode = Number(event?.keyCode || 0);
       if (this.showSignOutConfirmation) {
         if (keyCode === 27 || keyCode === 461) {

@@ -30,7 +30,8 @@ function engine() {
   return {
     ...FocusEngine,
     activeKeyDownStartedAt: new Map(),
-    activeBackKeyIdentities: new Set()
+    activeBackKeyIdentities: new Set(),
+    nativeTextKeyIdentities: new Set()
   };
 }
 
@@ -153,17 +154,17 @@ for (const code of [37, 38, 39, 40]) {
   for (const code of [13, 37, 39]) {
     const event = remoteEvent(code, false, { target: input });
     focus.handleKey(event);
-    assert.deepEqual(event.calls, [], `Text input key ${code} must remain native on VIDAA`);
+    assert.deepEqual(event.calls, ["stop", "stopImmediate"], `Text input key ${code} must keep its default and skip page handlers`);
     const release = remoteEvent(code, false, { target: input });
     focus.handleKeyUp(release);
-    assert.deepEqual(release.calls, [], `Text input keyup ${code} must remain native on VIDAA`);
+    assert.deepEqual(release.calls, ["stop", "stopImmediate"], `Text input keyup ${code} must keep its default and skip page handlers`);
   }
 
   const bodyTargetEnter = remoteEvent(13, false, { target });
   focus.handleKey(bodyTargetEnter);
   assert.deepEqual(
     bodyTargetEnter.calls,
-    [],
+    ["stop", "stopImmediate"],
     "Focused VIDAA text input must preserve OK even when firmware targets the outer surface"
   );
 

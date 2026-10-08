@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./profileSelectionScreen.js";
+import { Platform } from "../../platform/index.js";
 
 export function createProfileSelectionScreenMethods07() {
   const {
@@ -193,6 +194,7 @@ export function createProfileSelectionScreenMethods07() {
       }
     },
     async onKeyDown(event) {
+      if (Platform.handleTextInputKey(event)) return;
       if (!this.container) {
         return;
       }

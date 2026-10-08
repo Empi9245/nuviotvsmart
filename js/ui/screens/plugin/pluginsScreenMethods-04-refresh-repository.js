@@ -1,6 +1,5 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./pluginsScreen.js";
-import { shouldPreserveVidaaTextInputKey } from "../../../platform/vidaa/vidaaKeyboard.js";
 
 export function createPluginsScreenMethods04() {
   const { ScreenUtils, Router, Platform, PluginManager, t } = internals;
@@ -68,6 +67,7 @@ export function createPluginsScreenMethods04() {
       }
     },
     async onKeyDown(event) {
+      if (Platform.handleTextInputKey(event)) return;
       if (this.pendingScraperEnable) {
         if (Platform.isBackEvent(event)) {
           event?.preventDefault?.();
@@ -94,10 +94,7 @@ export function createPluginsScreenMethods04() {
         return;
       }
       const code = Number(event?.keyCode || 0);
-      if (Platform.isVidaa() && shouldPreserveVidaaTextInputKey(event)) {
-        return;
-      }
-      if (this.isNativeTextInputEditingActive(event) && [38, 40, 37, 39].includes(code)) {
+      if (Platform.shouldPreserveTextInputKey(event, this.isNativeTextInputEditingActive(event) && [38, 40, 37, 39].includes(code))) {
         // Tizen/webOS route the directional keys through the native TV keyboard
         // while an input is being edited. Do not let the page-level focus graph
         // move to repository actions behind that keyboard.
@@ -113,7 +110,12 @@ export function createPluginsScreenMethods04() {
         }
         return;
       }
-      if (event?.target?.matches?.("input") && (code === 37 || code === 39) && (!Platform.isWebOS() || this.keyboardVisible !== false)) {
+      if (
+        Platform.shouldPreserveTextInputKey(
+          event,
+          event?.target?.matches?.("input") && (code === 37 || code === 39) && (!Platform.isWebOS() || this.keyboardVisible !== false)
+        )
+      ) {
         return;
       }
       if ([37, 39].includes(code)) {

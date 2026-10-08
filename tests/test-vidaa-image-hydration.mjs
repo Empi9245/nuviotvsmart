@@ -7,6 +7,8 @@ const { noteVidaaNavigationKeyDown, noteVidaaNavigationKeyUp, resetVidaaNavigati
   await import("../js/ui/navigation/vidaaNavigationActivity.js");
 const { createHomeScreenMethods03 } =
   await import("../js/ui/screens/home/homeScreenMethods-03-is-scroll-animation-active.js");
+const { createHomeScreenMethods05 } =
+  await import("../js/ui/screens/home/homeScreenMethods-05-apply-hero-to-dom.js");
 const { createHomeScreenMethods24 } =
   await import("../js/ui/screens/home/homeScreenMethods-24-schedule-home-lazy-image-hydration.js");
 const { createHomeScreenMethods29 } =
@@ -85,7 +87,9 @@ function homeSurface() {
         isConnected: true,
         dataset: { src: `poster-${rowIndex}-${index}` },
         classList: { contains: () => false },
-        getAttribute(name) { return name === "src" ? this.src || null : null; },
+        getAttribute(name) {
+          return name === "src" ? this.src || null : null;
+        },
         removeAttribute(name) {
           if (name === "data-src") delete this.dataset.src;
         },
@@ -231,7 +235,11 @@ platform("vidaa");
   owner.scheduleHomeLazyImageHydration(cards[4], { navigationDirection: "down" });
   assert.equal(images[4].src, "poster-0-4");
   for (const index of [1, 2, 3, 5, 6, 7]) {
-    assert.equal(images[index].src, `poster-0-${index}`, "Entered row should hydrate its visible neighborhood");
+    assert.equal(
+      images[index].src,
+      `poster-0-${index}`,
+      "Entered row should hydrate its visible neighborhood"
+    );
     assert.equal(images[index].fetchPriority, "auto");
   }
   for (const index of [14, 13, 15, 24, 23, 25]) {
@@ -254,7 +262,9 @@ platform("vidaa");
       card.dataset = { navRow: String(rowIndex), navCol: String(colIndex) };
     })
   );
-  upSurface.owner.scheduleHomeLazyImageHydration(upSurface.cards[24], { navigationDirection: "up" });
+  upSurface.owner.scheduleHomeLazyImageHydration(upSurface.cards[24], {
+    navigationDirection: "up"
+  });
   for (const index of [21, 22, 23, 25, 26, 27]) {
     assert.equal(upSurface.images[index].src, `poster-2-${index % 10}`);
     assert.equal(upSurface.images[index].fetchPriority, "auto");
@@ -329,6 +339,29 @@ for (const name of ["tizen", "webos", "browser"]) {
     `${name}: preserve original source assignment behavior`
   );
   assert.equal(frames.size, 0);
+}
+
+// Prefetch must follow the same remembered/default column as real Up/Down.
+platform("vidaa");
+{
+  const { owner, images, cards } = homeSurface();
+  owner.navModel = { rows: [cards.slice(0, 10), cards.slice(10, 20), cards.slice(20, 30)] };
+  owner.navModel.rows.forEach((nodes, r) =>
+    nodes.forEach((card, c) => {
+      card.dataset = { navRow: String(r), navCol: String(c), navRowKey: "row-" + r };
+    })
+  );
+  owner.resolvePreferredNodeForRow = createHomeScreenMethods05().resolvePreferredNodeForRow;
+  owner.getNodeRowKey = (node) => node.dataset.navRowKey;
+  owner.lastFocusedItemIndexByRowKey = { "row-1": 8 };
+  owner.scheduleHomeLazyImageHydration(cards[4], { navigationDirection: "down" });
+  assert.equal(images[18].src, "poster-1-8", "Warm the remembered column in the next row");
+  assert.equal(images[20].src, "poster-2-0", "Unvisited rows use the navigation default column");
+  assert.equal(
+    images[14].src,
+    undefined,
+    "Don't spend bandwidth on the current row's column in another row"
+  );
 }
 
 // Track pagination must not scan cards or append catalog fragments while the

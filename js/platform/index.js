@@ -142,6 +142,37 @@ export const Platform = {
     return this.getName() === "browser";
   },
 
+  usesNativeTextInput() {
+    return getAdapter().nativeTextInput === true;
+  },
+
+  isNativeTextInputEditingActive(event = null, { container = null, keyboardVisible } = {}) {
+    const adapter = getAdapter();
+    if (!adapter.nativeTextInput) return false;
+    if (adapter.isNativeTextInputEditingActive)
+      return adapter.isNativeTextInputEditingActive(event);
+    if (this.isWebOS() && keyboardVisible === false) return false;
+    // Preserve the existing Tizen/webOS screen contract. Their IME lifecycle
+    // stays separate from VIDAA's adapter hook.
+    const active = globalThis.document?.activeElement;
+    const target = event?.target;
+    return Boolean(
+      (active &&
+        (!container || container.contains?.(active)) &&
+        active.matches?.("input, textarea")) ||
+      target?.matches?.("input, textarea") ||
+      target?.closest?.("input, textarea")
+    );
+  },
+
+  shouldPreserveTextInputKey(event, fallback = false) {
+    return getAdapter().shouldPreserveTextInputKey?.(event) ?? fallback;
+  },
+
+  handleTextInputKey(event, options) {
+    return getAdapter().handleTextInputKey?.(event, options) ?? false;
+  },
+
   exitApp() {
     if (globalThis.document && typeof globalThis.CustomEvent === "function") {
       const beforeExitEvent = new CustomEvent("nuvio:beforeExitApp", {

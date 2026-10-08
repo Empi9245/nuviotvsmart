@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { installVidaaKeyboardFix } from "../js/platform/vidaa/vidaaKeyboard.js";
+import { createTextInputHarness } from "./helpers/vidaaTextInputHarness.mjs";
 
 function eventSurface() {
   const listeners = new Map();
@@ -57,14 +58,22 @@ function eventSurface() {
   first.value = "silent keyboard commit";
   poll();
   poll();
-  assert.deepEqual(first.events, ["input", "change"], "One event pair for a silent change");
+  assert.deepEqual(
+    first.events,
+    ["input"],
+    "Silent editing emits input without an early change commit"
+  );
   first.value = "native event";
   first.dispatchEvent({ type: "input" });
   poll();
-  assert.equal(first.events.length, 3, "Do not duplicate the native input event");
+  assert.equal(first.events.length, 2, "Do not duplicate the native input event");
   first.value = "last commit on keyboard close";
   documentRef.emit("focusout", first);
-  assert.equal(first.events.length, 5, "Flush the final value on blur");
+  assert.deepEqual(
+    first.events,
+    ["input", "input", "input", "change"],
+    "Flush the final value and one commit on blur"
+  );
   assert.equal(poll, null);
   const checkbox = field("INPUT", "checkbox");
   documentRef.emit("focusin", checkbox);
@@ -84,6 +93,80 @@ function eventSurface() {
   assert.equal(poll, null);
   root.emit("pageshow");
   assert.equal(typeof poll, "function");
+}
+
+// Fallback notifications must not duplicate delayed native events. DOM change
+// is a commit, rather than one extra notification for every character.
+for (const tagName of ["INPUT", "TEXTAREA", "DIV"]) {
+  const h = createTextInputHarness();
+  const field = h.node(
+    tagName,
+    tagName === "DIV" ? { contentEditable: "true", isContentEditable: true, value: undefined } : {}
+  );
+  const events = [];
+  field.addEventListener("input", () => events.push("input"));
+  field.addEventListener("change", () => events.push("change"));
+  const write = (value) => {
+    if (tagName === "DIV") field.textContent = value;
+    else field.value = value;
+  };
+  field.focus();
+  write("first silent edit");
+  h.poll();
+  h.poll();
+  assert.deepEqual(events, ["input"]);
+  h.native("input", field);
+  assert.deepEqual(
+    events,
+    ["input"],
+    "A late native input cannot duplicate a fallback notification"
+  );
+  write("final silent commit");
+  field.blur();
+  assert.deepEqual(events, ["input", "input", "change"]);
+  h.native("input", field);
+  h.native("change", field);
+  assert.deepEqual(
+    events,
+    ["input", "input", "change"],
+    "Late native input/change after focusout are deduplicated"
+  );
+  assert.equal(h.timers.size, 0);
+  field.focus();
+  write("normal DOM input");
+  h.native("input", field);
+  h.poll();
+  h.native("change", field);
+  assert.deepEqual(
+    events.slice(3),
+    ["input", "change"],
+    "Existing DOM events produce no synthetic duplicates"
+  );
+  assert.equal(h.timers.size, 0, "Native change releases the observer even without focusout");
+}
+{
+  const h = createTextInputHarness();
+  const field = h.node();
+  field.focus();
+  field.value = "commit on removal";
+  field.isConnected = false;
+  h.poll();
+  assert.equal(h.timers.size, 0, "A rerender/removal must not leave a keyboard observer running");
+}
+{
+  const h = createTextInputHarness();
+  const field = h.node();
+  let inputs = 0;
+  field.addEventListener("input", () => {
+    inputs++;
+    field.value = field.value.slice(0, 20);
+  });
+  field.focus();
+  field.value = "a silently entered profile name longer than twenty characters";
+  h.poll();
+  h.poll();
+  assert.equal(inputs, 1, "Screen value normalization must not create a second fallback input");
+  field.blur();
 }
 
 // Use the actual shared controller and adapters for playback regressions.

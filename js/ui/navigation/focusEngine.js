@@ -1,7 +1,6 @@
 import { Router } from "./routerState.js";
 import { Platform } from "../../platform/index.js";
 import { noteVidaaNavigationKeyDown, noteVidaaNavigationKeyUp } from "./vidaaNavigationActivity.js";
-import { shouldPreserveVidaaTextInputKey } from "../../platform/vidaa/vidaaKeyboard.js";
 
 function buildNormalizedEvent(event) {
   const normalizedKey = Platform.normalizeKey(event);
@@ -17,6 +16,7 @@ function buildNormalizedEvent(event) {
     shiftKey: Boolean(event?.shiftKey),
     metaKey: Boolean(event?.metaKey),
     repeat: Boolean(event?.repeat),
+    isComposing: Boolean(event?.isComposing),
     defaultPrevented: Boolean(event?.defaultPrevented),
     keyCode: normalizedCode,
     which: normalizedCode,
@@ -44,6 +44,11 @@ function hasActiveModal() {
   return Boolean(globalThis?.document?.body?.classList?.contains("nuvio-modal-open"));
 }
 
+function nativeTextKeyIdentity(event) {
+  const code = Number(event.keyCode || 0);
+  return [27, 461, 10009].includes(code) ? "back" : `code:${code}`;
+}
+
 const BACK_DEBOUNCE_MS = 250;
 const VIDAA_SELECT_KEY_CODE = 13;
 
@@ -54,6 +59,7 @@ export const FocusEngine = {
   pendingPointerMoveEvent: null,
   activeKeyDownStartedAt: new Map(),
   activeBackKeyIdentities: new Set(),
+  nativeTextKeyIdentities: new Set(),
 
   init() {
     this.boundHandleKey = this.handleKey.bind(this);
@@ -115,11 +121,14 @@ export const FocusEngine = {
       return;
     }
 
-    if (hasActiveModal()) {
+    const normalizedEvent = buildNormalizedEvent(event);
+    if (Platform.handleTextInputKey(normalizedEvent)) {
+      const identity = nativeTextKeyIdentity(normalizedEvent);
+      this.nativeTextKeyIdentities.add(identity);
+      this.activeKeyDownStartedAt.delete(identity);
       return;
     }
-
-    const normalizedEvent = buildNormalizedEvent(event);
+    if (hasActiveModal()) return;
     noteVidaaNavigationKeyDown(normalizedEvent.keyCode);
     const keyIdentity = this.getKeyIdentity(normalizedEvent);
     const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
@@ -174,13 +183,9 @@ export const FocusEngine = {
       return;
     }
 
-    const preserveNativeTextKey =
-      isVidaa && shouldPreserveVidaaTextInputKey(normalizedEvent);
-
     if (
       isVidaa &&
-      (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE) &&
-      !preserveNativeTextKey
+      (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)
     ) {
       normalizedEvent.preventDefault();
       normalizedEvent.stopPropagation();
@@ -202,6 +207,16 @@ export const FocusEngine = {
 
   handleKeyUp(event) {
     const normalizedEvent = buildNormalizedEvent(event);
+    const nativeIdentity = nativeTextKeyIdentity(normalizedEvent);
+    if (
+      this.nativeTextKeyIdentities.delete(nativeIdentity) ||
+      Platform.handleTextInputKey(normalizedEvent, { keyUp: true })
+    ) {
+      this.activeKeyDownStartedAt.delete(nativeIdentity);
+      normalizedEvent.stopPropagation();
+      normalizedEvent.stopImmediatePropagation();
+      return;
+    }
     noteVidaaNavigationKeyUp(normalizedEvent.keyCode);
     const keyIdentity = this.getKeyIdentity(normalizedEvent);
     if (
@@ -232,12 +247,9 @@ export const FocusEngine = {
     }
 
     const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
-    const preserveNativeTextKey =
-      isVidaa && shouldPreserveVidaaTextInputKey(normalizedEvent);
     if (
       isVidaa &&
-      (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE) &&
-      !preserveNativeTextKey
+      (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)
     ) {
       normalizedEvent.preventDefault();
       normalizedEvent.stopPropagation();

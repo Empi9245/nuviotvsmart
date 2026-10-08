@@ -27,10 +27,19 @@ export function createHomeScreenMethods29() {
         let duplicatePageRetryCount = 0;
         let deferredAppendTimer = 0;
         let deferredAppend = null;
+        let catchUpTimer = 0;
+        const isInactiveVidaaTrack = () => {
+          if (!Platform.isVidaa()) return false;
+          const focused = this.getCurrentFocusedNode?.();
+          return Boolean(focused && focused.closest?.(".home-track") !== track);
+        };
         const scheduleLiveTrackCatchUp = (delayMs = 0) => {
-          setTimeout(
+          if (catchUpTimer) clearTimeout(catchUpTimer);
+          const scheduledToken = this.homeLoadToken;
+          const timer = setTimeout(
             () => {
-              if (Router.getCurrent() !== "home") {
+              catchUpTimer = 0;
+              if (Router.getCurrent() !== "home" || (Platform.isVidaa() && scheduledToken !== this.homeLoadToken)) {
                 return;
               }
               const liveTrack = this.getNavigationRowSection(rowKey)?.querySelector?.(".home-track") || null;
@@ -38,6 +47,7 @@ export function createHomeScreenMethods29() {
             },
             Math.max(0, Number(delayMs || 0))
           );
+          if (Platform.isVidaa()) catchUpTimer = timer;
         };
         const runPagination = ({ assumeNearEnd = false } = {}) => {
           if (this._trackPaginationInFlight?.has(rowKey) || deferredAppend) {
@@ -82,6 +92,12 @@ export function createHomeScreenMethods29() {
                 deferredAppendTimer = 0;
                 if (!track.isConnected || Router.getCurrent() !== "home") {
                   deferredAppend = null;
+                  return;
+                }
+                if (isInactiveVidaaTrack()) {
+                  // Page data already lives in rowPayload. The next visit can
+                  // append from its mounted count without polling this old row.
+                  handler.cancelPending();
                   return;
                 }
                 if (isVidaaLoadingBusy()) {
@@ -241,6 +257,10 @@ export function createHomeScreenMethods29() {
           if (!track.isConnected || Router.getCurrent() !== "home") {
             return;
           }
+          if (isInactiveVidaaTrack()) {
+            handler.cancelPending();
+            return;
+          }
           if (
             isVidaaLoadingBusy() ||
             this.modernVerticalFastScrollState ||
@@ -253,6 +273,7 @@ export function createHomeScreenMethods29() {
           runPagination();
         };
         const handler = () => {
+          if (isInactiveVidaaTrack()) return;
           if (scrollTimer) {
             clearTimeout(scrollTimer);
           }
@@ -269,6 +290,10 @@ export function createHomeScreenMethods29() {
             prefetchTimer = 0;
             if (!track.isConnected || Router.getCurrent() !== "home") {
               pendingPrefetchContext = null;
+              return;
+            }
+            if (isInactiveVidaaTrack()) {
+              handler.cancelPending();
               return;
             }
             if (isVidaaLoadingBusy()) {
@@ -303,6 +328,10 @@ export function createHomeScreenMethods29() {
           );
         };
         handler.cancelPending = () => {
+          if (catchUpTimer) {
+            clearTimeout(catchUpTimer);
+            catchUpTimer = 0;
+          }
           if (scrollTimer) {
             clearTimeout(scrollTimer);
             scrollTimer = 0;

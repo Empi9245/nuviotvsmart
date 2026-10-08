@@ -124,6 +124,7 @@ export function createSettingsScreenMethods14() {
       }
     },
     async onKeyDown(event) {
+      if (Platform.handleTextInputKey(event)) return;
       if (Platform.isBackEvent(event)) {
         event?.preventDefault?.();
         if (this.textDialog) {
@@ -164,7 +165,7 @@ export function createSettingsScreenMethods14() {
           return;
         }
         if (code === 13 && activeField) {
-          if (this.textDialog.multiline || Platform.isVidaa()) {
+          if (this.textDialog.multiline) {
             return;
           }
           event?.preventDefault?.();

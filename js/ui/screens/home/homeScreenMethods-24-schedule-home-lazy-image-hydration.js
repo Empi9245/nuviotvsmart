@@ -2,7 +2,8 @@ import * as internals from "./homeScreenContext.js";
 import { Platform } from "../../../platform/index.js";
 import { isVidaaNavigationBusy, VIDAA_NAVIGATION_SETTLE_MS } from "../../navigation/vidaaNavigationActivity.js";
 import { releaseDistantVidaaHomeImages } from "./vidaaHomeImageWindow.js";
-import { updateVidaaHomeCardWindow } from "./vidaaHomeCardWindow.js";
+import { updateVidaaHomeCardWindow, scheduleVidaaHomeCardWindow } from "./vidaaHomeCardWindow.js";
+import { observeVidaaPosterReady, prefetchVidaaPosterSource, reconcileVidaaHomePosterPrefetches } from "./vidaaHomePosterPrefetch.js";
 
 function isVidaaHomeHydrationBusy(screen) {
   return screen.isVidaaHomeLoadingBusy?.() ?? isVidaaNavigationBusy();
@@ -19,57 +20,20 @@ const VIDAA_HORIZONTAL_MAX_AHEAD = 12;
 const VIDAA_VERTICAL_MIN_ROWS_AHEAD = 2;
 const VIDAA_VERTICAL_MAX_ROWS_AHEAD = 8;
 const VIDAA_VERTICAL_PREFETCH_BUDGET = 18;
-const VIDAA_PREFETCH_MAX_INFLIGHT = 18;
-const VIDAA_PREFETCH_WARM_URL_LIMIT = 96;
 
 function clampNumber(value, min, max) {
   return Math.max(min, Math.min(max, Number(value || 0)));
 }
 
-function recordVidaaPosterReadyLatency(screen, elapsedMs) {
-  const sample = Number(elapsedMs || 0);
-  if (!screen || !Number.isFinite(sample) || sample < 40 || sample > 4000) return;
-  const previous = Number(screen.homeVidaaPosterReadyEwmaMs || 0);
-  const bounded = clampNumber(sample, 220, 1400);
-  screen.homeVidaaPosterReadyEwmaMs = previous > 0
-    ? previous * 0.72 + bounded * 0.28
-    : bounded;
-}
-
-function observeVidaaPosterReady(screen, image, startedAt) {
-  if (!image?.addEventListener) return;
-  let finished = false;
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    recordVidaaPosterReadyLatency(screen, Date.now() - startedAt);
-  };
-  image.addEventListener(
-    "load",
-    () => {
-      try {
-        const decoded = image.decode?.();
-        if (decoded?.then) {
-          decoded.catch(() => {}).finally(finish);
-          return;
-        }
-      } catch (_) {}
-      finish();
-    },
-    { once: true }
-  );
-}
-
 function hydrateVidaaPriorityPoster(screen, image, priority = "auto") {
   if (!(image instanceof HTMLImageElement) || !image.isConnected || !image.dataset.src) return false;
   const src = String(image.dataset.src || "").trim();
-  const startedAt = Date.now();
   image.loading = "eager";
   image.decoding = "async";
   try {
     image.fetchPriority = priority;
   } catch (_) {}
-  observeVidaaPosterReady(screen, image, startedAt);
+  observeVidaaPosterReady(screen, image);
   image.removeAttribute("data-src");
   if (src) image.src = src;
   return Boolean(src);
@@ -87,69 +51,6 @@ function getVidaaPosterSource(screen, node) {
   const parkedRecord = screen?.homeVidaaParkedCards?.get?.(node);
   const parkedImage = parkedRecord?.content?.querySelector?.(VIDAA_POSTER_SELECTOR);
   return String(parkedImage?.dataset?.src || parkedImage?.getAttribute?.("src") || "").trim();
-}
-
-function rememberVidaaWarmPosterUrl(screen, src) {
-  const warmed = screen.homeVidaaPosterWarmUrls || (screen.homeVidaaPosterWarmUrls = new Set());
-  if (warmed.has(src)) warmed.delete(src);
-  warmed.add(src);
-  while (warmed.size > VIDAA_PREFETCH_WARM_URL_LIMIT) {
-    const oldest = warmed.values().next().value;
-    warmed.delete(oldest);
-  }
-}
-
-function prefetchVidaaPosterSource(screen, src) {
-  const source = String(src || "").trim();
-  if (!screen || !source || typeof globalThis.Image !== "function") return false;
-
-  const warmed = screen.homeVidaaPosterWarmUrls || (screen.homeVidaaPosterWarmUrls = new Set());
-  if (warmed.has(source)) return true;
-
-  const inflight = screen.homeVidaaPosterPrefetchInflight || (screen.homeVidaaPosterPrefetchInflight = new Map());
-  if (inflight.has(source)) return true;
-  if (inflight.size >= VIDAA_PREFETCH_MAX_INFLIGHT) return false;
-
-  let preload;
-  try {
-    preload = new globalThis.Image();
-  } catch (_) {
-    return false;
-  }
-
-  const startedAt = Date.now();
-  let timeoutId = 0;
-  const finish = (success) => {
-    if (inflight.get(source) !== preload) return;
-    inflight.delete(source);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutId = 0;
-    }
-    if (!success) return;
-    rememberVidaaWarmPosterUrl(screen, source);
-    recordVidaaPosterReadyLatency(screen, Date.now() - startedAt);
-  };
-
-  preload.decoding = "async";
-  try {
-    preload.fetchPriority = "low";
-  } catch (_) {}
-  preload.onload = () => {
-    try {
-      const decoded = preload.decode?.();
-      if (decoded?.then) {
-        decoded.catch(() => {}).finally(() => finish(true));
-        return;
-      }
-    } catch (_) {}
-    finish(true);
-  };
-  preload.onerror = () => finish(false);
-  inflight.set(source, preload);
-  timeoutId = setTimeout(() => finish(false), 5000);
-  preload.src = source;
-  return true;
 }
 
 function warmVidaaPosterNode(screen, node, priority = "low") {
@@ -251,11 +152,14 @@ function getVidaaRowNeighborhoodNodes(screen, anchor, count = 1, rowOffset = 0) 
 
   const row = screen.navModel.rows[rowIndex + rowOffset] || [];
   if (!row.length) return [];
+  const preferred = rowOffset ? screen.resolvePreferredNodeForRow?.(row) : null;
+  const preferredCol = Number(preferred?.dataset?.navCol);
+  const center = Number.isInteger(preferredCol) ? preferredCol : Math.min(row.length - 1, colIndex);
 
   const offsets = [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6];
   const nodes = [];
   for (const offset of offsets) {
-    const node = row[colIndex + offset] || null;
+    const node = row[center + offset] || null;
     if (node && !nodes.includes(node)) nodes.push(node);
     if (nodes.length >= count) break;
   }
@@ -468,15 +372,7 @@ export function createHomeScreenMethods24() {
       const horizontalNavigation = navigationDirection === "left" || navigationDirection === "right";
       const verticalNavigation = navigationDirection === "up" || navigationDirection === "down";
 
-      if (verticalNavigation) {
-        // The row being entered is already visible while its 140 ms camera move
-        // is running. Hydrate its visible neighborhood immediately; future rows
-        // are prefetched below and become cache hits as they approach.
-        getVidaaRowNeighborhoodNodes(this, anchor, prefetchPlan.verticalVisibleCount).forEach((node) => {
-          if (node !== anchor) warmVidaaPosterNode(this, node, "auto");
-        });
-      }
-
+      const enteredNodes = verticalNavigation ? getVidaaRowNeighborhoodNodes(this, anchor, prefetchPlan.verticalVisibleCount) : [];
       const predictedNodes = horizontalNavigation
         ? getVidaaHorizontalPrefetchNodes(
             this,
@@ -486,6 +382,19 @@ export function createHomeScreenMethods24() {
           )
         : getVidaaVerticalPrefetchNodes(this, anchor, navigationDirection, prefetchPlan);
 
+      if (horizontalNavigation || verticalNavigation) {
+        reconcileVidaaHomePosterPrefetches(this, [anchor, ...enteredNodes, ...predictedNodes].map(node => getVidaaPosterSource(this, node)));
+      }
+      if (verticalNavigation) {
+        // The row being entered is already visible while its 140 ms camera move
+        // is running. Hydrate its visible neighborhood immediately; future rows
+        // are prefetched below and become cache hits as they approach.
+        enteredNodes.forEach((node) => {
+          if (node !== anchor) warmVidaaPosterNode(this, node, "auto");
+        });
+      }
+
+      scheduleVidaaHomeCardWindow(this, { initialize: Boolean(anchor?.isConnected && navigationDirection) });
       predictedNodes.forEach((node) => {
         // Live near-window cards get their real img source now. Parked cards are
         // fetched through a detached Image request instead, so long runways do

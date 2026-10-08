@@ -1,6 +1,5 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./authQrSignInScreen.js";
-import { shouldPreserveVidaaTextInputKey } from "../../../platform/vidaa/vidaaKeyboard.js";
 
 export function createAuthQrSignInScreenMethods02() {
   const {
@@ -13,44 +12,10 @@ export function createAuthQrSignInScreenMethods02() {
     escapeHtml,
     formatDuration,
     parseQrExpiration,
-    ScreenUtils,
-    Platform
+    ScreenUtils
   } = internals;
 
   return {
-    onKeyDown(event) {
-      if (!Platform.isVidaa()) {
-        return;
-      }
-
-      const keyCode = Number(event?.keyCode || 0);
-      if (shouldPreserveVidaaTextInputKey(event)) {
-        return;
-      }
-
-      const focusContainer = this.showSignOutConfirmation
-        ? this.container?.querySelector(".auth-signout-confirm-dialog")
-        : this.isServerMenuOpen
-          ? this.container?.querySelector(".qr-server-menu")
-          : this.container;
-
-      if ([37, 38, 39, 40].includes(keyCode)) {
-        event?.preventDefault?.();
-        ScreenUtils.handleDpadNavigation(event, focusContainer);
-        return;
-      }
-
-      if (keyCode !== 13) {
-        return;
-      }
-
-      const current = focusContainer?.querySelector?.(".focusable.focused");
-      if (!current) {
-        return;
-      }
-      event?.preventDefault?.();
-      current.click?.();
-    },
     bindControls() {
       const serverMenuButton = this.container.querySelector("[data-action='server-menu']");
       serverMenuButton?.addEventListener("click", () => this.toggleServerMenu());
