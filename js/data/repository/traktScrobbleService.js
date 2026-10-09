@@ -1,4 +1,9 @@
-import { TraktAuthService, requestJson, createTraktRequestContext, assertTraktRequestContext } from "./traktAuthService.js";
+import {
+  TraktAuthService,
+  requestJson,
+  createTraktRequestContext,
+  assertTraktRequestContext
+} from "./traktAuthService.js";
 import { ProfileManager } from "../../core/profile/profileManager.js";
 
 const START_DEBOUNCE_MS = 15000;
@@ -128,7 +133,8 @@ async function sendScrobbleRequest(action, context, requestContext = createTrakt
       lastAction = action;
 
       if (
-        action === "stop" && context.progressPercent >= WATCHED_THRESHOLD_PERCENT &&
+        action === "stop" &&
+        context.progressPercent >= WATCHED_THRESHOLD_PERCENT &&
         (payload?.action === "scrobble" || response.status === 409) &&
         String(ProfileManager.getActiveProfileId() || "1") === profileId
       ) {
@@ -177,13 +183,21 @@ export const TraktScrobbleService = {
   pause(context) {
     clearStartTimer();
     if (lastAction === "start" || lastAction === null) {
-      void sendScrobbleRequest("pause", context, playbackRequestContext || createTraktRequestContext());
+      void sendScrobbleRequest(
+        "pause",
+        context,
+        playbackRequestContext || createTraktRequestContext()
+      );
     }
   },
 
   stop(context) {
     clearStartTimer();
-    void sendScrobbleRequest("stop", context, playbackRequestContext || createTraktRequestContext());
+    void sendScrobbleRequest(
+      "stop",
+      context,
+      playbackRequestContext || createTraktRequestContext()
+    );
     lastAction = null;
   },
 

@@ -53,7 +53,9 @@ const DEFAULTS = {
     bold: false,
     outlineEnabled: true,
     outlineColor: "#000000",
-    backgroundColor: "#00000000",
+    // Apple TV-style caption look: white text over a light gray
+    // semi-transparent background with a black outline.
+    backgroundColor: "#B3B3B380",
     verticalOffset: SUBTITLE_VERTICAL_OFFSET_DEFAULT,
     verticalOffsetContract: SUBTITLE_VERTICAL_OFFSET_CONTRACT,
     preferredLanguage: "en",
@@ -226,6 +228,11 @@ function normalizeSelectableSubtitleLanguageCode(language, fallback = "off") {
   }
 }
 
+const SUBTITLE_STYLE_APPLE_TV_PRESET = "appletv-1";
+// Background persisted by installs shipped before the Apple TV-style caption
+// defaults; a stored value equal to this (or absent) has not been customized.
+const SUBTITLE_STYLE_LEGACY_DEFAULT_BACKGROUND = "#00000000";
+
 export function normalizePlayerSettings(settings = {}) {
   const { subtitleDelayMs: _ignoredSubtitleDelayMs, ...persistentSettings } = settings || {};
   const subtitleStyle = {
@@ -245,6 +252,19 @@ export function normalizePlayerSettings(settings = {}) {
   );
   subtitleStyle.verticalOffsetContract = SUBTITLE_VERTICAL_OFFSET_CONTRACT;
   subtitleStyle.textOpacity = normalizeSubtitleTextOpacity(subtitleStyle.textOpacity);
+  // One-shot migration to the Apple TV-style caption defaults. Installs that
+  // shipped before them persisted the old transparent background, so adopt the
+  // new default only when the stored value still matches it, then mark the
+  // style so later default changes never override an explicit choice.
+  if (!String(subtitleStyle.subtitleStylePreset || "")) {
+    const storedBackground = String(
+      persistentSettings.subtitleStyle?.backgroundColor || ""
+    ).toUpperCase();
+    if (!storedBackground || storedBackground === SUBTITLE_STYLE_LEGACY_DEFAULT_BACKGROUND) {
+      subtitleStyle.backgroundColor = DEFAULTS.subtitleStyle.backgroundColor;
+    }
+    subtitleStyle.subtitleStylePreset = SUBTITLE_STYLE_APPLE_TV_PRESET;
+  }
   let preferredLanguage = normalizeSelectableSubtitleLanguageCode(
     subtitleStyle.preferredLanguage ?? persistentSettings.subtitleLanguage,
     DEFAULTS.subtitleStyle.preferredLanguage

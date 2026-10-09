@@ -42,7 +42,10 @@ function normalizeTmdbSettings(value = {}) {
   const source = value && typeof value === "object" ? value : {};
   return {
     enabled: Boolean(source.enabled),
-    modernHomeEnabled: source.modernHomeEnabled === undefined ? DEFAULTS.modernHomeEnabled : Boolean(source.modernHomeEnabled),
+    modernHomeEnabled:
+      source.modernHomeEnabled === undefined
+        ? DEFAULTS.modernHomeEnabled
+        : Boolean(source.modernHomeEnabled),
     enrichContinueWatching: source.enrichContinueWatching !== false,
     language: normalizeTmdbLanguageCode(source.language),
     useArtwork: source.useArtwork !== false,
@@ -77,9 +80,12 @@ function migrateApiKeys() {
   if (apiKeysMigrated) return;
   const raw = LocalStore.get(KEY, null);
   const apiKeys = readApiKeys();
-  const profiles = raw?.__profileScoped === true && raw?.profiles && typeof raw.profiles === "object"
-    ? raw.profiles
-    : raw && typeof raw === "object" ? { "1": raw } : {};
+  const profiles =
+    raw?.__profileScoped === true && raw?.profiles && typeof raw.profiles === "object"
+      ? raw.profiles
+      : raw && typeof raw === "object"
+        ? { 1: raw }
+        : {};
   let changed = false;
   for (const [profileId, value] of Object.entries(profiles)) {
     const apiKey = String(value?.apiKey || "").trim();
@@ -120,7 +126,8 @@ export const TmdbSettingsStore = {
   replaceForProfile(profileId, nextValue, options = {}) {
     migrateApiKeys();
     const id = resolveProfileId(profileId);
-    if (nextValue && Object.prototype.hasOwnProperty.call(nextValue, "apiKey")) saveApiKey(id, nextValue.apiKey);
+    if (nextValue && Object.prototype.hasOwnProperty.call(nextValue, "apiKey"))
+      saveApiKey(id, nextValue.apiKey);
     store.replaceForProfile(id, settingsWithoutApiKey(nextValue), options);
     return this.getForProfile(id);
   },
@@ -128,7 +135,8 @@ export const TmdbSettingsStore = {
   setForProfile(profileId, partial, options = {}) {
     migrateApiKeys();
     const id = resolveProfileId(profileId);
-    if (partial && Object.prototype.hasOwnProperty.call(partial, "apiKey")) saveApiKey(id, partial.apiKey);
+    if (partial && Object.prototype.hasOwnProperty.call(partial, "apiKey"))
+      saveApiKey(id, partial.apiKey);
     const preferences = settingsWithoutApiKey(partial);
     if (Object.keys(preferences).length) store.setForProfile(id, preferences, options);
     return this.getForProfile(id);

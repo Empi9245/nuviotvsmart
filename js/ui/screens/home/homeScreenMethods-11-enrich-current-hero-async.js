@@ -106,8 +106,7 @@ export function createHomeScreenMethods11() {
         }
         const enrichedImdb = meta ? resolveImdbRating(meta) : null;
         const settings = TmdbSettingsStore.get();
-        const sourceHero =
-          buildHeroIdentity(this.heroItem) === heroIdentity ? this.heroItem : hero;
+        const sourceHero = buildHeroIdentity(this.heroItem) === heroIdentity ? this.heroItem : hero;
         const enrichedRuntime = parseRuntimeMinutes(meta?.runtimeMinutes ?? meta?.runtime);
         const runtimePatch = {
           ...(enrichedRuntime > 0 ? { runtimeMinutes: enrichedRuntime } : {}),
@@ -132,7 +131,9 @@ export function createHomeScreenMethods11() {
           : {};
         const mergedHero = {
           ...sourceHero,
-          heroMetaEnriched: sourcesSettled && Boolean(meta || tmdbEnrichment || mdbImdbRating != null) &&
+          heroMetaEnriched:
+            sourcesSettled &&
+            Boolean(meta || tmdbEnrichment || mdbImdbRating != null) &&
             (!isHomeTmdbEnabled(this.layoutMode || "modern") || Boolean(tmdbEnrichment)),
           heroEnrichmentSignature: sourcesSettled ? settingsSignature : "",
           heroMetaEnriching: false,
@@ -152,23 +153,21 @@ export function createHomeScreenMethods11() {
         // Each provider publishes independently. Keep successful localized data
         // when an addon fails or finishes later, and accept slow TV responses.
         await Promise.allSettled([
-          mdbListRepository.getImdbRatingForItem(hero.imdbId || itemId, itemType)
-            .then(async (rating) => {
-              mdbImdbRating = rating;
-              if (rating != null) await publishLatestResults();
-            }),
-          fetchModernHeroTmdbEnrichment(hero, itemType, this.layoutMode || "modern")
-            .then(async (enrichment) => {
-              latestTmdbEnrichment = enrichment;
-              if (enrichment) await publishLatestResults();
-            }),
+          mdbListRepository.getImdbRatingForItem(hero.imdbId || itemId, itemType).then(async (rating) => {
+            mdbImdbRating = rating;
+            if (rating != null) await publishLatestResults();
+          }),
+          fetchModernHeroTmdbEnrichment(hero, itemType, this.layoutMode || "modern").then(async (enrichment) => {
+            latestTmdbEnrichment = enrichment;
+            if (enrichment) await publishLatestResults();
+          }),
           (LayoutPreferences.get()?.preferExternalMetaAddonDetail !== false
             ? metaRepository.getMetaFromAllAddons(itemType, itemId)
-            : Promise.resolve(null))
-            .then(async (result) => {
-              latestMetadataResult = result;
-              if (result?.status === "success") await publishLatestResults();
-            })
+            : Promise.resolve(null)
+          ).then(async (result) => {
+            latestMetadataResult = result;
+            if (result?.status === "success") await publishLatestResults();
+          })
         ]);
         sourcesSettled = true;
         await publishLatestResults();

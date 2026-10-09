@@ -8,8 +8,10 @@ globalThis.localStorage = {
 };
 globalThis.__NUVIO_ENV__ = { TMDB_API_KEY: "test-tmdb-key" };
 
-const { TmdbSettingsStore, normalizeTmdbLanguageCode } = await import("../js/data/local/tmdbSettingsStore.js");
-const { TmdbMetadataService, selectBestLocalizedLogoPath, selectBestLocalizedImagePath } = await import("../js/core/tmdb/tmdbMetadataService.js");
+const { TmdbSettingsStore, normalizeTmdbLanguageCode } =
+  await import("../js/data/local/tmdbSettingsStore.js");
+const { TmdbMetadataService, selectBestLocalizedLogoPath, selectBestLocalizedImagePath } =
+  await import("../js/core/tmdb/tmdbMetadataService.js");
 const { fetchTmdbJson } = await import("../js/core/tmdb/tmdbTransport.js");
 const { TmdbService } = await import("../js/core/tmdb/tmdbService.js");
 const { PluginServiceClient } = await import("../js/platform/pluginServiceClient.js");
@@ -41,18 +43,26 @@ const italianDetails = {
       { file_path: "/italian-backdrop.jpg", iso_639_1: "it" }
     ]
   },
-  videos: { results: [{ site: "YouTube", key: "italian-trailer", type: "Trailer", iso_639_1: "it" }] }
+  videos: {
+    results: [{ site: "YouTube", key: "italian-trailer", type: "Trailer", iso_639_1: "it" }]
+  }
 };
 
 try {
-  TmdbSettingsStore.replaceForProfile("1", { enabled: true, language: "IT_it" }, { silentSync: true });
+  TmdbSettingsStore.replaceForProfile(
+    "1",
+    { enabled: true, language: "IT_it" },
+    { silentSync: true }
+  );
   assert.equal(TmdbSettingsStore.get().language, "it-IT");
   assert.equal(normalizeTmdbLanguageCode(" it_IT "), "it-IT");
 
   for (const platform of ["webos", "tizen"]) {
     Platform.current = { name: platform };
     const requests = [];
-    globalThis.fetch = async () => { throw new Error("Direct TV fetch unavailable"); };
+    globalThis.fetch = async () => {
+      throw new Error("Direct TV fetch unavailable");
+    };
     PluginServiceClient.fetch = async (request) => {
       requests.push(request);
       const url = new URL(request.url);
@@ -76,18 +86,29 @@ try {
     { file_path: "/italy.png", iso_639_1: "it", iso_3166_1: "IT" }
   ];
   assert.equal(selectBestLocalizedLogoPath(regionalLogos, "it"), "/italy.png");
-  assert.equal(selectBestLocalizedLogoPath([{ file_path: "/german.png", iso_639_1: "de" }], "it"), null);
-  assert.equal(selectBestLocalizedImagePath([{ file_path: "/german.jpg", iso_639_1: "de" }], "it"), null);
+  assert.equal(
+    selectBestLocalizedLogoPath([{ file_path: "/german.png", iso_639_1: "de" }], "it"),
+    null
+  );
+  assert.equal(
+    selectBestLocalizedImagePath([{ file_path: "/german.jpg", iso_639_1: "de" }], "it"),
+    null
+  );
 
   Platform.current = { name: "vidaa" };
-  PluginServiceClient.fetch = async () => { throw new Error("VIDAA must use direct metadata fetch"); };
+  PluginServiceClient.fetch = async () => {
+    throw new Error("VIDAA must use direct metadata fetch");
+  };
   globalThis.fetch = async (url) => {
     const parsed = new URL(url);
     if (parsed.pathname.endsWith("/videos")) throw new Error("Trailer provider unavailable");
     assert.equal(parsed.searchParams.get("language"), "it-IT");
     return { ok: true, json: async () => ({ ...italianDetails, videos: { results: [] } }) };
   };
-  const withoutTrailer = await TmdbMetadataService.fetchEnrichment({ tmdbId: 99, contentType: "movie" });
+  const withoutTrailer = await TmdbMetadataService.fetchEnrichment({
+    tmdbId: 99,
+    contentType: "movie"
+  });
   assert.equal(withoutTrailer.description, italianDetails.overview);
   assert.deepEqual(withoutTrailer.trailers, []);
 
@@ -97,9 +118,25 @@ try {
     globalThis.fetch = async (url) => {
       const parsed = new URL(url);
       trailerRequests.push(parsed);
-      return { ok: true, json: async () => ({ results: [{ site: "YouTube", key: "localized-trailer", type: "Trailer", iso_639_1: language.slice(0, 2) }] }) };
+      return {
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              site: "YouTube",
+              key: "localized-trailer",
+              type: "Trailer",
+              iso_639_1: language.slice(0, 2)
+            }
+          ]
+        })
+      };
     };
-    const trailers = await TmdbMetadataService.fetchTrailerCandidates({ tmdbId: 99, contentType: "movie", language });
+    const trailers = await TmdbMetadataService.fetchTrailerCandidates({
+      tmdbId: 99,
+      contentType: "movie",
+      language
+    });
     assert.equal(trailers[0].ytId, "localized-trailer");
     assert.equal(trailerRequests.length, 1);
     assert.equal(trailerRequests[0].searchParams.get("language"), language);
@@ -111,7 +148,9 @@ try {
     directRequests++;
     return { ok: true, json: async () => ({ fallback: true }) };
   };
-  PluginServiceClient.fetch = async () => { throw new Error("Service unavailable"); };
+  PluginServiceClient.fetch = async () => {
+    throw new Error("Service unavailable");
+  };
   assert.deepEqual(await fetchTmdbJson(apiUrl), { fallback: true });
   PluginServiceClient.fetch = async () => ({ ok: true, status: 200, body: "{", truncated: true });
   assert.deepEqual(await fetchTmdbJson(apiUrl), { fallback: true });
@@ -131,7 +170,9 @@ try {
   Platform.current = { name: "browser" };
   let cancelled = false;
   globalThis.fetch = async (_url, options) => {
-    options.signal.addEventListener("abort", () => { cancelled = true; });
+    options.signal.addEventListener("abort", () => {
+      cancelled = true;
+    });
     return new Promise(() => {});
   };
   await assert.rejects(fetchTmdbJson(apiUrl, { timeoutMs: 10 }), /timed out/);
@@ -141,7 +182,9 @@ try {
   const pending = fetchTmdbJson(apiUrl, { signal: controller.signal });
   controller.abort();
   await assert.rejects(pending, /aborted/);
-  globalThis.fetch = async () => { throw new Error("Aborted request should not start"); };
+  globalThis.fetch = async () => {
+    throw new Error("Aborted request should not start");
+  };
   await assert.rejects(fetchTmdbJson(apiUrl, { signal: controller.signal }), /aborted/);
 } finally {
   globalThis.fetch = originalFetch;
@@ -149,4 +192,6 @@ try {
   Platform.current = originalPlatform;
 }
 
-console.log("TMDB checks passed: Italian text/artwork, TV transport, optional trailer failure, fallback, timeout and cancellation.");
+console.log(
+  "TMDB checks passed: Italian text/artwork, TV transport, optional trailer failure, fallback, timeout and cancellation."
+);

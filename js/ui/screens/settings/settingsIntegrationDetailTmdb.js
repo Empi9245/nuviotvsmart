@@ -48,16 +48,21 @@ export function renderTmdbIntegrationDetail(model) {
             if (this.textDialog !== dialog || !isCurrentProfile()) return false;
             if (!valid) {
               if (dialog) {
-                dialog.statusMessage = t("tmdb_api_key_invalid", {}, "Invalid TMDB API key. Enter the API key (v3 auth) from your TMDB account.");
+                dialog.statusMessage = t(
+                  "tmdb_api_key_invalid",
+                  {},
+                  "Invalid TMDB API key. Enter the API key (v3 auth) from your TMDB account."
+                );
                 dialog.statusKind = "error";
               }
               return false;
             }
           } catch (error) {
             if (this.textDialog === dialog && isCurrentProfile() && dialog) {
-              dialog.statusMessage = Number(error?.status) === 429
-                ? t("tmdb_api_key_rate_limit", {}, "TMDB request limit reached. Try again later.")
-                : t("tmdb_api_key_connection_error", {}, "Could not connect to TMDB. Check your connection and try again.");
+              dialog.statusMessage =
+                Number(error?.status) === 429
+                  ? t("tmdb_api_key_rate_limit", {}, "TMDB request limit reached. Try again later.")
+                  : t("tmdb_api_key_connection_error", {}, "Could not connect to TMDB. Check your connection and try again.");
               dialog.statusKind = "error";
             }
             return false;
@@ -138,20 +143,38 @@ export function renderTmdbIntegrationDetail(model) {
             ${this.renderToggleRow({
               focusKey: "integration:tmdb:enabled",
               title: t("settings.integration.tmdb.enable.title"),
-              subtitle: configured ? t("settings.integration.tmdb.enable.subtitle") : t("tmdb_api_key_required", {}, "Add your TMDB API key to enable metadata enrichment."),
+              subtitle: configured
+                ? t("settings.integration.tmdb.enable.subtitle")
+                : t("tmdb_api_key_required", {}, "Add your TMDB API key to enable metadata enrichment."),
               checked: Boolean(model.tmdb.enabled)
             })}
             ${this.renderActionRow({
               focusKey: "integration:tmdb:key",
               title: t("tmdb_api_key_title", {}, "TMDB API key"),
-              subtitle: t("tmdb_api_key_subtitle", {}, "Your key is saved on this device for this profile and overrides the optional default key."),
-              value: model.tmdb.apiKey ? maskValue(model.tmdb.apiKey, t("common.notSet")) : hasDefaultKey ? t("tmdb_api_key_default", {}, "Default key") : t("common.notSet")
+              subtitle: t(
+                "tmdb_api_key_subtitle",
+                {},
+                "Your key is saved on this device for this profile and overrides the optional default key."
+              ),
+              value: model.tmdb.apiKey
+                ? maskValue(model.tmdb.apiKey, t("common.notSet"))
+                : hasDefaultKey
+                  ? t("tmdb_api_key_default", {}, "Default key")
+                  : t("common.notSet")
             })}
-            ${model.tmdb.apiKey ? this.renderActionRow({
-              focusKey: "integration:tmdb:resetKey",
-              title: hasDefaultKey ? t("tmdb_api_key_reset_default", {}, "Use default key") : t("tmdb_api_key_remove", {}, "Remove API key"),
-              subtitle: hasDefaultKey ? t("tmdb_api_key_reset_subtitle", {}, "Remove your personal key and use the default configured in the app.") : t("tmdb_api_key_remove_subtitle", {}, "Remove the TMDB key saved for this profile.")
-            }) : ""}
+            ${
+              model.tmdb.apiKey
+                ? this.renderActionRow({
+                    focusKey: "integration:tmdb:resetKey",
+                    title: hasDefaultKey
+                      ? t("tmdb_api_key_reset_default", {}, "Use default key")
+                      : t("tmdb_api_key_remove", {}, "Remove API key"),
+                    subtitle: hasDefaultKey
+                      ? t("tmdb_api_key_reset_subtitle", {}, "Remove your personal key and use the default configured in the app.")
+                      : t("tmdb_api_key_remove_subtitle", {}, "Remove the TMDB key saved for this profile.")
+                  })
+                : ""
+            }
             ${this.renderToggleRow({
               focusKey: "integration:tmdb:modernHome",
               title: t("tmdb_modern_home_title", {}, "Enable on Modern Home"),

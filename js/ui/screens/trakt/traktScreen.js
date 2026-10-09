@@ -255,7 +255,9 @@ export const TraktScreen = Object.assign(Object.create(SettingsScreen), {
       await this.startTraktDeviceAuth();
       this.expandedProvider = "trakt";
     });
-    this.actionMap.set("tracking:traktConfigure", () => Router.navigate("settings", { section: "integration", integration: "trakt" }));
+    this.actionMap.set("tracking:traktConfigure", () =>
+      Router.navigate("settings", { section: "integration", integration: "trakt" })
+    );
     this.actionMap.set("tracking:simklConnect", async () => {
       this.simklErrorMessage = null;
       try {
@@ -498,7 +500,11 @@ export const TraktScreen = Object.assign(Object.create(SettingsScreen), {
     const configureRow = this.renderActionRow({
       focusKey: "tracking:traktConfigure",
       title: t("trakt_client_settings_title", {}, "Trakt app credentials"),
-      subtitle: t("trakt_client_settings_subtitle", {}, "Configure app credentials and connect your Trakt account")
+      subtitle: t(
+        "trakt_client_settings_subtitle",
+        {},
+        "Configure app credentials and connect your Trakt account"
+      )
     });
     if (connected) {
       const tokenRemainingMs =
@@ -818,7 +824,12 @@ export const TraktScreen = Object.assign(Object.create(SettingsScreen), {
       }
       await this.render();
       const nextState = TraktAuthService.getCurrentAuthState();
-      if (nextState.deviceCode && this.traktPollingActive && generation === this.traktPollingGeneration && !this.traktPollTimer) {
+      if (
+        nextState.deviceCode &&
+        this.traktPollingActive &&
+        generation === this.traktPollingGeneration &&
+        !this.traktPollTimer
+      ) {
         this.traktPollTimer = setTimeout(
           () => {
             this.traktPollTimer = null;
@@ -829,10 +840,13 @@ export const TraktScreen = Object.assign(Object.create(SettingsScreen), {
       }
     };
     const state = TraktAuthService.getCurrentAuthState();
-    this.traktPollTimer = setTimeout(() => {
-      this.traktPollTimer = null;
-      void poll();
-    }, Math.max(1, Number(state.pollInterval || 5)) * 1000);
+    this.traktPollTimer = setTimeout(
+      () => {
+        this.traktPollTimer = null;
+        void poll();
+      },
+      Math.max(1, Number(state.pollInterval || 5)) * 1000
+    );
   },
 
   consumeBackRequest() {

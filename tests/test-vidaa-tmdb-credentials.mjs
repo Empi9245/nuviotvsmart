@@ -7,23 +7,34 @@ globalThis.localStorage = {
   getItem: (key) => storage.get(key) ?? null,
   setItem: (key, value) => storage.set(key, value),
   removeItem: (key) => storage.delete(key),
-  get length() { return storage.size; },
+  get length() {
+    return storage.size;
+  },
   key: (index) => [...storage.keys()][index] ?? null
 };
 const defaultMode = process.argv.includes("--default");
 const migrationMode = process.argv.includes("--migration");
 if (migrationMode) {
-  storage.set("tmdbSettings", JSON.stringify({ __profileScoped: true, version: 1, profiles: { "1": { enabled: true, language: "it-IT", apiKey: "fixture-interim-key" } } }));
+  storage.set(
+    "tmdbSettings",
+    JSON.stringify({
+      __profileScoped: true,
+      version: 1,
+      profiles: { 1: { enabled: true, language: "it-IT", apiKey: "fixture-interim-key" } }
+    })
+  );
 }
 globalThis.__NUVIO_ENV__ = defaultMode ? { TMDB_API_KEY: "fixture-default-key" } : {};
 globalThis.__NUVIO_PLATFORM__ = "vidaa";
 
 const { TmdbSettingsStore } = await import("../js/data/local/tmdbSettingsStore.js");
-const { getTmdbApiKey, isTmdbConfigured, hasDefaultTmdbApiKey } = await import("../js/core/tmdb/tmdbApiConfig.js");
+const { getTmdbApiKey, isTmdbConfigured, hasDefaultTmdbApiKey } =
+  await import("../js/core/tmdb/tmdbApiConfig.js");
 const { validateTmdbApiKey } = await import("../js/core/tmdb/tmdbApiKeyValidation.js");
 const { TmdbService } = await import("../js/core/tmdb/tmdbService.js");
 const { TmdbMetadataService } = await import("../js/core/tmdb/tmdbMetadataService.js");
-const { tmdb_settings } = await import("../js/core/profile/profileSettingsSyncFeature-tmdb-settings.js");
+const { tmdb_settings } =
+  await import("../js/core/profile/profileSettingsSyncFeature-tmdb-settings.js");
 const { stopProfileSettingsCloudSync } = await import("../js/data/local/profileScopedStore.js");
 
 if (migrationMode) {
@@ -53,13 +64,35 @@ TmdbSettingsStore.setForProfile("3", { enabled: false }, { silentSync: true });
 TmdbSettingsStore.setForProfile("3", { enabled: true }, { silentSync: true });
 assert.equal(TmdbSettingsStore.getForProfile("3").modernHomeEnabled, false);
 
-TmdbSettingsStore.setForProfile("1", { apiKey: " fixture-personal-key ", enabled: true, language: "it-IT" }, { silentSync: true });
+TmdbSettingsStore.setForProfile(
+  "1",
+  { apiKey: " fixture-personal-key ", enabled: true, language: "it-IT" },
+  { silentSync: true }
+);
 assert.equal(getTmdbApiKey(), "fixture-personal-key");
-assert.equal(TmdbSettingsStore.getForProfile("4").apiKey, "", "New profiles must not inherit the primary profile personal key");
-assert.equal(TmdbSettingsStore.getForProfile("4").language, "it-IT", "New profiles still inherit metadata preferences");
-assert.equal(getTmdbApiKey(TmdbSettingsStore.getForProfile("4")), defaultMode ? "fixture-default-key" : "");
-assert.ok(!storage.get("tmdbSettings").includes("fixture-personal-key"), "Personal keys are stored separately from syncable preferences");
-TmdbSettingsStore.replaceForProfile("2", { apiKey: "fixture-other-profile-key", enabled: true }, { silentSync: true });
+assert.equal(
+  TmdbSettingsStore.getForProfile("4").apiKey,
+  "",
+  "New profiles must not inherit the primary profile personal key"
+);
+assert.equal(
+  TmdbSettingsStore.getForProfile("4").language,
+  "it-IT",
+  "New profiles still inherit metadata preferences"
+);
+assert.equal(
+  getTmdbApiKey(TmdbSettingsStore.getForProfile("4")),
+  defaultMode ? "fixture-default-key" : ""
+);
+assert.ok(
+  !storage.get("tmdbSettings").includes("fixture-personal-key"),
+  "Personal keys are stored separately from syncable preferences"
+);
+TmdbSettingsStore.replaceForProfile(
+  "2",
+  { apiKey: "fixture-other-profile-key", enabled: true },
+  { silentSync: true }
+);
 storage.set("activeProfileId", JSON.stringify("2"));
 assert.equal(getTmdbApiKey(), "fixture-other-profile-key");
 storage.set("activeProfileId", JSON.stringify("1"));
@@ -80,7 +113,16 @@ globalThis.fetch = async (url) => {
   if (request.pathname.includes("/find/")) {
     return { ok: true, json: async () => ({ movie_results: [{ id: 199 }] }) };
   }
-  return { ok: true, json: async () => ({ title: "Titolo italiano", overview: "Descrizione italiana", videos: { results: [{ site: "YouTube", key: "it-trailer", type: "Trailer", iso_639_1: "it" }] } }) };
+  return {
+    ok: true,
+    json: async () => ({
+      title: "Titolo italiano",
+      overview: "Descrizione italiana",
+      videos: {
+        results: [{ site: "YouTube", key: "it-trailer", type: "Trailer", iso_639_1: "it" }]
+      }
+    })
+  };
 };
 assert.equal(await TmdbService.ensureTmdbId("tt0000199", "movie"), "199");
 const metadata = await TmdbMetadataService.fetchEnrichment({ tmdbId: 199, contentType: "movie" });
@@ -93,30 +135,53 @@ assert.equal(await validateTmdbApiKey(""), false);
 globalThis.fetch = async () => ({ ok: false, status: 401 });
 assert.equal(await validateTmdbApiKey("fixture-invalid-key"), false);
 globalThis.fetch = async () => ({ ok: false, status: 429 });
-await assert.rejects(validateTmdbApiKey("fixture-personal-key"), (error) => error.status === 429 && !error.message.includes("fixture-personal-key"));
-globalThis.fetch = async () => { throw new Error("Network unavailable"); };
+await assert.rejects(
+  validateTmdbApiKey("fixture-personal-key"),
+  (error) => error.status === 429 && !error.message.includes("fixture-personal-key")
+);
+globalThis.fetch = async () => {
+  throw new Error("Network unavailable");
+};
 await assert.rejects(validateTmdbApiKey("fixture-personal-key"), /Network unavailable/);
 
 // Transient failures must remain retryable after a connection/key recovers.
 globalThis.fetch = async () => ({ ok: false, status: 503 });
 assert.equal(await TmdbService.ensureTmdbId("tt0000299", "movie"), null);
-const failedBrowse = await TmdbMetadataService.fetchEntityBrowse({ entityKind: "company", entityId: 299, sourceType: "movie", fallbackName: "Fallback studio" });
+const failedBrowse = await TmdbMetadataService.fetchEntityBrowse({
+  entityKind: "company",
+  entityId: 299,
+  sourceType: "movie",
+  fallbackName: "Fallback studio"
+});
 assert.equal(failedBrowse.header.name, "Fallback studio");
 assert.equal(failedBrowse.rails.length, 0);
 globalThis.fetch = async (url) => {
   const request = new URL(url);
-  return { ok: true, json: async () => request.pathname.includes("/find/")
-    ? { movie_results: [{ id: 299 }] }
-    : request.pathname.includes("/company/")
-      ? { id: 299, name: "Resolved studio" }
-      : { results: [{ id: 299, title: "Titolo italiano", poster_path: "/it.jpg" }], total_pages: 1 } };
+  return {
+    ok: true,
+    json: async () =>
+      request.pathname.includes("/find/")
+        ? { movie_results: [{ id: 299 }] }
+        : request.pathname.includes("/company/")
+          ? { id: 299, name: "Resolved studio" }
+          : {
+              results: [{ id: 299, title: "Titolo italiano", poster_path: "/it.jpg" }],
+              total_pages: 1
+            }
+  };
 };
 assert.equal(await TmdbService.ensureTmdbId("tt0000299", "movie"), "299");
-const recoveredBrowse = await TmdbMetadataService.fetchEntityBrowse({ entityKind: "company", entityId: 299, sourceType: "movie", fallbackName: "Fallback studio" });
+const recoveredBrowse = await TmdbMetadataService.fetchEntityBrowse({
+  entityKind: "company",
+  entityId: 299,
+  sourceType: "movie",
+  fallbackName: "Fallback studio"
+});
 assert.equal(recoveredBrowse.header.name, "Resolved studio");
 assert.equal(recoveredBrowse.rails.length, 6);
 
-const { renderTmdbIntegrationDetail } = await import("../js/ui/screens/settings/settingsIntegrationDetailTmdb.js");
+const { renderTmdbIntegrationDetail } =
+  await import("../js/ui/screens/settings/settingsIntegrationDetailTmdb.js");
 const originalWarn = console.warn;
 console.warn = (...args) => {
   if (!String(args[0]).startsWith("Missing translation for")) originalWarn(...args);
@@ -126,8 +191,13 @@ const owner = {
   actionMap: new Map(),
   renderSectionHeader: () => "",
   renderToggleRow: () => "",
-  renderActionRow: (row) => { rows.push(row); return ""; },
-  openTextDialog(dialog) { this.textDialog = dialog; },
+  renderActionRow: (row) => {
+    rows.push(row);
+    return "";
+  },
+  openTextDialog(dialog) {
+    this.textDialog = dialog;
+  },
   render: async () => {}
 };
 renderTmdbIntegrationDetail.call(owner, { tmdb: TmdbSettingsStore.get() });
@@ -150,7 +220,11 @@ globalThis.fetch = async () => {
 assert.equal(await dialog.onSubmit("fixture-key-after-profile-switch"), false);
 assert.equal(TmdbSettingsStore.getForProfile("1").apiKey, "fixture-updated-key");
 assert.equal(TmdbSettingsStore.getForProfile("2").apiKey, "fixture-other-profile-key");
-assert.equal(dialog.onClear(), false, "A stale key dialog must not clear credentials after switching profiles");
+assert.equal(
+  dialog.onClear(),
+  false,
+  "A stale key dialog must not clear credentials after switching profiles"
+);
 storage.set("activeProfileId", JSON.stringify("1"));
 await stopProfileSettingsCloudSync({ waitForInFlight: false });
 dialog.onClear();
@@ -159,6 +233,10 @@ console.warn = originalWarn;
 
 if (!defaultMode) {
   execFileSync(process.execPath, [fileURLToPath(import.meta.url), "--default"], { stdio: "pipe" });
-  execFileSync(process.execPath, [fileURLToPath(import.meta.url), "--migration"], { stdio: "pipe" });
-  console.log("TMDB API key checks passed: app entry, validation, masking, per-profile override, optional default and credential-free preference sync.");
+  execFileSync(process.execPath, [fileURLToPath(import.meta.url), "--migration"], {
+    stdio: "pipe"
+  });
+  console.log(
+    "TMDB API key checks passed: app entry, validation, masking, per-profile override, optional default and credential-free preference sync."
+  );
 }

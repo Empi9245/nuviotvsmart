@@ -92,9 +92,11 @@ export function createTraktRequestContext(profileId = null) {
 
 export function assertTraktRequestContext(context, { allowInactiveProfile = false } = {}) {
   if (
-    (!allowInactiveProfile && String(ProfileManager.getActiveProfileId() || "1") !== context.profileId) ||
+    (!allowInactiveProfile &&
+      String(ProfileManager.getActiveProfileId() || "1") !== context.profileId) ||
     getTraktClientCredentials(context.profileId).clientId !== context.clientId
-  ) throw createAbortError();
+  )
+    throw createAbortError();
 }
 
 function sleep(ms, signal = null) {
@@ -195,7 +197,9 @@ async function fetchTraktResponse(url, options, requestContext) {
       ok: result.status >= 200 && result.status < 300,
       headers: {
         get(name) {
-          return headerEntries.find(([key]) => key.toLowerCase() === name.toLowerCase())?.[1] ?? null;
+          return (
+            headerEntries.find(([key]) => key.toLowerCase() === name.toLowerCase())?.[1] ?? null
+          );
         }
       },
       text: async () => result.body || ""
@@ -234,26 +238,38 @@ export function requestJson(
         headers.Authorization = authorization;
       }
 
-      const send = () => withRequestTimeout(async (networkSignal) => {
-        assertTraktRequestContext(context);
-        const response = await fetchTraktResponse(`${apiBaseUrl()}${path}`, {
-          method,
-          headers,
-          body: body == null ? undefined : JSON.stringify(body),
-          ...(networkSignal ? { signal: networkSignal } : {})
-        }, context);
-        throwIfAborted(networkSignal);
-        const payload = await readResponseBody(response);
-        throwIfAborted(networkSignal);
-        assertTraktRequestContext(context, { allowInactiveProfile: path.startsWith("/oauth/") });
-        return { response, payload };
-      }, REQUEST_TIMEOUT_MS, requestSignal);
+      const send = () =>
+        withRequestTimeout(
+          async (networkSignal) => {
+            assertTraktRequestContext(context);
+            const response = await fetchTraktResponse(
+              `${apiBaseUrl()}${path}`,
+              {
+                method,
+                headers,
+                body: body == null ? undefined : JSON.stringify(body),
+                ...(networkSignal ? { signal: networkSignal } : {})
+              },
+              context
+            );
+            throwIfAborted(networkSignal);
+            const payload = await readResponseBody(response);
+            throwIfAborted(networkSignal);
+            assertTraktRequestContext(context, {
+              allowInactiveProfile: path.startsWith("/oauth/")
+            });
+            return { response, payload };
+          },
+          REQUEST_TIMEOUT_MS,
+          requestSignal
+        );
       const result = await send();
       // Stored lifetime can differ from server expiry. Retry an authenticated
       // request once, sharing the token refresh with all other requests.
       if (result.response.status === 401 && authorization && !path.startsWith("/oauth/")) {
         throwIfAborted(requestSignal);
-        if (String(ProfileManager.getActiveProfileId() || "1") !== profileId) throw createAbortError();
+        if (String(ProfileManager.getActiveProfileId() || "1") !== profileId)
+          throw createAbortError();
         let state = TraktAuthStore.get(profileId);
         if (authorization === `Bearer ${state.accessToken}`) {
           const refreshed = await TraktAuthService.refreshTokenIfNeeded(true, profileId);
@@ -261,7 +277,8 @@ export function requestJson(
           state = TraktAuthStore.get(profileId);
         }
         throwIfAborted(requestSignal);
-        if (String(ProfileManager.getActiveProfileId() || "1") !== profileId) throw createAbortError();
+        if (String(ProfileManager.getActiveProfileId() || "1") !== profileId)
+          throw createAbortError();
         if (state.accessToken && authorization !== `Bearer ${state.accessToken}`) {
           headers.Authorization = `Bearer ${state.accessToken}`;
           return send();
@@ -300,7 +317,10 @@ async function fetchUserSettings() {
   const user = payload?.user || {};
   const username = user.username || null;
   const userSlug = user.ids?.slug || null;
-  if (String(ProfileManager.getActiveProfileId() || "1") !== profileId || TraktAuthStore.get(profileId).accessToken !== token) {
+  if (
+    String(ProfileManager.getActiveProfileId() || "1") !== profileId ||
+    TraktAuthStore.get(profileId).accessToken !== token
+  ) {
     return null;
   }
   TraktAuthStore.saveUser({ username, userSlug }, profileId);

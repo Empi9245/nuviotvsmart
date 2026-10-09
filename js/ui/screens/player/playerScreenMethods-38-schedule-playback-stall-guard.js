@@ -29,8 +29,13 @@ export function createPlayerScreenMethods38() {
           ? Number(timeoutOverrideMs)
           : this.getPlaybackStallTimeoutMs({ startup });
       this.playbackStallTimer = setTimeout(async () => {
-        if (!this.isActiveMountToken(mountToken) || !this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) ||
-          this.playbackStartToken !== playbackStartToken || this.sourceFallbackPending) return;
+        if (
+          !this.isActiveMountToken(mountToken) ||
+          !this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) ||
+          this.playbackStartToken !== playbackStartToken ||
+          this.sourceFallbackPending
+        )
+          return;
         this.playbackStallTimer = null;
         if (this.isExternalFrameMode() || !this.loadingVisible || !this.activePlaybackUrl) {
           return;
@@ -61,8 +66,13 @@ export function createPlayerScreenMethods38() {
 
         if (startup && this.currentEngineFsStream) {
           const stats = await this.fetchCurrentEngineFsStats();
-          if (!this.isActiveMountToken(mountToken) || !this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) ||
-            this.playbackStartToken !== playbackStartToken || this.sourceFallbackPending) return;
+          if (
+            !this.isActiveMountToken(mountToken) ||
+            !this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) ||
+            this.playbackStartToken !== playbackStartToken ||
+            this.sourceFallbackPending
+          )
+            return;
           if (!stats && Environment.isWebOS() && this.scheduleEngineFsStartupRetry({ mediaErrorCode: 0, stats: null })) {
             return;
           }
@@ -231,6 +241,9 @@ export function createPlayerScreenMethods38() {
         this.releaseStartupAudioGate({ resume: false });
         if (startup) {
           this.markPlaybackSourceFailed(this.activePlaybackUrl);
+          if (this.tryNextStreamCandidate({ reason: "startup-stall" })) {
+            return;
+          }
           const mediaErrorCode = startupMediaErrorCode;
           const sourceCandidate = this.getStreamCandidateByUrl(this.activePlaybackUrl) || this.getCurrentStreamCandidate();
           const startupErrorMessage = this.getStartupErrorMessage(mediaErrorCode, terminalHlsErrorDetail, sourceCandidate);

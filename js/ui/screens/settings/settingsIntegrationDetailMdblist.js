@@ -35,9 +35,10 @@ export function renderMdblistIntegrationDetail(model) {
             valid = await mdbListRepository.validateApiKey(trimmed);
           } catch (error) {
             if (this.textDialog) {
-              this.textDialog.statusMessage = Number(error?.status) === 429
-                ? t("mdblist_rate_limit_error", {}, "MDBList request limit reached. Try again later.")
-                : t("mdblist_connection_error", {}, "Could not connect to MDBList. Check your connection and try again.");
+              this.textDialog.statusMessage =
+                Number(error?.status) === 429
+                  ? t("mdblist_rate_limit_error", {}, "MDBList request limit reached. Try again later.")
+                  : t("mdblist_connection_error", {}, "Could not connect to MDBList. Check your connection and try again.");
               this.textDialog.statusKind = "error";
             }
             return false;

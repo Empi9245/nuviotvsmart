@@ -204,17 +204,17 @@ export function createHomeScreenMethods26() {
         }
         const isSeries = isSeriesTypeForContinueWatching(contentType);
         const enrichmentPromise = TmdbMetadataService.fetchEnrichment({
-            tmdbId,
-            contentType,
-            language: settings.language
-          }).catch(() => null);
+          tmdbId,
+          contentType,
+          language: settings.language
+        }).catch(() => null);
         const episodeMapPromise =
           isSeries && (settings.useEpisodes || settings.useReleaseDates) && item.season != null && Number(item.season) >= 0
             ? TmdbMetadataService.fetchEpisodeEnrichment({
-                  tmdbId,
-                  seasonNumbers: [Number(item.season)],
-                  language: settings.language
-                }).catch(() => new Map())
+                tmdbId,
+                seasonNumbers: [Number(item.season)],
+                language: settings.language
+              }).catch(() => new Map())
             : Promise.resolve(new Map());
         const [enrichment, episodeMap] = await Promise.all([enrichmentPromise, episodeMapPromise]);
         if (!enrichment && !episodeMap.size) {

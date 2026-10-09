@@ -27,25 +27,29 @@ export function renderTraktClientCredentialRows({ prefix = "integration:trakt", 
     await onSaved?.();
     return true;
   };
-  return ["clientId", "clientSecret"].map((field) => {
-    const focusKey = `${prefix}:${field}`;
-    this.actionMap.set(focusKey, () => this.openTextDialog({
-      title: `Trakt — ${titles[field]}`,
-      value: TraktClientSettingsStore.get(profileId)[field],
-      inputType: "password",
-      placeholder: titles[field],
-      returnFocusKey: focusKey,
-      clearLabel: t("action_clear", "Clear"),
-      onClear: () => save(field, ""),
-      onSubmit: (value) => save(field, value)
-    }));
-    return this.renderActionRow({
-      focusKey,
-      title: titles[field],
-      subtitle: t("trakt_client_credentials_local", "Saved on this device for the current profile"),
-      value: settings[field] ? configuredLabel : effective[field] ? defaultLabel : unsetLabel
-    });
-  }).join("");
+  return ["clientId", "clientSecret"]
+    .map((field) => {
+      const focusKey = `${prefix}:${field}`;
+      this.actionMap.set(focusKey, () =>
+        this.openTextDialog({
+          title: `Trakt — ${titles[field]}`,
+          value: TraktClientSettingsStore.get(profileId)[field],
+          inputType: "password",
+          placeholder: titles[field],
+          returnFocusKey: focusKey,
+          clearLabel: t("action_clear", "Clear"),
+          onClear: () => save(field, ""),
+          onSubmit: (value) => save(field, value)
+        })
+      );
+      return this.renderActionRow({
+        focusKey,
+        title: titles[field],
+        subtitle: t("trakt_client_credentials_local", "Saved on this device for the current profile"),
+        value: settings[field] ? configuredLabel : effective[field] ? defaultLabel : unsetLabel
+      });
+    })
+    .join("");
 }
 
 export function renderTraktIntegrationDetail() {

@@ -81,7 +81,11 @@ export function createTraktAuthServiceMethods01() {
         throw new Error(normalizeAuthErrorMessage(payload, `Failed to start Trakt auth (${response.status})`));
       }
 
-      if (activeProfileId() !== profileId || getTraktClientCredentials(profileId).clientId !== credentials.clientId || getTraktClientCredentials(profileId).clientSecret !== credentials.clientSecret) {
+      if (
+        activeProfileId() !== profileId ||
+        getTraktClientCredentials(profileId).clientId !== credentials.clientId ||
+        getTraktClientCredentials(profileId).clientSecret !== credentials.clientSecret
+      ) {
         throw internals.createAbortError();
       }
       return TraktAuthStore.saveDeviceFlow(payload, profileId);

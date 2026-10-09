@@ -5,7 +5,11 @@ import { ProfileManager } from "../../../core/profile/profileManager.js";
 import { getTmdbApiKey } from "../../../core/tmdb/tmdbApiConfig.js";
 
 export function isHomeTmdbEnabled(layoutMode = "modern", settings = TmdbSettingsStore.get()) {
-  return Boolean(settings.enabled && getTmdbApiKey(settings) && (layoutMode !== "modern" || settings.modernHomeEnabled));
+  return Boolean(
+    settings.enabled &&
+    getTmdbApiKey(settings) &&
+    (layoutMode !== "modern" || settings.modernHomeEnabled)
+  );
 }
 
 function credentialFingerprint(key) {

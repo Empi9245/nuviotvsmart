@@ -28,170 +28,191 @@ export function createPlayerScreenMethods35() {
       if (options.preservePlaybackState) this.captureSourcePlaybackRestore();
       const isCurrentAttempt = () => this.isActiveMountToken(mountToken) && this.isCurrentSourcePlaybackAttempt(sourceAttemptToken);
       try {
-      streamRepository.setLocalPluginSearchPaused(true);
-      const forceEngineFsResolve = options?.forceEngineFsResolve === true;
-      let targetUrl = forceEngineFsResolve ? "" : streamDirectPlaybackUrl(streamCandidate);
-      if (!targetUrl) {
-        const resolveContext = {
-          season: this.params?.season == null ? null : Number(this.params.season),
-          episode: this.params?.episode == null ? null : Number(this.params.episode)
-        };
-        const canUseEngineFs = WebOsEngineFsResolver.canResolveStream(streamCandidate);
-        const canUseTizenP2p = TizenStreamingServerResolver.canResolveStream(streamCandidate);
-        const canResolveP2p = canUseEngineFs || canUseTizenP2p;
-        const tizenP2pUnsupported = TizenStreamingServerResolver.isUnsupportedOnCurrentTizen(streamCandidate);
-        const p2pEnabled = Boolean(TorrentSettingsStore.get().p2pEnabled);
-        const canUseP2p = p2pEnabled && canResolveP2p;
-        let fallbackError = "";
-        let resolveFailureStatus = "";
-        let resolveFailureDetail = "";
-        let preResolveEngineFsKeepAliveToken = "";
-        const stopPreResolveEngineFsKeepAlive = () => {
-          if (
-            !preResolveEngineFsKeepAliveToken ||
-            this.engineFsKeepAliveToken !== preResolveEngineFsKeepAliveToken ||
-            this.currentEngineFsStream
-          ) {
-            return;
-          }
-          this.stopEngineFsKeepAlive();
-        };
+        streamRepository.setLocalPluginSearchPaused(true);
+        const forceEngineFsResolve = options?.forceEngineFsResolve === true;
+        let targetUrl = forceEngineFsResolve ? "" : streamDirectPlaybackUrl(streamCandidate);
+        if (!targetUrl) {
+          const resolveContext = {
+            season: this.params?.season == null ? null : Number(this.params.season),
+            episode: this.params?.episode == null ? null : Number(this.params.episode)
+          };
+          const canUseEngineFs = WebOsEngineFsResolver.canResolveStream(streamCandidate);
+          const canUseTizenP2p = TizenStreamingServerResolver.canResolveStream(streamCandidate);
+          const canResolveP2p = canUseEngineFs || canUseTizenP2p;
+          const tizenP2pUnsupported = TizenStreamingServerResolver.isUnsupportedOnCurrentTizen(streamCandidate);
+          const p2pEnabled = Boolean(TorrentSettingsStore.get().p2pEnabled);
+          const canUseP2p = p2pEnabled && canResolveP2p;
+          let fallbackError = "";
+          let resolveFailureStatus = "";
+          let resolveFailureDetail = "";
+          let preResolveEngineFsKeepAliveToken = "";
+          const stopPreResolveEngineFsKeepAlive = () => {
+            if (
+              !preResolveEngineFsKeepAliveToken ||
+              this.engineFsKeepAliveToken !== preResolveEngineFsKeepAliveToken ||
+              this.currentEngineFsStream
+            ) {
+              return;
+            }
+            this.stopEngineFsKeepAlive();
+          };
 
-        if (DirectDebridResolver.canResolveStream(streamCandidate, resolveContext)) {
-          const result = await DirectDebridResolver.resolve(streamCandidate, resolveContext);
-          if (!isCurrentAttempt()) {
-            return;
+          if (DirectDebridResolver.canResolveStream(streamCandidate, resolveContext)) {
+            const result = await DirectDebridResolver.resolve(streamCandidate, resolveContext);
+            if (!isCurrentAttempt()) {
+              return;
+            }
+            if (result.status === "success" && result.stream?.url) {
+              targetUrl = result.stream.url;
+              Object.assign(streamCandidate, {
+                url: targetUrl,
+                externalUrl: null,
+                mimeType: result.stream.mimeType || streamCandidate.mimeType,
+                sourceType: result.stream.sourceType || streamCandidate.sourceType,
+                behaviorHints: result.stream.behaviorHints || streamCandidate.behaviorHints,
+                raw: { ...(streamCandidate.raw || {}), ...(result.stream.raw || {}) }
+              });
+            } else {
+              fallbackError =
+                result.status === "service_degraded"
+                  ? t(
+                      "stream.debrid.serviceDegraded",
+                      {},
+                      "The Debrid service is currently degraded. Try again later or choose another source."
+                    )
+                  : result.status === "not_cached"
+                    ? t("stream.debrid.notCached", {}, "Not cached on this service.")
+                    : result.status === "stale"
+                      ? t("stream.debrid.stale", {}, "This Debrid result expired. Refreshing streams.")
+                      : t("stream.debrid.failed", {}, "Could not resolve this Debrid stream.");
+              resolveFailureStatus = result.status || "debrid-failed";
+              resolveFailureDetail = result.detail || result.error || "";
+              if (result.status === "service_degraded") {
+                if (this.tryNextStreamCandidate({ streamCandidate, sourceAttemptToken })) return;
+                if (!this.hasPresentedPlaybackFrame) {
+                  this.showStartupError(fallbackError, {
+                    streamCandidate,
+                    reason: "debrid-resolve",
+                    resolverStatus: resolveFailureStatus,
+                    resolverDetail: resolveFailureDetail
+                  });
+                } else {
+                  this.sourcesError = this.formatPlaybackErrorForSources(fallbackError, {
+                    streamCandidate,
+                    reason: "debrid-resolve",
+                    resolverStatus: resolveFailureStatus,
+                    resolverDetail: resolveFailureDetail
+                  });
+                  this.renderSourcesPanel();
+                }
+                return;
+              }
+            }
           }
-          if (result.status === "success" && result.stream?.url) {
-            targetUrl = result.stream.url;
-            Object.assign(streamCandidate, {
-              url: targetUrl,
-              externalUrl: null,
-              mimeType: result.stream.mimeType || streamCandidate.mimeType,
-              sourceType: result.stream.sourceType || streamCandidate.sourceType,
-              behaviorHints: result.stream.behaviorHints || streamCandidate.behaviorHints,
-              raw: { ...(streamCandidate.raw || {}), ...(result.stream.raw || {}) }
-            });
-          } else {
-            fallbackError =
-              result.status === "service_degraded"
-                ? t(
-                    "stream.debrid.serviceDegraded",
-                    {},
-                    "The Debrid service is currently degraded. Try again later or choose another source."
-                  )
-                : result.status === "not_cached"
-                  ? t("stream.debrid.notCached", {}, "Not cached on this service.")
-                  : result.status === "stale"
-                    ? t("stream.debrid.stale", {}, "This Debrid result expired. Refreshing streams.")
-                    : t("stream.debrid.failed", {}, "Could not resolve this Debrid stream.");
-            resolveFailureStatus = result.status || "debrid-failed";
-            resolveFailureDetail = result.detail || result.error || "";
-            if (result.status === "service_degraded") {
-              if (this.tryNextStreamCandidate({ streamCandidate, sourceAttemptToken })) return;
-              if (!this.hasPresentedPlaybackFrame) {
-                this.showStartupError(fallbackError, {
-                  streamCandidate,
-                  reason: "debrid-resolve",
-                  resolverStatus: resolveFailureStatus,
-                  resolverDetail: resolveFailureDetail
+
+          if (!targetUrl && canUseP2p) {
+            if (canUseEngineFs && !this.currentEngineFsStream && !this.engineFsKeepAliveToken) {
+              const infoHash = getP2pInfoHash(streamCandidate);
+              if (infoHash) {
+                this.startEngineFsKeepAlive({
+                  kind: "webos-enginefs",
+                  infoHash,
+                  fileIdx: streamCandidate.fileIdx ?? streamCandidate.raw?.fileIdx ?? null
                 });
-              } else {
-                this.sourcesError = this.formatPlaybackErrorForSources(fallbackError, {
-                  streamCandidate,
-                  reason: "debrid-resolve",
-                  resolverStatus: resolveFailureStatus,
-                  resolverDetail: resolveFailureDetail
+                preResolveEngineFsKeepAliveToken = this.engineFsKeepAliveToken;
+                logEngineFsDebug("EngineFS keepalive started before P2P resolve", {
+                  infoHash,
+                  fileIdx: streamCandidate.fileIdx ?? streamCandidate.raw?.fileIdx ?? null
                 });
-                this.renderSourcesPanel();
+              }
+            }
+            const result = canUseEngineFs
+              ? await WebOsEngineFsResolver.resolve(streamCandidate, resolveContext)
+              : await TizenStreamingServerResolver.resolve(streamCandidate, resolveContext);
+            if (!isCurrentAttempt()) {
+              stopPreResolveEngineFsKeepAlive();
+              const resolvedEngineFs = result?.stream?.engineFs || null;
+              if (resolvedEngineFs?.infoHash) {
+                void this.cleanupEngineFsState(resolvedEngineFs, "stale-p2p-resolve", {
+                  deferMs: 0
+                }).catch(() => null);
               }
               return;
             }
-          }
-        }
-
-        if (!targetUrl && canUseP2p) {
-          if (canUseEngineFs && !this.currentEngineFsStream && !this.engineFsKeepAliveToken) {
-            const infoHash = getP2pInfoHash(streamCandidate);
-            if (infoHash) {
-              this.startEngineFsKeepAlive({
-                kind: "webos-enginefs",
-                infoHash,
+            if (result.status === "success" && result.stream?.url) {
+              targetUrl = result.stream.url;
+              Object.assign(streamCandidate, {
+                url: targetUrl,
+                externalUrl: null,
+                infoHash: result.stream.infoHash || streamCandidate.infoHash,
+                fileIdx: result.stream.fileIdx ?? streamCandidate.fileIdx,
+                engineFs: result.stream.engineFs || streamCandidate.engineFs || null,
+                tizenP2p: result.stream.tizenP2p || streamCandidate.tizenP2p || null,
+                mimeType: result.stream.mimeType || streamCandidate.mimeType,
+                sourceType: result.stream.sourceType || streamCandidate.sourceType,
+                behaviorHints: result.stream.behaviorHints || streamCandidate.behaviorHints,
+                raw: { ...(streamCandidate.raw || {}), ...(result.stream.raw || {}) }
+              });
+            } else {
+              resolveFailureStatus = result?.status || "p2p-failed";
+              resolveFailureDetail = result?.detail || result?.error || "";
+              console.warn("PlayerScreen: P2P resolve failed", {
+                status: result.status,
+                detail: result.detail || "",
+                infoHash:
+                  streamCandidate.infoHash ||
+                  streamCandidate.raw?.infoHash ||
+                  streamCandidate.clientResolve?.infoHash ||
+                  streamCandidate.raw?.clientResolve?.infoHash ||
+                  "",
                 fileIdx: streamCandidate.fileIdx ?? streamCandidate.raw?.fileIdx ?? null
               });
-              preResolveEngineFsKeepAliveToken = this.engineFsKeepAliveToken;
-              logEngineFsDebug("EngineFS keepalive started before P2P resolve", {
-                infoHash,
-                fileIdx: streamCandidate.fileIdx ?? streamCandidate.raw?.fileIdx ?? null
+
+              stopPreResolveEngineFsKeepAlive();
+            }
+          }
+
+          if (!targetUrl) {
+            if (!isCurrentAttempt()) {
+              return;
+            }
+            if (this.tryNextStreamCandidate({ streamCandidate, sourceAttemptToken })) return;
+            const startupMessage =
+              fallbackError ||
+              (tizenP2pUnsupported
+                ? t("player_error_tizen_p2p_unsupported", {}, "Torrent/P2P streaming is not supported on this TV.")
+                : !p2pEnabled && canResolveP2p
+                  ? t("player_error_p2p_disabled", {}, "P2P streaming is disabled. Enable P2P in Settings to play torrent streams.")
+                  : canUseP2p
+                    ? t(
+                        "player_error_failed_start_torrent",
+                        [t("player_error_playback_fallback", {}, "Playback error")],
+                        "Failed to start torrent: %1$s"
+                      )
+                    : t("player_error_playback_fallback", {}, "Playback error"));
+            if (!this.hasPresentedPlaybackFrame) {
+              this.showStartupError(startupMessage, {
+                streamCandidate,
+                reason: tizenP2pUnsupported
+                  ? "tizen-p2p-unsupported"
+                  : !p2pEnabled && canResolveP2p
+                    ? "p2p-disabled"
+                    : canUseP2p
+                      ? "p2p-resolve"
+                      : "stream-resolve",
+                resolverStatus: resolveFailureStatus,
+                resolverDetail: resolveFailureDetail
               });
+              return;
             }
-          }
-          const result = canUseEngineFs
-            ? await WebOsEngineFsResolver.resolve(streamCandidate, resolveContext)
-            : await TizenStreamingServerResolver.resolve(streamCandidate, resolveContext);
-          if (!isCurrentAttempt()) {
-            stopPreResolveEngineFsKeepAlive();
-            const resolvedEngineFs = result?.stream?.engineFs || null;
-            if (resolvedEngineFs?.infoHash) {
-              void this.cleanupEngineFsState(resolvedEngineFs, "stale-p2p-resolve", {
-                deferMs: 0
-              }).catch(() => null);
-            }
-            return;
-          }
-          if (result.status === "success" && result.stream?.url) {
-            targetUrl = result.stream.url;
-            Object.assign(streamCandidate, {
-              url: targetUrl,
-              externalUrl: null,
-              infoHash: result.stream.infoHash || streamCandidate.infoHash,
-              fileIdx: result.stream.fileIdx ?? streamCandidate.fileIdx,
-              engineFs: result.stream.engineFs || streamCandidate.engineFs || null,
-              tizenP2p: result.stream.tizenP2p || streamCandidate.tizenP2p || null,
-              mimeType: result.stream.mimeType || streamCandidate.mimeType,
-              sourceType: result.stream.sourceType || streamCandidate.sourceType,
-              behaviorHints: result.stream.behaviorHints || streamCandidate.behaviorHints,
-              raw: { ...(streamCandidate.raw || {}), ...(result.stream.raw || {}) }
-            });
-          } else {
-            resolveFailureStatus = result?.status || "p2p-failed";
-            resolveFailureDetail = result?.detail || result?.error || "";
-            console.warn("PlayerScreen: P2P resolve failed", {
-              status: result.status,
-              detail: result.detail || "",
-              infoHash:
-                streamCandidate.infoHash ||
-                streamCandidate.raw?.infoHash ||
-                streamCandidate.clientResolve?.infoHash ||
-                streamCandidate.raw?.clientResolve?.infoHash ||
-                "",
-              fileIdx: streamCandidate.fileIdx ?? streamCandidate.raw?.fileIdx ?? null
-            });
-
-            stopPreResolveEngineFsKeepAlive();
-          }
-        }
-
-        if (!targetUrl) {
-          if (!isCurrentAttempt()) {
-            return;
-          }
-          if (this.tryNextStreamCandidate({ streamCandidate, sourceAttemptToken })) return;
-          const startupMessage =
-            fallbackError ||
-            (tizenP2pUnsupported
+            const sourceErrorMessage = tizenP2pUnsupported
               ? t("player_error_tizen_p2p_unsupported", {}, "Torrent/P2P streaming is not supported on this TV.")
               : !p2pEnabled && canResolveP2p
                 ? t("player_error_p2p_disabled", {}, "P2P streaming is disabled. Enable P2P in Settings to play torrent streams.")
                 : canUseP2p
-                  ? t(
-                      "player_error_failed_start_torrent",
-                      [t("player_error_playback_fallback", {}, "Playback error")],
-                      "Failed to start torrent: %1$s"
-                    )
-                  : t("player_error_playback_fallback", {}, "Playback error"));
-          if (!this.hasPresentedPlaybackFrame) {
-            this.showStartupError(startupMessage, {
+                  ? t("stream.p2p.failed", {}, "Could not start this torrent stream.")
+                  : fallbackError || t("stream.debrid.unavailable", {}, "This Debrid source needs a configured Debrid account.");
+            this.sourcesError = this.formatPlaybackErrorForSources(sourceErrorMessage, {
               streamCandidate,
               reason: tizenP2pUnsupported
                 ? "tizen-p2p-unsupported"
@@ -203,48 +224,30 @@ export function createPlayerScreenMethods35() {
               resolverStatus: resolveFailureStatus,
               resolverDetail: resolveFailureDetail
             });
+            this.renderSourcesPanel();
             return;
           }
-          const sourceErrorMessage = tizenP2pUnsupported
-            ? t("player_error_tizen_p2p_unsupported", {}, "Torrent/P2P streaming is not supported on this TV.")
-            : !p2pEnabled && canResolveP2p
-              ? t("player_error_p2p_disabled", {}, "P2P streaming is disabled. Enable P2P in Settings to play torrent streams.")
-              : canUseP2p
-                ? t("stream.p2p.failed", {}, "Could not start this torrent stream.")
-                : fallbackError || t("stream.debrid.unavailable", {}, "This Debrid source needs a configured Debrid account.");
-          this.sourcesError = this.formatPlaybackErrorForSources(sourceErrorMessage, {
-            streamCandidate,
-            reason: tizenP2pUnsupported
-              ? "tizen-p2p-unsupported"
-              : !p2pEnabled && canResolveP2p
-                ? "p2p-disabled"
-                : canUseP2p
-                  ? "p2p-resolve"
-                  : "stream-resolve",
-            resolverStatus: resolveFailureStatus,
-            resolverDetail: resolveFailureDetail
-          });
-          this.renderSourcesPanel();
-          return;
-        }
 
-        this.streamCandidates = this.streamCandidates.map((entry) =>
-          entry.id === streamCandidate.id ? { ...entry, ...streamCandidate } : entry
-        );
-      }
-      this.rememberSelectedStreamPreference(streamCandidate);
-      await this.playStreamByUrl(targetUrl, {
-        ...options,
-        preservePlaybackState: false,
-        preservePendingRestore: options.preservePendingRestore || options.preservePlaybackState,
-        sourceAttemptToken,
-        mountToken,
-        sourceCandidate: streamCandidate
-      });
+          this.streamCandidates = this.streamCandidates.map((entry) =>
+            entry.id === streamCandidate.id ? { ...entry, ...streamCandidate } : entry
+          );
+        }
+        this.rememberSelectedStreamPreference(streamCandidate);
+        await this.playStreamByUrl(targetUrl, {
+          ...options,
+          preservePlaybackState: false,
+          preservePendingRestore: options.preservePendingRestore || options.preservePlaybackState,
+          sourceAttemptToken,
+          mountToken,
+          sourceCandidate: streamCandidate
+        });
       } catch (error) {
         if (!isCurrentAttempt()) return;
         this.showStartupError(t("player_error_playback_fallback", {}, "Playback error"), {
-          streamCandidate, sourceAttemptToken, detail: String(error?.message || error || ""), reason: "stream-resolve-error"
+          streamCandidate,
+          sourceAttemptToken,
+          detail: String(error?.message || error || ""),
+          reason: "stream-resolve-error"
         });
       }
     },
@@ -277,6 +280,54 @@ export function createPlayerScreenMethods35() {
       if (currentId) {
         (this.failedPlaybackStreamIds || (this.failedPlaybackStreamIds = new Set())).add(currentId);
       }
+    },
+    /**
+     * After a source has been marked as failed, try to automatically play the
+     * next viable stream candidate.  Iterates through `streamCandidates` from
+     * `currentStreamIndex + 1`, wrapping around, and skips any entry whose URL
+     * or id has already been recorded in the failed sets.
+     *
+     * Returns `true` and begins playback of the next candidate, or `false`
+     * when every candidate has already failed (caller should then show the
+     * error UI as before).
+     */
+    tryNextStreamCandidate({ reason = "auto-fallback" } = {}) {
+      const candidates = this.streamCandidates || [];
+      if (candidates.length <= 1) {
+        return false;
+      }
+      const failedUrls = this.failedPlaybackUrls || new Set();
+      const failedIds = this.failedPlaybackStreamIds || new Set();
+      const currentIndex = Number(this.currentStreamIndex || 0);
+
+      for (let offset = 1; offset < candidates.length; offset++) {
+        const index = (currentIndex + offset) % candidates.length;
+        const candidate = candidates[index];
+        if (!candidate) continue;
+        const url = String(candidate.url || candidate.externalUrl || "").trim();
+        const id = String(candidate.id || "").trim();
+        const urlFailed = url && failedUrls.has(url);
+        const idFailed = id && failedIds.has(id);
+        if (urlFailed || idFailed) continue;
+
+        // Found a viable candidate – switch to it.
+        this.currentStreamIndex = index;
+        console.info("[Nuvio] Auto-fallback: switching to next source", {
+          reason,
+          fromIndex: currentIndex,
+          toIndex: index,
+          candidateId: id || null,
+          remaining: candidates.length - (failedIds.size || 0)
+        });
+        this.lastPlaybackErrorAt = 0;
+        this.loadingVisible = true;
+        this.paused = false;
+        this.sourcesError = null;
+        this.updateLoadingVisibility();
+        void this.playStreamCandidate(candidate, { preservePlaybackState: false });
+        return true;
+      }
+      return false;
     },
     mediaErrorMessage(errorCode = 0, detail = "", streamCandidate = this.getCurrentStreamCandidate()) {
       const code = Number(errorCode || 0);

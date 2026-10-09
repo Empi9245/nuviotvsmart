@@ -35,11 +35,7 @@ export function createPlayerScreenMethods55() {
       }
 
       const usingAvPlay = typeof PlayerController.isUsingAvPlay === "function" ? PlayerController.isUsingAvPlay() : false;
-      if (
-        (usingAvPlay && Environment.isTizen()) ||
-        Environment.isWebOS() ||
-        Environment.isVidaa()
-      ) {
+      if ((usingAvPlay && Environment.isTizen()) || Environment.isWebOS() || Environment.isVidaa()) {
         // VIDAA can accept a native mode change without painting external
         // cues. Use the shared clocked overlay for readable VTT/SRT/ASS;
         // a blocked fetch still falls through to the direct native URL path.

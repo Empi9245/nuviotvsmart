@@ -171,8 +171,13 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
     if (!this.hasPresentedPlaybackFrame && (mediaErrorCode === 2 || mediaErrorCode === 3 || mediaErrorCode === 4)) {
       if (currentEngineFsState) {
         const stats = await this.fetchCurrentEngineFsStats({ timeoutMs: 2500 });
-        if (!this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) || this.playbackStartToken !== playbackStartToken ||
-          !this.isActiveMountToken(mountToken) || this.sourceFallbackPending) return;
+        if (
+          !this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) ||
+          this.playbackStartToken !== playbackStartToken ||
+          !this.isActiveMountToken(mountToken) ||
+          this.sourceFallbackPending
+        )
+          return;
         if (this.shouldRetryEngineFsStartupError(stats)) {
           this.scheduleEngineFsStartupRetry({ mediaErrorCode, stats });
           return;
@@ -228,6 +233,9 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
         return;
       }
       this.markPlaybackSourceFailed(this.activePlaybackUrl);
+      if (this.tryNextStreamCandidate({ reason: "startup-media-error" })) {
+        return;
+      }
       const startupErrorMessage = this.getStartupErrorMessage(mediaErrorCode, playbackErrorDetail, currentSourceCandidate);
       this.clearPlaybackStallGuard();
       this.releaseStartupAudioGate({ resume: false });
@@ -259,7 +267,8 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
 
     this.markPlaybackSourceFailed(this.activePlaybackUrl);
 
-    if (this.tryNextStreamCandidate({ streamCandidate: currentSourceCandidate, playbackUrl: this.activePlaybackUrl, sourceAttemptToken })) return;
+    if (this.tryNextStreamCandidate({ streamCandidate: currentSourceCandidate, playbackUrl: this.activePlaybackUrl, sourceAttemptToken }))
+      return;
 
     this.clearPlaybackStallGuard();
     this.releaseStartupAudioGate({ resume: false });

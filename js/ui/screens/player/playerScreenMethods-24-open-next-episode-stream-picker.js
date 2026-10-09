@@ -17,6 +17,7 @@ export function createPlayerScreenMethods24() {
     isSeriesItemType,
     normalizeSubtitleFontSize,
     formatHtmlSubtitleFontSize,
+    subtitleBackgroundToCss,
     dbToGain,
     supportsTvWebAudioAmplification,
     streamDirectPlaybackUrl
@@ -277,7 +278,9 @@ export function createPlayerScreenMethods24() {
       const outlineShadow = style.outlineEnabled
         ? Environment.isWebOS()
           ? `-2px -2px 0 ${outlineColor}, 0 -2px 0 ${outlineColor}, 2px -2px 0 ${outlineColor}, -2px 0 0 ${outlineColor}, 2px 0 0 ${outlineColor}, -2px 2px 0 ${outlineColor}, 0 2px 0 ${outlineColor}, 2px 2px 0 ${outlineColor}`
-          : `0 0 2px ${outlineColor}, 0 0 4px ${outlineColor}`
+          : // A single hard directional ring reads as one clean border; pairing
+            // it with a soft feather made the outline look doubled on TV panels.
+            `-2px -2px 0 ${outlineColor}, 0 -2px 0 ${outlineColor}, 2px -2px 0 ${outlineColor}, -2px 0 0 ${outlineColor}, 2px 0 0 ${outlineColor}, -2px 2px 0 ${outlineColor}, 0 2px 0 ${outlineColor}, 2px 2px 0 ${outlineColor}`
         : "";
       const subtitleShadow = [outlineShadow, boldShadow].filter(Boolean).join(", ") || "none";
       const htmlSubtitleShadow = Environment.isWebOS() ? outlineShadow || "none" : subtitleShadow;
@@ -288,6 +291,7 @@ export function createPlayerScreenMethods24() {
         : "";
       const subtitleFontSize = normalizeSubtitleFontSize(style.fontSize);
       const htmlSubtitleFontSize = formatHtmlSubtitleFontSize(subtitleFontSize);
+      const subtitleBackgroundCss = subtitleBackgroundToCss(style.backgroundColor);
       PlayerController.setWebOsSubtitleFontSize?.(subtitleFontSize);
       if (Environment.isTizen() && PlayerController.isUsingAvPlay?.()) {
         PlayerController.setAvPlayExternalSubtitleDelay?.(this.subtitleDelayMs);
@@ -299,7 +303,9 @@ export function createPlayerScreenMethods24() {
       // rgba color below.
       uiRoot.style.setProperty("--player-subtitle-text-color", subtitleTextColor);
       uiRoot.style.setProperty("--player-subtitle-text-opacity", String(subtitleTextOpacity / 100));
-      uiRoot.style.setProperty("--player-subtitle-background", String(style.backgroundColor || "#00000000"));
+      // 8-digit hex is only parsed from Chromium 62+; older VIDAA firmwares
+      // drop it entirely, so hand the background over as rgba().
+      uiRoot.style.setProperty("--player-subtitle-background", subtitleBackgroundCss);
       uiRoot.style.setProperty("--player-subtitle-outline-color", outlineColor);
       uiRoot.style.setProperty("--player-subtitle-font-size", `${subtitleFontSize}%`);
       uiRoot.style.setProperty("--player-html-subtitle-font-size", htmlSubtitleFontSize);
@@ -312,7 +318,7 @@ export function createPlayerScreenMethods24() {
       uiRoot.style.setProperty("--player-subtitle-shadow", htmlSubtitleShadow);
       uiRoot.style.setProperty("--player-subtitle-offset", `${verticalOffsetVh.toFixed(2)}vh`);
       video.style.setProperty("--player-subtitle-color", subtitleColor);
-      video.style.setProperty("--player-subtitle-background", String(style.backgroundColor || "#00000000"));
+      video.style.setProperty("--player-subtitle-background", subtitleBackgroundCss);
       video.style.setProperty("--player-subtitle-outline-color", outlineColor);
       video.style.setProperty("--player-subtitle-font-size", `${subtitleFontSize}%`);
       video.style.setProperty("--player-subtitle-font-weight", subtitleFontWeight);

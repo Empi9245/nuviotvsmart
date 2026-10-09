@@ -308,6 +308,8 @@ import { SUBTITLE_TEXT_COLORS } from "./playerScreenHelpers-02-language-code-ali
 
 import { SUBTITLE_OUTLINE_COLORS } from "./playerScreenHelpers-02-language-code-aliases.js";
 
+import { SUBTITLE_BACKGROUND_COLORS } from "./playerScreenHelpers-02-language-code-aliases.js";
+
 import { SUBTITLE_FONT_STEP } from "./playerScreenHelpers-02-language-code-aliases.js";
 
 import { SUBTITLE_VERTICAL_OFFSET_STEP } from "./playerScreenHelpers-02-language-code-aliases.js";
@@ -519,6 +521,7 @@ export {
   SUBTITLE_LANGUAGE_UNKNOWN_KEY,
   SUBTITLE_TEXT_COLORS,
   SUBTITLE_OUTLINE_COLORS,
+  SUBTITLE_BACKGROUND_COLORS,
   SUBTITLE_FONT_STEP,
   SUBTITLE_VERTICAL_OFFSET_STEP,
   AUDIO_AMPLIFICATION_MIN_DB,

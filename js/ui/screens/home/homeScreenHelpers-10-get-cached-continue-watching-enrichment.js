@@ -243,7 +243,10 @@ export function saveContinueWatchingEnrichment(item = {}) {
   if (!normalized?.contentId || isRawContinueWatchingTitle(normalized) || !hasContinueWatchingArtwork(normalized)) {
     return;
   }
-  if (normalized.continueWatchingEnrichmentSignature && normalized.continueWatchingEnrichmentSignature !== homeMetadataSettingsSignature()) {
+  if (
+    normalized.continueWatchingEnrichmentSignature &&
+    normalized.continueWatchingEnrichmentSignature !== homeMetadataSettingsSignature()
+  ) {
     return;
   }
   const key = continueWatchingEnrichmentCacheKey(normalized);
@@ -319,7 +322,11 @@ export function writeContinueWatchingDisplaySnapshot(scopeKey, items = []) {
   }
   const store = LocalStore.get(CW_DISPLAY_SNAPSHOT_KEY, {});
   const next = store && typeof store === "object" ? { ...store } : {};
-  next[key] = { savedAt: Date.now(), settingsSignature: homeMetadataSettingsSignature(), items: items.slice(0, CW_DISPLAY_SNAPSHOT_MAX_ITEMS) };
+  next[key] = {
+    savedAt: Date.now(),
+    settingsSignature: homeMetadataSettingsSignature(),
+    items: items.slice(0, CW_DISPLAY_SNAPSHOT_MAX_ITEMS)
+  };
   const entries = Object.entries(next)
     .sort(([, left], [, right]) => Number(right?.savedAt || 0) - Number(left?.savedAt || 0))
     .slice(0, CW_DISPLAY_SNAPSHOT_MAX_SCOPES);

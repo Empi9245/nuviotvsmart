@@ -274,10 +274,10 @@ export async function fetchModernHeroTmdbEnrichment(hero = {}, itemType = "movie
       return null;
     }
     return await TmdbMetadataService.fetchEnrichment({
-        tmdbId,
-        contentType: itemType,
-        language: settings.language
-      });
+      tmdbId,
+      contentType: itemType,
+      language: settings.language
+    });
   } catch (_) {
     return null;
   }

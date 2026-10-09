@@ -15,16 +15,19 @@ globalThis.__NUVIO_ENV__ = {
 
 const { TraktAuthService, requestJson } = await import("../js/data/repository/traktAuthService.js");
 const { TraktAuthStore } = await import("../js/data/local/traktAuthStore.js");
-const { normalizeTraktTokenLifetimeSeconds } = await import("../js/data/local/traktTokenLifetime.js");
+const { normalizeTraktTokenLifetimeSeconds } =
+  await import("../js/data/local/traktTokenLifetime.js");
 const { ProfileManager } = await import("../js/core/profile/profileManager.js");
 const { Platform } = await import("../js/platform/index.js");
 const { PluginServiceClient } = await import("../js/platform/pluginServiceClient.js");
 const { TraktScrobbleService } = await import("../js/data/repository/traktScrobbleService.js");
-const { TraktClientSettingsStore, getTraktClientCredentials } = await import("../js/data/local/traktClientSettingsStore.js");
+const { TraktClientSettingsStore, getTraktClientCredentials } =
+  await import("../js/data/local/traktClientSettingsStore.js");
 const { SettingsScreen } = await import("../js/ui/screens/settings/settingsScreen.js");
 const { TraktScreen } = await import("../js/ui/screens/trakt/traktScreen.js");
 const { Router } = await import("../js/ui/navigation/routerState.js");
-const { authorizedTraktRequest } = await import("../js/data/repository/libraryRepositoryHelpers-03-authorized-trakt-request.js");
+const { authorizedTraktRequest } =
+  await import("../js/data/repository/libraryRepositoryHelpers-03-authorized-trakt-request.js");
 const originalFetch = globalThis.fetch;
 const originalPluginFetch = PluginServiceClient.fetch;
 const originalSetTimeout = globalThis.setTimeout;
@@ -39,12 +42,15 @@ function json(payload, status = 200, headers = {}) {
   return new Response(JSON.stringify(payload), { status, headers });
 }
 function token(access = "access-old", refresh = "refresh-old", expired = true, profileId = "1") {
-  TraktAuthStore.saveToken({
-    access_token: access,
-    refresh_token: refresh,
-    created_at: Math.floor(Date.now() / 1000) - (expired ? 200000 : 0),
-    expires_in: 86400
-  }, profileId);
+  TraktAuthStore.saveToken(
+    {
+      access_token: access,
+      refresh_token: refresh,
+      created_at: Math.floor(Date.now() / 1000) - (expired ? 200000 : 0),
+      expires_in: 86400
+    },
+    profileId
+  );
 }
 function refreshed() {
   return {
@@ -56,7 +62,9 @@ function refreshed() {
 }
 function gate() {
   let resolve;
-  const promise = new Promise((done) => { resolve = done; });
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 }
 async function flush() {
@@ -73,49 +81,71 @@ async function check(name, run) {
 }
 
 try {
-  await check("custom app credentials are isolated by profile and stay off preference sync", async () => {
-    assert.deepEqual(getTraktClientCredentials(), { clientId: "test-client", clientSecret: "test-secret" });
-    TraktClientSettingsStore.set({ clientId: "user-client" });
-    assert.deepEqual(getTraktClientCredentials(), { clientId: "user-client", clientSecret: "" });
-    assert.equal(TraktAuthService.hasRequiredCredentials(), false);
-    TraktClientSettingsStore.set({ clientSecret: "user-secret" });
-    assert.equal(TraktAuthService.hasRequiredCredentials(), true);
-    assert.equal(stored.has("profileSettingsSyncPendingProfiles"), false);
-    await ProfileManager.setActiveProfile("2");
-    assert.deepEqual(getTraktClientCredentials(), { clientId: "test-client", clientSecret: "test-secret" });
-    assert.deepEqual(TraktClientSettingsStore.get(), { clientId: "", clientSecret: "" });
-  });
+  await check(
+    "custom app credentials are isolated by profile and stay off preference sync",
+    async () => {
+      assert.deepEqual(getTraktClientCredentials(), {
+        clientId: "test-client",
+        clientSecret: "test-secret"
+      });
+      TraktClientSettingsStore.set({ clientId: "user-client" });
+      assert.deepEqual(getTraktClientCredentials(), { clientId: "user-client", clientSecret: "" });
+      assert.equal(TraktAuthService.hasRequiredCredentials(), false);
+      TraktClientSettingsStore.set({ clientSecret: "user-secret" });
+      assert.equal(TraktAuthService.hasRequiredCredentials(), true);
+      assert.equal(stored.has("profileSettingsSyncPendingProfiles"), false);
+      await ProfileManager.setActiveProfile("2");
+      assert.deepEqual(getTraktClientCredentials(), {
+        clientId: "test-client",
+        clientSecret: "test-secret"
+      });
+      assert.deepEqual(TraktClientSettingsStore.get(), { clientId: "", clientSecret: "" });
+    }
+  );
 
-  await check("changing app identity disconnects only that profile and unchanged saves keep auth", async () => {
-    TraktClientSettingsStore.set({ clientId: "user-client", clientSecret: "user-secret" });
-    token("profile-one", "refresh-one", false);
-    token("profile-two", "refresh-two", false, "2");
-    TraktClientSettingsStore.set({ clientId: "user-client" });
-    assert.equal(TraktAuthStore.get("1").accessToken, "profile-one");
-    TraktClientSettingsStore.set({ clientSecret: "replacement-secret" });
-    assert.equal(TraktAuthStore.get("1").accessToken, null);
-    assert.equal(TraktAuthStore.get("2").accessToken, "profile-two");
-  });
+  await check(
+    "changing app identity disconnects only that profile and unchanged saves keep auth",
+    async () => {
+      TraktClientSettingsStore.set({ clientId: "user-client", clientSecret: "user-secret" });
+      token("profile-one", "refresh-one", false);
+      token("profile-two", "refresh-two", false, "2");
+      TraktClientSettingsStore.set({ clientId: "user-client" });
+      assert.equal(TraktAuthStore.get("1").accessToken, "profile-one");
+      TraktClientSettingsStore.set({ clientSecret: "replacement-secret" });
+      assert.equal(TraktAuthStore.get("1").accessToken, null);
+      assert.equal(TraktAuthStore.get("2").accessToken, "profile-two");
+    }
+  );
 
-  await check("API calls and token exchange use profile credentials without reloading", async () => {
-    TraktClientSettingsStore.set({ clientId: "user-client", clientSecret: "user-secret" });
-    token();
-    globalThis.fetch = async (url, options) => {
-      assert.equal(options.headers["trakt-api-key"], "user-client");
-      if (url.endsWith("/oauth/token")) {
-        assert.equal(JSON.parse(options.body).client_id, "user-client");
-        assert.equal(JSON.parse(options.body).client_secret, "user-secret");
-        return json(refreshed());
-      }
-      assert.equal(options.headers.Authorization, "Bearer access-new");
-      return json([]);
-    };
-    const accessToken = await TraktAuthService.getValidAccessToken();
-    assert.equal((await requestJson("/sync/watchlist", { authorization: `Bearer ${accessToken}` })).response.ok, true);
-  });
+  await check(
+    "API calls and token exchange use profile credentials without reloading",
+    async () => {
+      TraktClientSettingsStore.set({ clientId: "user-client", clientSecret: "user-secret" });
+      token();
+      globalThis.fetch = async (url, options) => {
+        assert.equal(options.headers["trakt-api-key"], "user-client");
+        if (url.endsWith("/oauth/token")) {
+          assert.equal(JSON.parse(options.body).client_id, "user-client");
+          assert.equal(JSON.parse(options.body).client_secret, "user-secret");
+          return json(refreshed());
+        }
+        assert.equal(options.headers.Authorization, "Bearer access-new");
+        return json([]);
+      };
+      const accessToken = await TraktAuthService.getValidAccessToken();
+      assert.equal(
+        (await requestJson("/sync/watchlist", { authorization: `Bearer ${accessToken}` })).response
+          .ok,
+        true
+      );
+    }
+  );
 
   await check("integration fields mask credentials and expose clear/save actions", async () => {
-    TraktClientSettingsStore.set({ clientId: "hidden-client-value", clientSecret: "hidden-secret-value" });
+    TraktClientSettingsStore.set({
+      clientId: "hidden-client-value",
+      clientSecret: "hidden-secret-value"
+    });
     const screen = Object.create(SettingsScreen);
     screen.actionMap = new Map();
     const markup = screen.renderIntegrationDetail({}, "trakt");
@@ -186,9 +216,13 @@ try {
       newRequests += 1;
       return json([]);
     };
-    const results = await Promise.all(Array.from({ length: 8 }, () => requestJson("/sync/watchlist", {
-      authorization: "Bearer access-old"
-    })));
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        requestJson("/sync/watchlist", {
+          authorization: "Bearer access-old"
+        })
+      )
+    );
     assert.ok(results.every(({ response }) => response.ok));
     assert.equal(refreshRequests, 1);
     assert.equal(oldRequests, 8);
@@ -218,7 +252,9 @@ try {
     globalThis.fetch = async () => json({}, 503);
     assert.equal(await TraktAuthService.getValidAccessToken(), null);
     assert.equal(TraktAuthStore.get().refreshToken, "refresh-old");
-    globalThis.fetch = async () => { throw new Error("offline"); };
+    globalThis.fetch = async () => {
+      throw new Error("offline");
+    };
     await assert.rejects(TraktAuthService.getValidAccessToken(), /offline/);
     assert.equal(TraktAuthStore.get().refreshToken, "refresh-old");
     globalThis.fetch = async () => json({ access_token: "missing-refresh" });
@@ -230,7 +266,10 @@ try {
     token();
     token("profile-two", "refresh-two", false, "2");
     const held = gate();
-    globalThis.fetch = async () => { await held.promise; return json({ error: "invalid_grant" }, 400); };
+    globalThis.fetch = async () => {
+      await held.promise;
+      return json({ error: "invalid_grant" }, 400);
+    };
     const reading = TraktAuthService.getValidAccessToken();
     await flush();
     await ProfileManager.setActiveProfile("2");
@@ -244,7 +283,10 @@ try {
     token();
     token("profile-two", "refresh-two", false, "2");
     const held = gate();
-    globalThis.fetch = async () => { await held.promise; return json(refreshed()); };
+    globalThis.fetch = async () => {
+      await held.promise;
+      return json(refreshed());
+    };
     const reading = TraktAuthService.getValidAccessToken();
     await flush();
     await ProfileManager.setActiveProfile("2");
@@ -255,35 +297,59 @@ try {
   });
 
   for (const [name, load, count, entry] of [
-    ["watched movies", () => TraktAuthService.fetchWatchedMovies(), 250, { movie: { title: "Movie", ids: { imdb: "tt1234567" } } }],
-    ["watched shows", () => TraktAuthService.fetchWatchedShows(), 100, { show: { title: "Show", ids: { imdb: "tt1234567" } } }],
-    ["watchlist", () => TraktAuthService.fetchWatchlist({ limit: 200 }), 100, { type: "movie", listed_at: "2026-10-09T00:00:00Z", movie: { ids: { imdb: "tt1234567" } } }],
-    ["history", () => TraktAuthService.fetchWatchHistory({ limit: 200 }), 100, { watched_at: "2026-10-09T00:00:00Z", movie: { ids: { imdb: "tt1234567" } } }]
+    [
+      "watched movies",
+      () => TraktAuthService.fetchWatchedMovies(),
+      250,
+      { movie: { title: "Movie", ids: { imdb: "tt1234567" } } }
+    ],
+    [
+      "watched shows",
+      () => TraktAuthService.fetchWatchedShows(),
+      100,
+      { show: { title: "Show", ids: { imdb: "tt1234567" } } }
+    ],
+    [
+      "watchlist",
+      () => TraktAuthService.fetchWatchlist({ limit: 200 }),
+      100,
+      { type: "movie", listed_at: "2026-10-09T00:00:00Z", movie: { ids: { imdb: "tt1234567" } } }
+    ],
+    [
+      "history",
+      () => TraktAuthService.fetchWatchHistory({ limit: 200 }),
+      100,
+      { watched_at: "2026-10-09T00:00:00Z", movie: { ids: { imdb: "tt1234567" } } }
+    ]
   ]) {
-    await check(`${name} pagination aborts before mixing two profiles' app credentials`, async () => {
-      TraktClientSettingsStore.set({ clientId: "client-one", clientSecret: "secret-one" }, "1");
-      TraktClientSettingsStore.set({ clientId: "client-two", clientSecret: "secret-two" }, "2");
-      token("profile-one", "refresh-one", false);
-      token("profile-two", "refresh-two", false, "2");
-      let requests = 0;
-      globalThis.fetch = async (_url, options) => {
-        requests += 1;
-        assert.equal(options.headers["trakt-api-key"], "client-one");
-        assert.equal(options.headers.Authorization, "Bearer profile-one");
-        const response = json(Array(count).fill(entry), 200, { "X-Pagination-Page-Count": "2" });
-        const getHeader = response.headers.get.bind(response.headers);
-        response.headers.get = (header) => {
-          if (header.toLowerCase() === "x-pagination-page-count") stored.set("activeProfileId", JSON.stringify("2"));
-          return getHeader(header);
+    await check(
+      `${name} pagination aborts before mixing two profiles' app credentials`,
+      async () => {
+        TraktClientSettingsStore.set({ clientId: "client-one", clientSecret: "secret-one" }, "1");
+        TraktClientSettingsStore.set({ clientId: "client-two", clientSecret: "secret-two" }, "2");
+        token("profile-one", "refresh-one", false);
+        token("profile-two", "refresh-two", false, "2");
+        let requests = 0;
+        globalThis.fetch = async (_url, options) => {
+          requests += 1;
+          assert.equal(options.headers["trakt-api-key"], "client-one");
+          assert.equal(options.headers.Authorization, "Bearer profile-one");
+          const response = json(Array(count).fill(entry), 200, { "X-Pagination-Page-Count": "2" });
+          const getHeader = response.headers.get.bind(response.headers);
+          response.headers.get = (header) => {
+            if (header.toLowerCase() === "x-pagination-page-count")
+              stored.set("activeProfileId", JSON.stringify("2"));
+            return getHeader(header);
+          };
+          if (name === "watchlist" || name === "history") {
+            await ProfileManager.setActiveProfile("2");
+          }
+          return response;
         };
-        if (name === "watchlist" || name === "history") {
-          await ProfileManager.setActiveProfile("2");
-        }
-        return response;
-      };
-      await assert.rejects(load(), { name: "AbortError" });
-      assert.equal(requests, 1);
-    });
+        await assert.rejects(load(), { name: "AbortError" });
+        assert.equal(requests, 1);
+      }
+    );
   }
 
   for (const [name, load] of [
@@ -294,7 +360,10 @@ try {
       TraktClientSettingsStore.set({ clientId: "client-one", clientSecret: "secret-one" }, "1");
       TraktClientSettingsStore.set({ clientId: "client-two", clientSecret: "secret-two" }, "2");
       let requests = 0;
-      globalThis.fetch = async () => { requests += 1; return json([]); };
+      globalThis.fetch = async () => {
+        requests += 1;
+        return json([]);
+      };
       TraktAuthService.getValidAccessToken = async (profileId) => {
         assert.equal(profileId, "1");
         await ProfileManager.setActiveProfile("2");
@@ -309,7 +378,10 @@ try {
   await check("an older refresh cannot replace a newer login or disconnect", async () => {
     token();
     let held = gate();
-    globalThis.fetch = async () => { await held.promise; return json(refreshed()); };
+    globalThis.fetch = async () => {
+      await held.promise;
+      return json(refreshed());
+    };
     const oldRefresh = TraktAuthService.getValidAccessToken();
     await flush();
     token("new-login", "new-login-refresh", false);
@@ -337,14 +409,20 @@ try {
       if (url.endsWith("/oauth/device/token")) return json(refreshed());
       throw new Error("temporary lookup failure");
     };
-    assert.deepEqual(await TraktAuthService.pollDeviceToken(), { type: "approved", username: null });
+    assert.deepEqual(await TraktAuthService.pollDeviceToken(), {
+      type: "approved",
+      username: null
+    });
     assert.equal(TraktAuthStore.isAuthenticated(), true);
   });
 
   await check("a late username lookup cannot overwrite a newer account", async () => {
     token("old-account", "old-refresh", false);
     const held = gate();
-    globalThis.fetch = async () => { await held.promise; return json({ user: { username: "old-user", ids: { slug: "old-user" } } }); };
+    globalThis.fetch = async () => {
+      await held.promise;
+      return json({ user: { username: "old-user", ids: { slug: "old-user" } } });
+    };
     const lookup = TraktAuthService.fetchUserSettings();
     await flush();
     token("new-account", "new-refresh", false);
@@ -357,7 +435,10 @@ try {
   await check("cancelled device authentication cannot save a late approval", async () => {
     TraktAuthStore.saveDeviceFlow({ device_code: "device", user_code: "USER", expires_in: 60 });
     const held = gate();
-    globalThis.fetch = async () => { await held.promise; return json(refreshed()); };
+    globalThis.fetch = async () => {
+      await held.promise;
+      return json(refreshed());
+    };
     const polling = TraktAuthService.pollDeviceToken();
     await flush();
     TraktAuthStore.clearDeviceFlow();
@@ -369,16 +450,25 @@ try {
   await check("TV fallback preserves OAuth errors and pagination headers", async () => {
     globalThis.__NUVIO_PLATFORM__ = "webos";
     Platform.isWebOS = () => true;
-    globalThis.fetch = async () => { throw new TypeError("browser transport unavailable"); };
+    globalThis.fetch = async () => {
+      throw new TypeError("browser transport unavailable");
+    };
     PluginServiceClient.fetch = async (request) => {
       assert.equal(request.url, "https://api.trakt.tv/oauth/device/token");
       assert.equal(request.method, "POST");
       assert.equal(request.headers["trakt-api-key"], "test-client");
       assert.deepEqual(JSON.parse(request.body), { code: "test-device" });
-      return { status: 400, body: JSON.stringify({ error: "authorization_pending" }), headers: { "x-pagination-page-count": "3" } };
+      return {
+        status: 400,
+        body: JSON.stringify({ error: "authorization_pending" }),
+        headers: { "x-pagination-page-count": "3" }
+      };
     };
     assert.equal(Platform.isWebOS(), true);
-    const result = await requestJson("/oauth/device/token", { method: "POST", body: { code: "test-device" } });
+    const result = await requestJson("/oauth/device/token", {
+      method: "POST",
+      body: { code: "test-device" }
+    });
     assert.equal(result.response.status, 400);
     assert.equal(result.response.headers.get("X-Pagination-Page-Count"), "3");
     assert.equal(result.payload.error, "authorization_pending");
@@ -387,62 +477,89 @@ try {
 
   await check("missing credentials fail before starting a network request", async () => {
     let requests = 0;
-    globalThis.fetch = async () => { requests += 1; return json([]); };
+    globalThis.fetch = async () => {
+      requests += 1;
+      return json([]);
+    };
     await assert.rejects(requestJson("/sync/watchlist", { clientId: "" }), /Integrations > Trakt/);
     assert.equal(requests, 0);
   });
 
-  for (const [route, prototype] of [["settings", SettingsScreen], ["trakt", TraktScreen]]) {
-    await check(`${route} polling honors the interval, ignores re-entry and discards cancelled responses`, async () => {
-      TraktAuthStore.saveDeviceFlow({ device_code: "device", user_code: "USER", expires_in: 60, interval: 5 });
-      const timers = new Map();
-      let nextTimer = 0;
-      globalThis.setTimeout = (callback, ms) => { const id = ++nextTimer; timers.set(id, { callback, ms }); return id; };
-      globalThis.clearTimeout = (id) => timers.delete(id);
-      Router.getCurrent = () => route;
-      const screen = Object.create(prototype);
-      screen.activeSection = "trakt";
-      let renders = 0;
-      let requests = 0;
-      let nextResponse = Promise.resolve({ type: "pending" });
-      screen.render = async () => { renders += 1; screen.startTraktPolling(); };
-      TraktAuthService.pollDeviceToken = () => { requests += 1; return nextResponse; };
-      screen.startTraktPolling();
-      screen.startTraktPolling();
-      assert.equal(requests, 0);
-      assert.equal(timers.size, 1);
-      let [id, timer] = [...timers][0];
-      assert.equal(timer.ms, 5000);
-      timers.delete(id);
-      timer.callback();
-      await flush();
-      assert.equal(requests, 1);
-      assert.equal(renders, 1);
-      assert.equal(timers.size, 1);
-      const held = gate();
-      nextResponse = held.promise;
-      [id, timer] = [...timers][0];
-      timers.delete(id);
-      timer.callback();
-      await flush();
-      screen.startTraktPolling();
-      assert.equal(requests, 2);
-      screen.stopTraktPolling();
-      held.resolve({ type: "approved", username: "test-user" });
-      await flush();
-      assert.equal(renders, 1);
-      assert.equal(timers.size, 0);
-      globalThis.setTimeout = originalSetTimeout;
-      globalThis.clearTimeout = originalClearTimeout;
-      TraktAuthService.pollDeviceToken = originalPollDeviceToken;
-      Router.getCurrent = originalRouterGetCurrent;
-    });
+  for (const [route, prototype] of [
+    ["settings", SettingsScreen],
+    ["trakt", TraktScreen]
+  ]) {
+    await check(
+      `${route} polling honors the interval, ignores re-entry and discards cancelled responses`,
+      async () => {
+        TraktAuthStore.saveDeviceFlow({
+          device_code: "device",
+          user_code: "USER",
+          expires_in: 60,
+          interval: 5
+        });
+        const timers = new Map();
+        let nextTimer = 0;
+        globalThis.setTimeout = (callback, ms) => {
+          const id = ++nextTimer;
+          timers.set(id, { callback, ms });
+          return id;
+        };
+        globalThis.clearTimeout = (id) => timers.delete(id);
+        Router.getCurrent = () => route;
+        const screen = Object.create(prototype);
+        screen.activeSection = "trakt";
+        let renders = 0;
+        let requests = 0;
+        let nextResponse = Promise.resolve({ type: "pending" });
+        screen.render = async () => {
+          renders += 1;
+          screen.startTraktPolling();
+        };
+        TraktAuthService.pollDeviceToken = () => {
+          requests += 1;
+          return nextResponse;
+        };
+        screen.startTraktPolling();
+        screen.startTraktPolling();
+        assert.equal(requests, 0);
+        assert.equal(timers.size, 1);
+        let [id, timer] = [...timers][0];
+        assert.equal(timer.ms, 5000);
+        timers.delete(id);
+        timer.callback();
+        await flush();
+        assert.equal(requests, 1);
+        assert.equal(renders, 1);
+        assert.equal(timers.size, 1);
+        const held = gate();
+        nextResponse = held.promise;
+        [id, timer] = [...timers][0];
+        timers.delete(id);
+        timer.callback();
+        await flush();
+        screen.startTraktPolling();
+        assert.equal(requests, 2);
+        screen.stopTraktPolling();
+        held.resolve({ type: "approved", username: "test-user" });
+        await flush();
+        assert.equal(renders, 1);
+        assert.equal(timers.size, 0);
+        globalThis.setTimeout = originalSetTimeout;
+        globalThis.clearTimeout = originalClearTimeout;
+        TraktAuthService.pollDeviceToken = originalPollDeviceToken;
+        Router.getCurrent = originalRouterGetCurrent;
+      }
+    );
   }
 
   await check("pause saves progress without prematurely marking watched", async () => {
     token("access-old", "refresh-old", false);
     let requestedPath = "";
-    globalThis.fetch = async (url) => { requestedPath = url; return json({ action: "pause" }); };
+    globalThis.fetch = async (url) => {
+      requestedPath = url;
+      return json({ action: "pause" });
+    };
     TraktScrobbleService.pause({ contentType: "movie", imdbId: "tt1234567", progressPercent: 90 });
     await flush();
     assert.equal(requestedPath, "https://api.trakt.tv/scrobble/pause");
@@ -464,7 +581,8 @@ try {
     }
     assert.equal(requests, 3);
     fail = false;
-    globalThis.setTimeout = (callback, ms, ...args) => originalSetTimeout(callback, ms === 15000 ? 0 : ms, ...args);
+    globalThis.setTimeout = (callback, ms, ...args) =>
+      originalSetTimeout(callback, ms === 15000 ? 0 : ms, ...args);
     TraktScrobbleService.start(context);
     await new Promise((resolve) => originalSetTimeout(resolve, 10));
     await flush();

@@ -3,7 +3,12 @@ import { ProfileManager } from "../../core/profile/profileManager.js";
 import { TraktSettingsStore, WatchProgressSource } from "../local/traktSettingsStore.js";
 import { SimklAuthStore } from "../local/simklAuthStore.js";
 import { SimklSyncService } from "./simklSyncService.js";
-import { TraktAuthService, requestJson as traktRequestJson, createTraktRequestContext, assertTraktRequestContext } from "./traktAuthService.js";
+import {
+  TraktAuthService,
+  requestJson as traktRequestJson,
+  createTraktRequestContext,
+  assertTraktRequestContext
+} from "./traktAuthService.js";
 import { watchedItemIdentityValues, watchedItemsShareIdentity } from "./watchedIdentity.js";
 import { getSyncBackoffRemainingMs } from "../../core/sync/syncBackoffPolicy.js";
 import { registerSessionTeardownHandler } from "../../core/auth/sessionLifecycle.js";

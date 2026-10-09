@@ -18,7 +18,8 @@ export function createPlayerScreenMethods52() {
     normalizeSubtitleFontSize,
     normalizeSubtitleLanguageKey,
     subtitleLanguageLabel,
-    styleChipLabel
+    styleChipLabel,
+    subtitleBackgroundColorLabel
   } = internals;
 
   return {
@@ -481,6 +482,11 @@ export function createPlayerScreenMethods52() {
           id: "textOpacity",
           label: t("subtitle_style_text_opacity", {}, "Text Opacity"),
           value: `${normalizeSubtitleTextOpacity(style.textOpacity)}%`
+        },
+        {
+          id: "backgroundColor",
+          label: t("sub_bg_color", {}, "Background"),
+          value: subtitleBackgroundColorLabel(style.backgroundColor || "#00000000")
         },
         {
           id: "outlineEnabled",

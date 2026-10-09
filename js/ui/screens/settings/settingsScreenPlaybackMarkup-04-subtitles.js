@@ -10,6 +10,7 @@ export function renderPlaybackSubtitleBody(model) {
     SUBTITLE_TEXT_COLOR_OPTIONS,
     SUBTITLE_TEXT_OPACITY_OPTIONS,
     SUBTITLE_OUTLINE_COLOR_OPTIONS,
+    SUBTITLE_BACKGROUND_COLOR_OPTIONS,
     normalizeSubtitleStyleHex,
     clampSubtitleSize,
     clampSubtitleTextOpacity,
@@ -90,7 +91,7 @@ export function renderPlaybackSubtitleBody(model) {
                 `${clampSubtitleTextOpacity(model.player.subtitleStyle?.textOpacity)}%`
               )
             })}
-            ${this.renderActionRow({ focusKey: "playback:subtitleBackgroundColor", title: t("sub_bg_color", {}, "Subtitle background color"), subtitle: t("sub_bg_color", {}, "Background behind subtitle text"), value: String(model.player.subtitleStyle?.backgroundColor || "#00000000") })}
+            ${this.renderActionRow({ focusKey: "playback:subtitleBackgroundColor", title: t("sub_bg_color", {}, "Subtitle background color"), subtitle: t("sub_bg_color", {}, "Background behind subtitle text"), value: labelForOptionId(SUBTITLE_BACKGROUND_COLOR_OPTIONS, String(model.player.subtitleStyle?.backgroundColor || "#00000000").toUpperCase(), "Off") })}
             ${this.renderToggleRow({
               focusKey: "playback:subtitleOutline",
               title: t("settings.playback.subtitleOutline.title", {}, "Subtitle outline"),

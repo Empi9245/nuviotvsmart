@@ -12,7 +12,10 @@ const normalize = (value = {}) => ({
 
 function readEnvelope() {
   const value = LocalStore.get(STORE_KEY, null);
-  return { version: 1, profiles: value?.profiles && typeof value.profiles === "object" ? value.profiles : {} };
+  return {
+    version: 1,
+    profiles: value?.profiles && typeof value.profiles === "object" ? value.profiles : {}
+  };
 }
 
 // App credentials stay on this device and are deliberately separate from the

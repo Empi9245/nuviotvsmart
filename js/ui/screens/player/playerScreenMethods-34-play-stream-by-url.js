@@ -30,8 +30,10 @@ export function createPlayerScreenMethods34() {
     ) {
       const playbackStartToken = Number(this.playbackStartToken || 0) + 1;
       this.playbackStartToken = playbackStartToken;
-      const isCurrentAttempt = () => this.isActiveMountToken(mountToken) &&
-        this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) && this.playbackStartToken === playbackStartToken;
+      const isCurrentAttempt = () =>
+        this.isActiveMountToken(mountToken) &&
+        this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) &&
+        this.playbackStartToken === playbackStartToken;
       if (!isCurrentAttempt()) {
         return;
       }

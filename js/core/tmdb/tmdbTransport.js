@@ -6,7 +6,10 @@ const TMDB_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 // Use the packaged TV network service for metadata as well as ID lookups.
 // Direct fetch can fail on the same TV even when the service can reach TMDB.
-export async function fetchTmdbJson(url, { signal = null, timeoutMs = TMDB_FETCH_TIMEOUT_MS, throwOnHttpError = false } = {}) {
+export async function fetchTmdbJson(
+  url,
+  { signal = null, timeoutMs = TMDB_FETCH_TIMEOUT_MS, throwOnHttpError = false } = {}
+) {
   const httpFailure = (status) => {
     if (!throwOnHttpError) return null;
     const error = new Error(`TMDB request failed (${status})`);

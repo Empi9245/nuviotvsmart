@@ -103,10 +103,13 @@ export function createSettingsScreenMethods11() {
         }
       };
       const state = TraktAuthService.getCurrentAuthState();
-      this.traktPollTimer = setTimeout(() => {
-        this.traktPollTimer = null;
-        void poll();
-      }, Math.max(1, Number(state.pollInterval || 5)) * 1000);
+      this.traktPollTimer = setTimeout(
+        () => {
+          this.traktPollTimer = null;
+          void poll();
+        },
+        Math.max(1, Number(state.pollInterval || 5)) * 1000
+      );
     },
     stopTraktPolling() {
       this.traktPollingActive = false;
@@ -172,7 +175,12 @@ export function createSettingsScreenMethods11() {
           this.startTraktPolling();
         }
       }
-      if (isConnected && !this.traktStats && !this.traktStatsLoading && (!this.traktStatsAttemptAt || Date.now() - this.traktStatsAttemptAt >= 60000)) {
+      if (
+        isConnected &&
+        !this.traktStats &&
+        !this.traktStatsLoading &&
+        (!this.traktStatsAttemptAt || Date.now() - this.traktStatsAttemptAt >= 60000)
+      ) {
         if (!this.deferTraktAutoWork?.("stats")) {
           void this.loadTraktStats(false).then(() => {
             if (this.container && this.activeSection === "trakt") {

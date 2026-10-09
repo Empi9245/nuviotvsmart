@@ -17,6 +17,7 @@ export function createPlayerScreenMethods53() {
     SUBTITLE_LANGUAGE_OFF_KEY,
     SUBTITLE_TEXT_COLORS,
     SUBTITLE_OUTLINE_COLORS,
+    SUBTITLE_BACKGROUND_COLORS,
     SUBTITLE_FONT_STEP,
     SUBTITLE_VERTICAL_OFFSET_STEP,
     getEmbeddedSubtitleSupportState,
@@ -67,6 +68,9 @@ export function createPlayerScreenMethods53() {
         style.textOpacity = normalizeSubtitleTextOpacity(Number(style.textOpacity ?? 100) + delta * SUBTITLE_TEXT_OPACITY_STEP);
       } else if (controlId === "outlineEnabled" && delta !== 0) {
         style.outlineEnabled = !style.outlineEnabled;
+      } else if (controlId === "backgroundColor" && delta !== 0) {
+        const currentIndex = Math.max(0, SUBTITLE_BACKGROUND_COLORS.indexOf(String(style.backgroundColor || "#00000000").toUpperCase()));
+        style.backgroundColor = SUBTITLE_BACKGROUND_COLORS[clamp(currentIndex + delta, 0, SUBTITLE_BACKGROUND_COLORS.length - 1)];
       } else if (controlId === "outlineColor" && delta !== 0) {
         const currentIndex = Math.max(0, SUBTITLE_OUTLINE_COLORS.indexOf(String(style.outlineColor || "#000000").toUpperCase()));
         style.outlineColor = SUBTITLE_OUTLINE_COLORS[clamp(currentIndex + delta, 0, SUBTITLE_OUTLINE_COLORS.length - 1)];
@@ -85,6 +89,7 @@ export function createPlayerScreenMethods53() {
           bold: defaults.bold,
           outlineEnabled: defaults.outlineEnabled,
           outlineColor: defaults.outlineColor,
+          backgroundColor: defaults.backgroundColor,
           verticalOffset: defaults.verticalOffset,
           verticalOffsetContract: defaults.verticalOffsetContract
         };
