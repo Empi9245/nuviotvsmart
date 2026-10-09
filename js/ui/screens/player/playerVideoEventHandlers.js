@@ -223,6 +223,9 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
         return;
       }
       this.markPlaybackSourceFailed(this.activePlaybackUrl);
+      if (this.tryNextStreamCandidate({ reason: "startup-media-error" })) {
+        return;
+      }
       const startupErrorMessage = this.getStartupErrorMessage(mediaErrorCode, playbackErrorDetail, currentSourceCandidate);
       this.clearPlaybackStallGuard();
       this.releaseStartupAudioGate({ resume: false });
@@ -253,6 +256,10 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
     }
 
     this.markPlaybackSourceFailed(this.activePlaybackUrl);
+
+    if (this.tryNextStreamCandidate({ reason: "playback-media-error" })) {
+      return;
+    }
 
     this.clearPlaybackStallGuard();
     this.releaseStartupAudioGate({ resume: false });

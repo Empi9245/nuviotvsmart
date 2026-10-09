@@ -17,6 +17,7 @@ export function createPlayerScreenMethods24() {
     isSeriesItemType,
     normalizeSubtitleFontSize,
     formatHtmlSubtitleFontSize,
+    subtitleBackgroundToCss,
     dbToGain,
     supportsTvWebAudioAmplification,
     streamDirectPlaybackUrl

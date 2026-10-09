@@ -263,6 +263,54 @@ export function createPlayerScreenMethods35() {
         (this.failedPlaybackStreamIds || (this.failedPlaybackStreamIds = new Set())).add(currentId);
       }
     },
+    /**
+     * After a source has been marked as failed, try to automatically play the
+     * next viable stream candidate.  Iterates through `streamCandidates` from
+     * `currentStreamIndex + 1`, wrapping around, and skips any entry whose URL
+     * or id has already been recorded in the failed sets.
+     *
+     * Returns `true` and begins playback of the next candidate, or `false`
+     * when every candidate has already failed (caller should then show the
+     * error UI as before).
+     */
+    tryNextStreamCandidate({ reason = "auto-fallback" } = {}) {
+      const candidates = this.streamCandidates || [];
+      if (candidates.length <= 1) {
+        return false;
+      }
+      const failedUrls = this.failedPlaybackUrls || new Set();
+      const failedIds = this.failedPlaybackStreamIds || new Set();
+      const currentIndex = Number(this.currentStreamIndex || 0);
+
+      for (let offset = 1; offset < candidates.length; offset++) {
+        const index = (currentIndex + offset) % candidates.length;
+        const candidate = candidates[index];
+        if (!candidate) continue;
+        const url = String(candidate.url || candidate.externalUrl || "").trim();
+        const id = String(candidate.id || "").trim();
+        const urlFailed = url && failedUrls.has(url);
+        const idFailed = id && failedIds.has(id);
+        if (urlFailed || idFailed) continue;
+
+        // Found a viable candidate – switch to it.
+        this.currentStreamIndex = index;
+        console.info("[Nuvio] Auto-fallback: switching to next source", {
+          reason,
+          fromIndex: currentIndex,
+          toIndex: index,
+          candidateId: id || null,
+          remaining: candidates.length - (failedIds.size || 0)
+        });
+        this.lastPlaybackErrorAt = 0;
+        this.loadingVisible = true;
+        this.paused = false;
+        this.sourcesError = null;
+        this.updateLoadingVisibility();
+        void this.playStreamCandidate(candidate, { preservePlaybackState: false });
+        return true;
+      }
+      return false;
+    },
     mediaErrorMessage(errorCode = 0, detail = "", streamCandidate = this.getCurrentStreamCandidate()) {
       const code = Number(errorCode || 0);
       const text = String(detail || "").toLowerCase();

@@ -224,6 +224,9 @@ export function createPlayerScreenMethods38() {
         this.releaseStartupAudioGate({ resume: false });
         if (startup) {
           this.markPlaybackSourceFailed(this.activePlaybackUrl);
+          if (this.tryNextStreamCandidate({ reason: "startup-stall" })) {
+            return;
+          }
           const mediaErrorCode = startupMediaErrorCode;
           const sourceCandidate = this.getStreamCandidateByUrl(this.activePlaybackUrl) || this.getCurrentStreamCandidate();
           const startupErrorMessage = this.getStartupErrorMessage(mediaErrorCode, terminalHlsErrorDetail, sourceCandidate);
