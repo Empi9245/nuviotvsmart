@@ -22,35 +22,28 @@ export function createMetaDetailsScreenMethods09() {
 
   return {
     renderSeriesInsightSection() {
-      const trailerItems = resolveTrailerItems(this.meta);
       const ratingsVisibility = LayoutPreferences.get().detailImdbRatingsVisibility;
-      const tabItems = [
-        ["cast", t("detail.creatorCast", {}, "Creator and Cast")],
-        ...(showEpisodeRatings(ratingsVisibility) ? [["ratings", t("detail.ratings", {}, "Ratings")]] : []),
-        ...(this.moreLikeThisItems.length ? [["morelike", t("detail.moreLikeThis", {}, "More Like This")]] : []),
-        ...(trailerItems.length ? [["trailer", t("detail_tab_trailer", {}, "Trailer")]] : []),
-        ...(this.collectionItems.length ? [["collection", this.collectionName || "Collection"]] : [])
-      ];
-      if (!tabItems.some(([tab]) => tab === this.seriesInsightTab)) {
-        this.seriesInsightTab = tabItems[0]?.[0] || "cast";
-      }
-      const tabs = tabItems.length > 1 ? this.renderPeopleTabs("series", this.seriesInsightTab, tabItems) : "";
-      return `
-          <section class="series-insight-section is-switching">
-            ${tabs}
-            ${
-              this.seriesInsightTab === "ratings"
-                ? this.renderSeriesRatingsPanel()
-                : this.seriesInsightTab === "collection"
-                  ? this.renderPreviewRail(this.collectionItems, "series", "collection:series")
-                  : this.seriesInsightTab === "morelike"
-                    ? `${this.renderPreviewRail(this.moreLikeThisItems, "series", "morelike:series")}${this.renderMoreLikeThisAttribution()}`
-                    : this.seriesInsightTab === "trailer"
-                      ? this.renderTrailerRail(trailerItems, "series")
-                      : this.renderSeriesCastTrack("series")
-            }
-          </section>
-        `;
+      const hasRatings = Object.keys(this.seriesRatingsBySeason || {}).some((season) => Number(season) > 0);
+      const ratings = showEpisodeRatings(ratingsVisibility) && hasRatings ? this.renderSeriesRatingsPanel() : "";
+      return this.renderDetailInsightSections("series", ratings);
+    },
+    renderDetailInsightSections(kind, ratings = "", meta = this.meta) {
+      const trailerItems = resolveTrailerItems(meta);
+      const section = (key, title, content) => {
+        if (!content) return "";
+        const titleId = `detail-insight-${kind}-${key}`;
+        return `<section class="detail-insight-section" data-detail-section="${key}" aria-labelledby="${titleId}">
+          <h2 class="detail-insight-heading" id="${titleId}">${escapeHtml(title)}</h2>
+          ${content}
+        </section>`;
+      };
+      return `<div class="series-insight-section detail-insight-sections">
+        ${section("cast", t("detail_tab_cast", {}, "Creator and Cast"), this.castItems?.length ? this.renderSeriesCastTrack(kind) : "")}
+        ${section("ratings", t("detail_tab_ratings", {}, "Ratings"), ratings)}
+        ${section("trailer", t("detail_tab_trailer", {}, "Trailer"), trailerItems.length ? this.renderTrailerRail(trailerItems, kind) : "")}
+        ${section("collection", this.collectionName || t("tmdb_collections_title", {}, "Collections"), this.renderPreviewRail(this.collectionItems, kind, `collection:${kind}`))}
+        ${section("morelike", t("detail_tab_similar_titles", {}, "Similar titles"), this.moreLikeThisItems?.length ? `${this.renderPreviewRail(this.moreLikeThisItems, kind, `morelike:${kind}`)}${this.renderMoreLikeThisAttribution()}` : "")}
+      </div>`;
     },
     renderMoreLikeThisAttribution() {
       if (!this.moreLikeThisSource) return "";

@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./metaDetailsScreenContext.js";
+import { handleDetailSectionsDpad } from "./detailSectionNavigation.js";
 
 export function createMetaDetailsScreenMethods24() {
   const { isSeriesDetailMeta } = internals;
@@ -19,6 +20,7 @@ export function createMetaDetailsScreenMethods24() {
       if (!current) {
         return false;
       }
+      if (handleDetailSectionsDpad(this, event, current)) return true;
 
       const focusLists = this.getDetailFocusLists();
       if (!focusLists) {

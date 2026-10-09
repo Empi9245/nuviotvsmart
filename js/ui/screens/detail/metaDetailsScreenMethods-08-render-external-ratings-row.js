@@ -302,67 +302,26 @@ export function createMetaDetailsScreenMethods08() {
       this.scheduleEpisodeVirtualizationSync(this.getRememberedEpisodeIndex());
     },
     renderMovieInsightSection(meta) {
-      const trailerItems = resolveTrailerItems(meta);
       const showRatings = showHomeRatings(LayoutPreferences.get().homeImdbRatingsVisibility);
-      const tabItems = [
-        ["cast", t("detail.creatorCast", {}, "Creator and Cast")],
-        ...(showRatings ? [["ratings", t("detail.ratings", {}, "Ratings")]] : []),
-        ...(this.moreLikeThisItems.length ? [["morelike", t("detail.moreLikeThis", {}, "More Like This")]] : []),
-        ...(trailerItems.length ? [["trailer", t("detail_tab_trailer", {}, "Trailer")]] : []),
-        ...(this.collectionItems.length ? [["collection", this.collectionName || "Collection"]] : [])
-      ];
-      const tabs = tabItems.length > 1 ? this.renderPeopleTabs("movie", this.movieInsightTab, tabItems) : "";
-      if (this.movieInsightTab === "ratings" && showRatings) {
-        const imdbValue = resolveImdbRating(meta);
-        const imdb = imdbValue != null && String(imdbValue).trim() !== "" ? String(imdbValue) : "-";
-        const tmdb = Number.isFinite(Number(meta?.tmdbRating)) ? String(meta.tmdbRating) : "-";
-        return `
-            <section class="series-insight-section">
-              ${tabs}
-              <div class="movie-ratings-row">
-                <article class="movie-rating-card">
-                  <img src="assets/icons/imdb_logo_2016.svg" alt="IMDb" />
-                  <div class="movie-rating-value">${imdb}</div>
-                </article>
-                <article class="movie-rating-card">
-                  <img src="assets/icons/mdblist_tmdb.svg" alt="TMDB" />
-                  <div class="movie-rating-value">${tmdb}</div>
-                </article>
-              </div>
-            </section>
-          `;
-      }
-      if (this.movieInsightTab === "collection") {
-        return `
-            <section class="series-insight-section">
-              ${tabs}
-              ${this.renderPreviewRail(this.collectionItems, "movie", "collection:movie")}
-            </section>
-          `;
-      }
-      if (this.movieInsightTab === "morelike") {
-        return `
-            <section class="series-insight-section">
-              ${tabs}
-              ${this.renderPreviewRail(this.moreLikeThisItems, "movie", "morelike:movie")}
-              ${this.renderMoreLikeThisAttribution()}
-            </section>
-          `;
-      }
-      if (this.movieInsightTab === "trailer") {
-        return `
-            <section class="series-insight-section is-switching">
-              ${tabs}
-              ${this.renderTrailerRail(trailerItems, "movie")}
-            </section>
-          `;
-      }
-      return `
-          <section class="series-insight-section movie-cast-section is-switching">
-            ${tabs}
-            ${this.renderSeriesCastTrack("movie")}
-          </section>
-        `;
+      const imdb = resolveImdbRating(meta);
+      const tmdb = Number(meta?.tmdbRating);
+      const ratingCards = [
+        ["IMDb", "assets/icons/imdb_logo_2016.svg", imdb],
+        ["TMDB", "assets/icons/mdblist_tmdb.svg", tmdb]
+      ]
+        .filter(([, , value]) => Number.isFinite(Number(value)) && Number(value) > 0)
+        .map(
+          ([label, icon, value]) => `<article class="movie-rating-card">
+          <img src="${icon}" alt="${label}" />
+          <div class="movie-rating-value">${escapeHtml(String(value))}</div>
+        </article>`
+        )
+        .join("");
+      const ratings =
+        showRatings && ratingCards
+          ? `<div class="movie-ratings-row focusable" data-scroll-key="ratings:movie" role="group" aria-labelledby="detail-insight-movie-ratings">${ratingCards}</div>`
+          : "";
+      return this.renderDetailInsightSections("movie", ratings, meta);
     }
   };
 }

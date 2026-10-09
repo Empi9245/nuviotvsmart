@@ -89,7 +89,12 @@ export function createMetaDetailsScreenMethods17() {
       }
       if (action === "openMoreLikeDetail") {
         const itemId = String(target.dataset.itemId || "");
-        return itemId ? { selector: `.detail-morelike-card[data-item-id="${escapeSelectorValue(itemId)}"]` } : null;
+        const railKey = String(target.closest(".detail-morelike-track")?.dataset.scrollKey || "");
+        const railSelector = railKey ? `.detail-morelike-track[data-scroll-key="${escapeSelectorValue(railKey)}"] ` : "";
+        return itemId ? { selector: `${railSelector}.detail-morelike-card[data-item-id="${escapeSelectorValue(itemId)}"]` } : null;
+      }
+      if (target.matches(".movie-ratings-row.focusable")) {
+        return { selector: ".movie-ratings-row.focusable" };
       }
       if (target.matches(".detail-company-card.focusable")) {
         const companyName = String(target.dataset.companyName || "");

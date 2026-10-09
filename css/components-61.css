@@ -1,0 +1,32 @@
+/* Detail sections are read by scrolling down, without selecting tabs. */
+.detail-insight-sections {
+  padding-top: 40px;
+}
+
+.detail-insight-section + .detail-insight-section {
+  margin-top: 48px;
+}
+
+.detail-insight-heading {
+  margin: 0 0 20px;
+  padding: 0 var(--detail-safe-x, 96px);
+  color: var(--detail-text-primary, #fff);
+  font-size: var(--detail-section-title-size, 44px);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.detail-insight-section .movie-ratings-row {
+  padding: 8px var(--detail-safe-x, 96px) 16px;
+  outline: none;
+}
+
+.detail-insight-section .movie-ratings-row.focused .movie-rating-card {
+  border-color: var(--detail-focus-ring, #fff);
+  box-shadow: 0 0 0 2px var(--detail-focus-ring, #fff);
+}
+
+.detail-insight-section .series-rating-summary {
+  padding: 12px var(--detail-safe-x, 96px);
+  font-size: var(--detail-caption-size, 28px);
+}

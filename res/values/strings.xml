@@ -208,6 +208,7 @@
     <string name="cast_role_writer">Writer</string>
     <string name="detail_tab_ratings">Ratings</string>
     <string name="detail_tab_more_like_this">More like this</string>
+    <string name="detail_tab_similar_titles">Similar titles</string>
     <string name="detail_tab_trailer">Trailer</string>
     <string name="detail_more_like_this_powered_by_tmdb">Powered by TMDB</string>
     <string name="detail_more_like_this_powered_by_trakt">Powered by Trakt</string>

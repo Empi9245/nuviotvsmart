@@ -292,7 +292,7 @@ export function createMetaDetailsScreenMethods22() {
       this.rememberEpisodeFocus(target, list);
       this.rememberRailFocus(target, list);
       const horizontalTrack = target.closest(
-        ".series-episode-track, .series-cast-track, .movie-cast-track, .home-track, .series-episode-ratings-grid, .series-rating-seasons, .detail-morelike-track, .detail-company-track, .series-season-row, .series-insight-tabs, .detail-comments-modes, .detail-comments-track"
+        ".series-episode-track, .series-cast-track, .movie-cast-track, .movie-ratings-row, .home-track, .series-episode-ratings-grid, .series-rating-seasons, .detail-morelike-track, .detail-company-track, .series-season-row, .series-insight-tabs, .detail-comments-modes, .detail-comments-track"
       );
       if (horizontalTrack) {
         if (previous && previous !== target && horizontalTrack.contains(previous)) {

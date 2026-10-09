@@ -169,6 +169,7 @@
     <string name="cast_role_writer">Sceneggiatore</string>
     <string name="detail_tab_ratings">Valutazioni</string>
     <string name="detail_tab_more_like_this">Altro come questo</string>
+    <string name="detail_tab_similar_titles">Titoli simili</string>
     <string name="detail_tab_trailer">Trailer</string>
     <string name="detail_more_like_this_powered_by_tmdb">Fornito da TMDB</string>
     <string name="detail_more_like_this_powered_by_trakt">Fornito da Trakt</string>
