@@ -277,7 +277,10 @@ export function createPlayerScreenMethods24() {
       const outlineShadow = style.outlineEnabled
         ? Environment.isWebOS()
           ? `-2px -2px 0 ${outlineColor}, 0 -2px 0 ${outlineColor}, 2px -2px 0 ${outlineColor}, -2px 0 0 ${outlineColor}, 2px 0 0 ${outlineColor}, -2px 2px 0 ${outlineColor}, 0 2px 0 ${outlineColor}, 2px 2px 0 ${outlineColor}`
-          : `0 0 2px ${outlineColor}, 0 0 4px ${outlineColor}`
+          : // A soft glow alone is nearly invisible on TV panels; use the same
+            // hard directional ring as webOS plus a light feather so every
+            // platform shows a real black letter border.
+            `-2px -2px 0 ${outlineColor}, 0 -2px 0 ${outlineColor}, 2px -2px 0 ${outlineColor}, -2px 0 0 ${outlineColor}, 2px 0 0 ${outlineColor}, -2px 2px 0 ${outlineColor}, 0 2px 0 ${outlineColor}, 2px 2px 0 ${outlineColor}, 0 0 4px ${outlineColor}`
         : "";
       const subtitleShadow = [outlineShadow, boldShadow].filter(Boolean).join(", ") || "none";
       const htmlSubtitleShadow = Environment.isWebOS() ? outlineShadow || "none" : subtitleShadow;

@@ -340,6 +340,9 @@
   white-space: pre-wrap;
   word-break: break-word;
   background: var(--player-subtitle-background);
+  /* Apple TV-style rounded caption background. Invisible while the
+     background is transparent, safe to always apply. */
+  border-radius: 0.3em;
 }
 
 /* Keep the edge layer separate so text alpha does not also dim Android's

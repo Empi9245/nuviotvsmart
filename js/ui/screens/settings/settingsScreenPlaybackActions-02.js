@@ -207,9 +207,11 @@ export function registerPlaybackActionsPart02(model) {
       title: t("sub_bg_color", {}, "Subtitle background color"),
       options: [
         { id: "#00000000", labelKey: "common_off" },
-        { id: "#00000080", label: "50%" },
-        { id: "#000000CC", label: "80%" },
-        { id: "#000000", label: "100%" }
+        { id: "#B3B3B380", label: "Light gray 50% (Apple TV)" },
+        { id: "#FFFFFF66", label: "White 40%" },
+        { id: "#00000080", label: "Black 50%" },
+        { id: "#000000CC", label: "Black 80%" },
+        { id: "#000000", label: "Black 100%" }
       ],
       selectedId: PlayerSettingsStore.get().subtitleStyle?.backgroundColor || "#00000000",
       returnFocusKey: "playback:subtitleBackgroundColor",

@@ -85,6 +85,7 @@ export function createPlayerScreenMethods53() {
           bold: defaults.bold,
           outlineEnabled: defaults.outlineEnabled,
           outlineColor: defaults.outlineColor,
+          backgroundColor: defaults.backgroundColor,
           verticalOffset: defaults.verticalOffset,
           verticalOffsetContract: defaults.verticalOffsetContract
         };
