@@ -15,6 +15,7 @@ export function registerPlaybackActionsPart02(model) {
     SUBTITLE_TEXT_COLOR_OPTIONS,
     SUBTITLE_TEXT_OPACITY_OPTIONS,
     SUBTITLE_OUTLINE_COLOR_OPTIONS,
+    SUBTITLE_BACKGROUND_COLOR_OPTIONS,
     normalizeSubtitleStyleHex,
     clampSubtitleSize,
     clampSubtitleTextOpacity,
@@ -205,14 +206,7 @@ export function registerPlaybackActionsPart02(model) {
   this.actionMap.set("playback:subtitleBackgroundColor", () =>
     this.openOptionDialog({
       title: t("sub_bg_color", {}, "Subtitle background color"),
-      options: [
-        { id: "#00000000", labelKey: "common_off" },
-        { id: "#B3B3B380", label: "Light gray 50% (Apple TV)" },
-        { id: "#FFFFFF66", label: "White 40%" },
-        { id: "#00000080", label: "Black 50%" },
-        { id: "#000000CC", label: "Black 80%" },
-        { id: "#000000", label: "Black 100%" }
-      ],
+      options: SUBTITLE_BACKGROUND_COLOR_OPTIONS,
       selectedId: PlayerSettingsStore.get().subtitleStyle?.backgroundColor || "#00000000",
       returnFocusKey: "playback:subtitleBackgroundColor",
       onSelect: (option) => updateSubtitleStyle({ backgroundColor: option.id })

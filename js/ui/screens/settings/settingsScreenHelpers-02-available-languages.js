@@ -363,6 +363,15 @@ export const SUBTITLE_OUTLINE_COLOR_OPTIONS = [
   { id: "#FF5C5C", label: "Red" }
 ];
 
+export const SUBTITLE_BACKGROUND_COLOR_OPTIONS = [
+  { id: "#00000000", label: "Off" },
+  { id: "#B3B3B380", label: "Light gray 50% (Apple TV)" },
+  { id: "#FFFFFF66", label: "White 40%" },
+  { id: "#00000080", label: "Black 50%" },
+  { id: "#000000CC", label: "Black 80%" },
+  { id: "#000000", label: "Black 100%" }
+];
+
 export function normalizeSubtitleStyleHex(value, fallback) {
   const hex = String(value || "")
     .trim()

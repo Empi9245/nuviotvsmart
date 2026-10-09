@@ -179,6 +179,7 @@ export {
   SUBTITLE_TEXT_COLOR_OPTIONS,
   SUBTITLE_TEXT_OPACITY_OPTIONS,
   SUBTITLE_OUTLINE_COLOR_OPTIONS,
+  SUBTITLE_BACKGROUND_COLOR_OPTIONS,
   normalizeSubtitleStyleHex,
   clampSubtitleSize
 } from "./settingsScreenHelpers-02-available-languages.js";

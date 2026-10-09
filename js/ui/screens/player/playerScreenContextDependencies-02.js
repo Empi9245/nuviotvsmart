@@ -244,7 +244,11 @@ import { formatSubtitleTrackDisplay } from "./playerScreenHelpers-10-format-subt
 
 import { isSubtitleLanguageOnlyDetail } from "./playerScreenHelpers-10-format-subtitle-track-display.js";
 
-import { styleChipLabel } from "./playerScreenHelpers-10-format-subtitle-track-display.js";
+import {
+  styleChipLabel,
+  subtitleBackgroundColorLabel,
+  subtitleBackgroundToCss
+} from "./playerScreenHelpers-10-format-subtitle-track-display.js";
 
 import { createTrackDialogCache } from "./playerScreenHelpers-10-format-subtitle-track-display.js";
 
@@ -417,6 +421,8 @@ export {
   formatSubtitleTrackDisplay,
   isSubtitleLanguageOnlyDetail,
   styleChipLabel,
+  subtitleBackgroundColorLabel,
+  subtitleBackgroundToCss,
   createTrackDialogCache,
   createSubtitleOptionVirtualState,
   dbToGain,

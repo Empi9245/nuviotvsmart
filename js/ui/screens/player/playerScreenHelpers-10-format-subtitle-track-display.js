@@ -278,6 +278,34 @@ export function styleChipLabel(value = "") {
     .toUpperCase();
 }
 
+const SUBTITLE_BACKGROUND_LABELS = {
+  "#00000000": "Off",
+  "#B3B3B380": "Gray",
+  "#FFFFFF66": "White",
+  "#00000080": "Black 50%",
+  "#000000CC": "Black 80%",
+  "#000000": "Black"
+};
+
+export function subtitleBackgroundColorLabel(value = "") {
+  const key = String(value || "")
+    .trim()
+    .toUpperCase();
+  return SUBTITLE_BACKGROUND_LABELS[key] || styleChipLabel(value);
+}
+
+// Older TV firmwares (VIDAA's Chromium < 62) cannot parse 8-digit hex colors
+// and silently drop the declaration, so hand backgrounds over as rgba().
+export function subtitleBackgroundToCss(value = "") {
+  const match = /^#([0-9A-Fa-f]{6})([0-9A-Fa-f]{2})$/.exec(String(value || "").trim());
+  if (!match) {
+    return String(value || "").trim() || "transparent";
+  }
+  const channel = (part) => parseInt(part, 16);
+  const alpha = Math.round((channel(match[2]) / 255) * 100) / 100;
+  return `rgba(${channel(match[1].slice(0, 2))}, ${channel(match[1].slice(2, 4))}, ${channel(match[1].slice(4, 6))}, ${alpha})`;
+}
+
 export function createTrackDialogCache() {
   return {
     subtitleOptions: null,
