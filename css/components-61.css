@@ -30,3 +30,55 @@
   padding: 12px var(--detail-safe-x, 96px);
   font-size: var(--detail-caption-size, 28px);
 }
+
+/* A section has one horizontal rail, including its filters. Down always
+   leaves the section rather than stepping through internal control rows. */
+.series-ratings-track {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 12px var(--detail-safe-x, 96px) 16px;
+  box-sizing: border-box;
+  scrollbar-width: none;
+}
+
+.series-ratings-track::-webkit-scrollbar {
+  display: none;
+}
+
+.no-flex-gap .series-ratings-track {
+  gap: 0;
+}
+
+.no-flex-gap .series-ratings-track > * {
+  margin-right: 16px;
+}
+
+.no-flex-gap .series-ratings-track > *:last-child {
+  margin-right: 0;
+}
+
+.series-ratings-track > .series-rating-season,
+.series-ratings-track > .series-episode-rating-chip {
+  flex: 0 0 auto;
+}
+
+.series-ratings-divider {
+  flex: 0 0 2px;
+  height: 48px;
+  margin: 0 8px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.detail-comments-track > .detail-comments-mode {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.series-ratings-track > .series-insight-empty,
+.detail-comments-track > .series-insight-empty {
+  padding: 0;
+  margin: 16px 0;
+}

@@ -141,9 +141,12 @@ export function createMetaDetailsScreenMethods09() {
             .join("")
         : `<div class="series-insight-empty">${escapeHtml(t("detail.noEpisodeRatings", {}, "No episode ratings in this season."))}</div>`;
       return `
-          <div class="series-rating-seasons" data-scroll-key="rating-seasons">${seasonButtons}</div>
+          <div class="series-ratings-track" data-scroll-key="rating-panel:${this.selectedRatingSeason}">
+            ${seasonButtons}
+            <span class="series-ratings-divider" aria-hidden="true"></span>
+            ${chips}
+          </div>
           <div class="series-rating-summary">${escapeHtml(t("detail.seasonSummary", { season: this.selectedRatingSeason, count: ratings.length }, "Season {{season}} • {{count}} episodes"))}</div>
-          <div class="series-episode-ratings-grid" data-scroll-key="rating-chips:${this.selectedRatingSeason}">${chips}</div>
         `;
     },
     renderSeasonButtons() {

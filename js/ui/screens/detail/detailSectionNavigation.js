@@ -5,10 +5,8 @@ const ROW_SELECTOR = [
   ".movie-cast-track",
   ".series-cast-track",
   ".movie-ratings-row.focusable",
-  ".series-rating-seasons",
-  ".series-episode-ratings-grid",
+  ".series-ratings-track",
   ".detail-morelike-track",
-  ".detail-comments-modes",
   ".detail-comments-track",
   ".detail-company-track"
 ].join(", ");
@@ -58,7 +56,13 @@ export function handleDetailSectionsDpad(screen, event, current) {
   let nextIndex = screen.getRememberedRailIndex(nextRow.root.dataset.scrollKey, nextRow.items);
   if (nextRow.root.matches(".series-season-row")) {
     nextIndex = screen.getSelectedSeasonIndex(nextRow.items);
-  } else if (nextRow.root.matches(".series-rating-seasons")) {
+  } else if (
+    nextRow.root.matches(".series-ratings-track") &&
+    !Object.prototype.hasOwnProperty.call(
+      screen.railFocusIndexByKey || {},
+      nextRow.root.dataset.scrollKey
+    )
+  ) {
     nextIndex = Math.max(
       0,
       nextRow.items.findIndex(

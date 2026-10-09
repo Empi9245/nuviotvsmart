@@ -25,25 +25,9 @@ export function createMetaDetailsScreenMethods16() {
 
   return {
     renderCommentsSection() {
-      if (this.commentsLoading) {
-        const cards = Array.from({ length: 3 })
-          .map(() => `<article class="detail-comment-card is-loading"><span></span><span></span><span></span></article>`)
-          .join("");
-        return `<div class="detail-comments-track" data-scroll-key="comments:loading">${cards}</div>`;
-      }
-      if (this.commentsError) {
-        return `
-            <div class="detail-comments-error">
-              <p>${escapeHtml(this.commentsError)}</p>
-              <button class="series-season-btn focusable" data-action="retryComments">${escapeHtml(t("action_retry", {}, "Retry"))}</button>
-            </div>
-          `;
-      }
       const modeButtons = isSeriesDetailMeta(this.meta, this.episodes)
-        ? `<div class="detail-comments-modes">
-              <button class="detail-comments-mode focusable${this.commentsMode !== "episode" ? " selected" : ""}" data-action="setCommentsMode" data-comments-mode="title">${escapeHtml(t("detail_comments_mode_show", {}, "Show"))}</button>
-              <button class="detail-comments-mode focusable${this.commentsMode === "episode" ? " selected" : ""}" data-action="setCommentsMode" data-comments-mode="episode">${escapeHtml(this.commentsEpisodeTarget ? `S${this.commentsEpisodeTarget.season}E${this.commentsEpisodeTarget.episode}` : t("detail_comments_mode_episode", {}, "Episode"))}</button>
-            </div>`
+        ? `<button class="detail-comments-mode focusable${this.commentsMode !== "episode" ? " selected" : ""}" data-action="setCommentsMode" data-comments-mode="title" aria-pressed="${this.commentsMode !== "episode"}">${escapeHtml(t("detail_comments_mode_show", {}, "Show"))}</button>
+           <button class="detail-comments-mode focusable${this.commentsMode === "episode" ? " selected" : ""}" data-action="setCommentsMode" data-comments-mode="episode" aria-pressed="${this.commentsMode === "episode"}">${escapeHtml(this.commentsEpisodeTarget ? `S${this.commentsEpisodeTarget.season}E${this.commentsEpisodeTarget.episode}` : t("detail_comments_mode_episode", {}, "Episode"))}</button>`
         : "";
       const subtitle =
         this.commentsMode === "episode" && this.commentsEpisodeTarget
@@ -56,27 +40,29 @@ export function createMetaDetailsScreenMethods16() {
               "Reviews for S{{season}}E{{episode}}"
             )
           : t("detail_comments_subtitle", {}, "Top Trakt reviews");
-      if (!this.commentsItems.length) {
-        return `
-            <div class="detail-comments-section">
-              <div class="detail-comments-heading"><img src="assets/icons/trakt_tv_glyph.svg" alt="" /><span>${escapeHtml(t("detail_comments_title", {}, "Comments"))}</span></div>
-              <p class="detail-comments-subtitle">${escapeHtml(subtitle)}</p>
-              ${modeButtons}
-              <p class="series-insight-empty">${escapeHtml(t("detail_comments_empty", {}, "No Trakt comments yet."))}</p>
-            </div>
-          `;
+      let cards;
+      if (this.commentsLoading) {
+        cards = Array.from({ length: 3 })
+          .map(() => `<article class="detail-comment-card is-loading"><span></span><span></span><span></span></article>`)
+          .join("");
+      } else if (this.commentsError) {
+        cards = `<button class="detail-comments-mode focusable" data-action="retryComments">${escapeHtml(t("action_retry", {}, "Retry"))}</button>
+          <p class="series-insight-empty">${escapeHtml(this.commentsError)}</p>`;
+      } else if (!this.commentsItems.length) {
+        cards = `<p class="series-insight-empty">${escapeHtml(t("detail_comments_empty", {}, "No Trakt comments yet."))}</p>`;
+      } else {
+        const commentsWindow = this.getRailWindow(this.commentsItems, `comments:${this.commentsMode}`, COMMENTS_WINDOW);
+        cards = commentsWindow.list.map((review, offset) => this.renderCommentCard(review, commentsWindow.offset + offset)).join("");
       }
-      const commentsWindow = this.getRailWindow(this.commentsItems, `comments:${this.commentsMode}`, COMMENTS_WINDOW);
-      const cards = commentsWindow.list.map((review, offset) => this.renderCommentCard(review, commentsWindow.offset + offset)).join("");
       const loadingMore = this.commentsLoadingMore
         ? `<article class="detail-comment-card is-loading"><span></span><span></span><span></span></article>`
         : "";
+      const readingStop = !modeButtons && !this.commentsError && (this.commentsLoading || !this.commentsItems.length);
       return `
           <div class="detail-comments-section">
             <div class="detail-comments-heading"><img src="assets/icons/trakt_tv_glyph.svg" alt="" /><span>${escapeHtml(t("detail_comments_title", {}, "Comments"))}</span></div>
             <p class="detail-comments-subtitle">${escapeHtml(subtitle)}</p>
-            ${modeButtons}
-            <div class="detail-comments-track" data-scroll-key="comments:${escapeHtml(this.commentsMode)}">${cards}${loadingMore}</div>
+            <div class="detail-comments-track${readingStop ? " focusable" : ""}" data-scroll-key="comments:${escapeHtml(this.commentsMode)}" aria-busy="${Boolean(this.commentsLoading)}">${modeButtons}${cards}${loadingMore}</div>
           </div>
         `;
     },

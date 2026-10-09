@@ -54,6 +54,7 @@ export function createMetaDetailsScreenMethods17() {
         const mode = String(target.dataset.commentsMode || "title") === "episode" ? "episode" : "title";
         return {
           selector: `.detail-comments-mode[data-comments-mode="${mode}"]`,
+          fallbackSelector: ".detail-comments-track",
           preserveVerticalScroll: true
         };
       }
@@ -61,6 +62,14 @@ export function createMetaDetailsScreenMethods17() {
         const index = Number(target.dataset.commentIndex || 0);
         return {
           selector: `.detail-comment-card[data-comment-index="${index}"]`,
+          fallbackSelector: ".detail-comments-track",
+          preserveVerticalScroll: true
+        };
+      }
+      if (action === "retryComments" || target.matches(".detail-comments-track.focusable")) {
+        return {
+          selector: action === "retryComments" ? '.detail-comments-track [data-action="retryComments"]' : ".detail-comments-track",
+          fallbackSelector: ".detail-comments-track",
           preserveVerticalScroll: true
         };
       }

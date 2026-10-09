@@ -145,7 +145,13 @@ export function createMetaDetailsScreenMethods12() {
       if (!descriptor?.selector) {
         return false;
       }
-      const target = this.container.querySelector(descriptor.selector);
+      let target = this.container.querySelector(descriptor.selector);
+      if (!target && descriptor.fallbackSelector) {
+        target = this.container.querySelector(descriptor.fallbackSelector);
+      }
+      if (target instanceof HTMLElement && !target.matches(".focusable")) {
+        target = target.querySelector(".focusable");
+      }
       if (!(target instanceof HTMLElement)) {
         return false;
       }

@@ -284,7 +284,7 @@ export function createMetaDetailsScreenMethods21() {
       }
       return (
         node.closest(
-          ".series-detail-actions, .series-season-row, .series-episode-track, .series-insight-tabs, .detail-comments-modes, .detail-comments-track, .movie-cast-track, .series-cast-track, .movie-ratings-row, .series-rating-seasons, .series-episode-ratings-grid, .detail-morelike-track, .detail-company-track"
+          ".series-detail-actions, .series-season-row, .series-episode-track, .series-insight-tabs, .detail-comments-modes, .detail-comments-track, .detail-comments-error, .movie-cast-track, .series-cast-track, .movie-ratings-row, .series-ratings-track, .series-rating-seasons, .series-episode-ratings-grid, .detail-morelike-track, .detail-company-track"
         ) || node
       );
     }
