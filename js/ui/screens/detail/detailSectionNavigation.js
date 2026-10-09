@@ -5,14 +5,14 @@ const ROW_SELECTOR = [
   ".movie-cast-track",
   ".series-cast-track",
   ".movie-ratings-row.focusable",
-  ".series-ratings-track",
+  ".series-ratings-panel",
   ".detail-morelike-track",
   ".detail-comments-track",
   ".detail-company-track"
 ].join(", ");
 
-// Each visible rail is a separate row: vertical movement follows page order,
-// while horizontal movement stays inside the current section.
+// Vertical movement follows sections; horizontal movement stays inside the
+// current physical rail, including the two original rows in the ratings panel.
 export function handleDetailSectionsDpad(screen, event, current) {
   if (!screen.container?.querySelector(".detail-insight-sections")) return false;
   const keyCode = Number(event?.keyCode || 0);
@@ -29,7 +29,7 @@ export function handleDetailSectionsDpad(screen, event, current) {
 
   const row = rows[rowIndex];
   const currentIndex = row.items.indexOf(current);
-  const rowKey = row.root.dataset.scrollKey;
+  const rowKey = row.root.dataset.scrollKey || row.root.dataset.focusKey;
   if (rowKey) {
     screen.railFocusIndexByKey ||= {};
     screen.railFocusIndexByKey[rowKey] = currentIndex;
@@ -40,7 +40,9 @@ export function handleDetailSectionsDpad(screen, event, current) {
       const absoluteIndex = Number(current.dataset.episodeIndex ?? currentIndex);
       screen.focusEpisodeByIndex(absoluteIndex + step, { preserveVerticalScroll: true });
     } else {
-      screen.focusInList(row.items, currentIndex + step, { preserveVerticalScroll: true });
+      const ratingRail = current.closest(".series-rating-seasons, .series-episode-ratings-grid");
+      const items = ratingRail ? Array.from(ratingRail.querySelectorAll(".focusable")) : row.items;
+      screen.focusInList(items, items.indexOf(current) + step, { preserveVerticalScroll: true });
     }
     return true;
   }
@@ -53,15 +55,13 @@ export function handleDetailSectionsDpad(screen, event, current) {
     });
     return true;
   }
-  let nextIndex = screen.getRememberedRailIndex(nextRow.root.dataset.scrollKey, nextRow.items);
+  const nextKey = nextRow.root.dataset.scrollKey || nextRow.root.dataset.focusKey;
+  let nextIndex = screen.getRememberedRailIndex(nextKey, nextRow.items);
   if (nextRow.root.matches(".series-season-row")) {
     nextIndex = screen.getSelectedSeasonIndex(nextRow.items);
   } else if (
-    nextRow.root.matches(".series-ratings-track") &&
-    !Object.prototype.hasOwnProperty.call(
-      screen.railFocusIndexByKey || {},
-      nextRow.root.dataset.scrollKey
-    )
+    nextRow.root.matches(".series-ratings-panel") &&
+    !Object.prototype.hasOwnProperty.call(screen.railFocusIndexByKey || {}, nextKey)
   ) {
     nextIndex = Math.max(
       0,

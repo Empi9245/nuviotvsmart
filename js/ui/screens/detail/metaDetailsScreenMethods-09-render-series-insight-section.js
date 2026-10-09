@@ -39,8 +39,8 @@ export function createMetaDetailsScreenMethods09() {
       };
       return `<div class="series-insight-section detail-insight-sections">
         ${section("cast", t("detail_tab_cast", {}, "Creator and Cast"), this.castItems?.length ? this.renderSeriesCastTrack(kind) : "")}
-        ${section("ratings", t("detail_tab_ratings", {}, "Ratings"), ratings)}
         ${section("trailer", t("detail_tab_trailer", {}, "Trailer"), trailerItems.length ? this.renderTrailerRail(trailerItems, kind) : "")}
+        ${section("ratings", t("detail_tab_ratings", {}, "Ratings"), ratings)}
         ${section("collection", this.collectionName || t("tmdb_collections_title", {}, "Collections"), this.renderPreviewRail(this.collectionItems, kind, `collection:${kind}`))}
         ${section("morelike", t("detail_tab_similar_titles", {}, "Similar titles"), this.moreLikeThisItems?.length ? `${this.renderPreviewRail(this.moreLikeThisItems, kind, `morelike:${kind}`)}${this.renderMoreLikeThisAttribution()}` : "")}
       </div>`;
@@ -141,12 +141,11 @@ export function createMetaDetailsScreenMethods09() {
             .join("")
         : `<div class="series-insight-empty">${escapeHtml(t("detail.noEpisodeRatings", {}, "No episode ratings in this season."))}</div>`;
       return `
-          <div class="series-ratings-track" data-scroll-key="rating-panel:${this.selectedRatingSeason}">
-            ${seasonButtons}
-            <span class="series-ratings-divider" aria-hidden="true"></span>
-            ${chips}
+          <div class="series-ratings-panel" data-focus-key="rating-panel:${this.selectedRatingSeason}">
+            <div class="series-rating-seasons" data-scroll-key="rating-seasons">${seasonButtons}</div>
+            <div class="series-rating-summary">${escapeHtml(t("detail.seasonSummary", { season: this.selectedRatingSeason, count: ratings.length }, "Season {{season}} • {{count}} episodes"))}</div>
+            <div class="series-episode-ratings-grid" data-scroll-key="rating-chips:${this.selectedRatingSeason}">${chips}</div>
           </div>
-          <div class="series-rating-summary">${escapeHtml(t("detail.seasonSummary", { season: this.selectedRatingSeason, count: ratings.length }, "Season {{season}} • {{count}} episodes"))}</div>
         `;
     },
     renderSeasonButtons() {

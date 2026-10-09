@@ -289,7 +289,11 @@ export function createMetaDetailsScreenMethods26() {
         const season = Number(current.dataset.season || this.selectedRatingSeason || 1);
         if (season !== this.selectedRatingSeason) {
           this.selectedRatingSeason = season;
-          this.render(this.meta);
+          this.render(this.meta, { selector: `.series-rating-season[data-season="${season}"]` });
+        }
+        if (!event?.pointerActivation) {
+          const chips = Array.from(this.container.querySelectorAll(".series-episode-rating-chip.focusable"));
+          this.focusInList(chips, 0);
         }
         return;
       }

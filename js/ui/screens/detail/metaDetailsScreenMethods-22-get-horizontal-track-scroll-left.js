@@ -50,8 +50,8 @@ export function createMetaDetailsScreenMethods22() {
       const episodeTrack = queryRoot(".series-episode-track");
       const insightTabsRoot = queryRoot(".series-insight-tabs");
       const castTrack = queryRoot(".series-cast-track, .movie-cast-track");
-      const ratingSeasonsRoot = queryRoot(".series-ratings-track, .series-rating-seasons");
-      const ratingGrid = queryRoot(".series-ratings-track, .series-episode-ratings-grid");
+      const ratingSeasonsRoot = queryRoot(".series-rating-seasons");
+      const ratingGrid = queryRoot(".series-episode-ratings-grid");
       const morelikeTrack = queryRoot(".detail-morelike-track");
       const commentModesRoot = queryRoot(".detail-comments-track, .detail-comments-modes");
       const commentTrack = queryRoot(".detail-comments-track");
@@ -292,7 +292,7 @@ export function createMetaDetailsScreenMethods22() {
       this.rememberEpisodeFocus(target, list);
       this.rememberRailFocus(target, list);
       const horizontalTrack = target.closest(
-        ".series-episode-track, .series-cast-track, .movie-cast-track, .movie-ratings-row, .home-track, .series-ratings-track, .series-episode-ratings-grid, .series-rating-seasons, .detail-morelike-track, .detail-company-track, .series-season-row, .series-insight-tabs, .detail-comments-modes, .detail-comments-track, .detail-comments-error"
+        ".series-episode-track, .series-cast-track, .movie-cast-track, .movie-ratings-row, .home-track, .series-episode-ratings-grid, .series-rating-seasons, .detail-morelike-track, .detail-company-track, .series-season-row, .series-insight-tabs, .detail-comments-modes, .detail-comments-track, .detail-comments-error"
       );
       if (horizontalTrack) {
         if (previous && previous !== target && horizontalTrack.contains(previous)) {
