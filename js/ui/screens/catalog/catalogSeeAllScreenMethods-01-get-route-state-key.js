@@ -5,6 +5,7 @@ export function createCatalogSeeAllScreenMethods01() {
   const {
     Router,
     ScreenUtils,
+    resetDpadRepeat,
     catalogRepository,
     watchedItemsRepository,
     watchedTitleStateRepository,
@@ -102,6 +103,7 @@ export function createCatalogSeeAllScreenMethods01() {
       });
     },
     async mount(params = {}, navigationContext = {}) {
+      resetDpadRepeat(this);
       this.container = document.getElementById("catalogSeeAll");
       ScreenUtils.show(this.container);
       this.params = params || {};

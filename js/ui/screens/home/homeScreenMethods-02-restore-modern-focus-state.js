@@ -315,12 +315,10 @@ export function createHomeScreenMethods02() {
       }
       const state = this.modernCameraFollowState || null;
       if (stopAnimations) {
-        if (Platform.isVidaa()) {
-          for (const frameKey of ["_trackHorizRaf", "_mainVertRaf", "_mainClassicVertRaf"]) {
-            if (this[frameKey]) {
-              cancelAnimationFrame(this[frameKey]);
-              this[frameKey] = null;
-            }
+        for (const frameKey of ["_trackHorizRaf", "_mainVertRaf", "_mainClassicVertRaf"]) {
+          if (this[frameKey]) {
+            cancelAnimationFrame(this[frameKey]);
+            this[frameKey] = null;
           }
         }
         const horizontalContainers = [state?.horizontal?.container, this.modernCameraFollowLastHorizontalContainer];

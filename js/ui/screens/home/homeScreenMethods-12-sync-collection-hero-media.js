@@ -1,4 +1,5 @@
 import * as internals from "./homeScreenContext.js";
+import { reconcileHomeFocusMediaTracking } from "./homeFocusMediaTracking.js";
 
 export function createHomeScreenMethods12() {
   const { Platform, MODERN_HOME_CONSTANTS, firstNonEmpty, isCollectionFolderItem, normalizeCollectionFolderItem } = internals;
@@ -226,7 +227,7 @@ export function createHomeScreenMethods12() {
       if (!container) {
         return;
       }
-      if (Platform.isVidaa() && !container.firstElementChild && !this.homeTrailerLayerCleanupTimers?.has(container)) {
+      if (!container.firstElementChild && !this.homeTrailerLayerCleanupTimers?.has(container)) {
         this.homeActiveTrailerLayers?.delete(container);
         container.classList.remove("is-active");
         return;
@@ -272,28 +273,13 @@ export function createHomeScreenMethods12() {
       if (!this.shouldUseImmediateFocusScroll()) {
         return;
       }
-      if (Platform.isVidaa()) {
-        // Most cards have empty trailer layers. Only mounted previews can need
-        // cleanup; scanning every card here costs time on every remote repeat.
-        this.homeActiveTrailerLayers?.forEach((layer) => this.scheduleTrailerLayerCleanup(layer));
-        return;
-      }
-      const layers = this.container?.querySelectorAll(".home-poster-trailer-layer, .home-hero-trailer-layer");
-      layers?.forEach((layer) => {
-        const hasPendingCleanup = this.homeTrailerLayerCleanupTimers?.has?.(layer);
-        if (hasPendingCleanup || layer.querySelector("iframe, video")) {
-          this.scheduleTrailerLayerCleanup(layer);
-        }
-      });
+      reconcileHomeFocusMediaTracking(this);
+      this.homeActiveTrailerLayers?.forEach((layer) => this.scheduleTrailerLayerCleanup(layer));
     },
     clearHomeTrailerLayers() {
-      if (Platform.isVidaa()) {
-        this.homeActiveTrailerLayers?.forEach((layer) => this.clearTrailerLayer(layer));
-        this.homeActiveTrailerLayers?.clear();
-        return;
-      }
-      const layers = this.container?.querySelectorAll(".home-poster-trailer-layer, .home-hero-trailer-layer");
-      layers?.forEach((layer) => this.clearTrailerLayer(layer));
+      reconcileHomeFocusMediaTracking(this);
+      this.homeActiveTrailerLayers?.forEach((layer) => this.clearTrailerLayer(layer));
+      this.homeActiveTrailerLayers?.clear();
     },
     setHeroTrailerActive(active = false, heroMedia = null) {
       const isActive = Boolean(active);

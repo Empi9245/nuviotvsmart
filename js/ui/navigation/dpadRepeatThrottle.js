@@ -10,11 +10,15 @@ function directionForKeyCode(keyCode) {
 
 /**
  * Keep Smart-TV repeat navigation at the same cadence as Android TV.
- * The first key-down is never delayed; only native repeat key-down events
- * are gated, so focus ordering and edge behavior remain screen-owned.
+ * The first key-down and direction changes are never delayed. Screens may
+ * also gate rapid separate presses, which remotes report with repeat=false.
  */
-export function allowDpadRepeat(owner, event, { horizontalMs = 80, verticalMs = 112 } = {}) {
-  if (!owner || !event?.repeat) {
+export function allowDpadRepeat(
+  owner,
+  event,
+  { horizontalMs = 80, verticalMs = 112, throttleRapidPresses = false } = {}
+) {
+  if (!owner || (!event?.repeat && !throttleRapidPresses)) {
     return true;
   }
 
@@ -51,13 +55,17 @@ export function allowDpadRepeat(owner, event, { horizontalMs = 80, verticalMs = 
   } catch (_) {}
 
   const now = Date.now();
-  const previous = Number(repeatStateByOwner.get(owner) || 0);
-  if (previous > 0 && now - previous < effectiveThrottleMs) {
+  const previous = repeatStateByOwner.get(owner);
+  if (
+    previous?.direction === direction &&
+    now >= previous.acceptedAt &&
+    now - previous.acceptedAt < effectiveThrottleMs
+  ) {
     event.preventDefault?.();
     return false;
   }
 
-  repeatStateByOwner.set(owner, now);
+  repeatStateByOwner.set(owner, { direction, acceptedAt: now });
   return true;
 }
 

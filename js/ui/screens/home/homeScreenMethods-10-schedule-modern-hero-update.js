@@ -40,11 +40,12 @@ export function createHomeScreenMethods10() {
       const canPreloadHeroDuringVerticalScroll =
         deferUntilVerticalSettle && getTvRuntimePerformanceProfile().isTvRuntime && !this.isPerformanceConstrained();
       const waitForVerticalSettle = (callback) => {
-        if (isVidaa && (Number(this.heroFocusToken || 0) !== focusToken || this.getCurrentFocusedNode() !== node || !node?.isConnected)) {
+        if (Number(this.heroFocusToken || 0) !== focusToken || this.getCurrentFocusedNode() !== node || !node?.isConnected) {
           return;
         }
         if (
           (isVidaa && this.isVidaaHomeLoadingBusy()) ||
+          this.isHomeNavigationSettling?.() ||
           (deferUntilVerticalSettle && !canPreloadHeroDuringVerticalScroll && this.isModernVerticalScrollActive())
         ) {
           this.heroBackdropPreloadTimer = setTimeout(
@@ -74,11 +75,15 @@ export function createHomeScreenMethods10() {
         });
       }, preloadDelay);
       const commitHeroWhenSettled = () => {
-        if (isVidaa && (Number(this.heroFocusToken || 0) !== focusToken || this.getCurrentFocusedNode() !== node || !node?.isConnected)) {
+        if (Number(this.heroFocusToken || 0) !== focusToken || this.getCurrentFocusedNode() !== node || !node?.isConnected) {
           this.heroFocusDelayTimer = null;
           return;
         }
-        if ((isVidaa && this.isVidaaHomeLoadingBusy()) || (deferUntilVerticalSettle && this.isModernVerticalScrollActive())) {
+        if (
+          (isVidaa && this.isVidaaHomeLoadingBusy()) ||
+          this.isHomeNavigationSettling?.() ||
+          (deferUntilVerticalSettle && this.isModernVerticalScrollActive())
+        ) {
           this.heroFocusDelayTimer = setTimeout(commitHeroWhenSettled, MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs);
           return;
         }
@@ -102,7 +107,7 @@ export function createHomeScreenMethods10() {
           if (focusedNode !== node || !node?.isConnected || !node.classList.contains("focused")) {
             return;
           }
-          if (isVidaa && this.isVidaaHomeLoadingBusy()) {
+          if ((isVidaa && this.isVidaaHomeLoadingBusy()) || this.isHomeNavigationSettling?.()) {
             this.heroFocusDelayTimer = setTimeout(commitHeroWhenSettled, MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs);
             return;
           }

@@ -108,6 +108,9 @@ export function createHomeScreenMethods30() {
       this.homeVidaaPrefetchMotion = null;
       this.homeVidaaPosterReadyEwmaMs = 0;
       this.lastDirectionalKeyAtByDirection = {};
+      this.lastHomeDirectionalInputDirection = null;
+      this.homeDirectionalInputBurst = false;
+      this.lastHomeInputAt = null;
       this.homeTruncationScope = null;
       if (this.boundHomeEventContainer) {
         this.boundHomeEventContainer.removeEventListener("focusin", this.boundHomeFocusInHandler);

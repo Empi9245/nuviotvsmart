@@ -1,4 +1,5 @@
 import * as internals from "./homeScreenContext.js";
+import { reconcileHomeFocusMediaTracking } from "./homeFocusMediaTracking.js";
 
 export function createHomeScreenMethods13() {
   const { Platform, metaRepository, isCollectionFolderItem, resolveTrailerSource, withTimeout, resolveTrailerMetaWithTmdbFallback } =
@@ -9,11 +10,10 @@ export function createHomeScreenMethods13() {
       if (!container || !source) {
         return;
       }
+      reconcileHomeFocusMediaTracking(this);
       this.clearTrailerLayer(container);
-      if (Platform.isVidaa()) {
-        this.homeActiveTrailerLayers ||= new Set();
-        this.homeActiveTrailerLayers.add(container);
-      }
+      this.homeActiveTrailerLayers ||= new Set();
+      this.homeActiveTrailerLayers.add(container);
       if (source.kind === "youtube" && source.embedUrl) {
         const frame = document.createElement("iframe");
         frame.className = "home-inline-trailer-frame";
@@ -162,24 +162,20 @@ export function createHomeScreenMethods13() {
       const instant = Boolean(options?.instant || this.isPerformanceConstrained());
       const preserveHeroMedia = Boolean(options?.preserveHeroMedia);
       const excludeNode = options?.excludeNode instanceof HTMLElement ? options.excludeNode : null;
+      reconcileHomeFocusMediaTracking(this);
       const targets = new Set();
       if (node instanceof HTMLElement && node !== excludeNode) {
         targets.add(node);
       }
-      // VIDAA records the single expanded card after rendering and when it is
-      // expanded. An empty state needs no scan of every mounted card.
-      if (!Platform.isVidaa()) {
-        Array.from(
-          this.container?.querySelectorAll(".home-main .home-poster-card.is-expanded, .home-main .home-poster-card.is-trailer-active") || []
-        ).forEach((card) => {
-          if (card !== excludeNode) targets.add(card);
-        });
-      }
+      this.homeActivePosterNodes?.forEach((card) => {
+        if (card !== excludeNode) targets.add(card);
+      });
       targets.forEach((target) => {
         const frame = target?.querySelector?.(".home-poster-frame") || null;
         // VIDAA CSS already disables size transitions. Don't flush layout to
         // temporarily disable and then restore them on the key-input path.
-        const overrideTransition = instant && !Platform.isVidaa();
+        const overrideTransition =
+          instant && !Platform.isVidaa() && (target.classList.contains("is-expanded") || target.classList.contains("is-trailer-active"));
         const previousCardTransition = overrideTransition && target instanceof HTMLElement ? target.style.transition : "";
         const previousFrameTransition = overrideTransition && frame instanceof HTMLElement ? frame.style.transition : "";
         if (overrideTransition && target instanceof HTMLElement) {
@@ -189,6 +185,7 @@ export function createHomeScreenMethods13() {
           frame.style.setProperty("transition", "none", "important");
         }
         target.classList.remove("is-expanded", "is-trailer-active", "is-expanded-backdrop-ready");
+        this.homeActivePosterNodes?.delete(target);
         const trailerLayer = target.querySelector(".home-poster-trailer-layer");
         if (this.shouldUseImmediateFocusScroll()) {
           this.scheduleTrailerLayerCleanup(trailerLayer);
@@ -225,13 +222,13 @@ export function createHomeScreenMethods13() {
       if (!this.isModernPosterNode(node)) {
         return;
       }
-      const hasOtherExpandedPosters = Array.from(
-        this.container?.querySelectorAll(".home-main .home-poster-card.is-expanded, .home-main .home-poster-card.is-trailer-active") || []
-      ).some((card) => card !== node);
+      reconcileHomeFocusMediaTracking(this);
+      const hasOtherExpandedPosters = [...(this.homeActivePosterNodes || [])].some((card) => card !== node);
       if ((this.expandedPosterNode && this.expandedPosterNode !== node) || hasOtherExpandedPosters) {
         this.collapseFocusedPoster(this.expandedPosterNode, { excludeNode: node });
       }
       node.classList.add("is-expanded");
+      this.homeActivePosterNodes?.add(node);
       this.hydrateFocusedPosterAssets(node);
       this.expandedPosterNode = node;
       requestAnimationFrame(() => {

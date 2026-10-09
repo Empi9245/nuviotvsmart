@@ -3,6 +3,7 @@ import { Platform } from "../../../platform/index.js";
 import { hasMountedHomeDom, updateHomeDom } from "./homeDomUpdate.js";
 import { discardVidaaHomeCards, restoreVidaaHomeCard, pruneVidaaHomeCards } from "./vidaaHomeCardWindow.js";
 import { createHomeRowRenderPass } from "./homeRowRenderCache.js";
+import { reconcileHomeFocusMediaTracking } from "./homeFocusMediaTracking.js";
 
 export function createHomeScreenMethods23() {
   const {
@@ -359,6 +360,7 @@ export function createHomeScreenMethods23() {
         this.cancelFocusedPosterFlow();
         this.expandedPosterNode = null;
       }
+      reconcileHomeFocusMediaTracking(this, { refresh: !markupUnchanged });
 
       if (modernLandscapePostersEnabled) {
         this.applyCachedModernLandscapePosterMetrics(this.container.querySelector(".home-screen-shell.home-modern-landscape-posters"));

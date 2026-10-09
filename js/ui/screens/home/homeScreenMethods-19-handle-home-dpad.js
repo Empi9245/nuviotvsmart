@@ -1,10 +1,10 @@
 import * as internals from "./homeScreenContext.js";
 
 export function createHomeScreenMethods19() {
-  const { Platform, getLegacySidebarSelectedNode, getModernSidebarSelectedNode, getDirectionFromKeyCode } = internals;
+  const { getLegacySidebarSelectedNode, getModernSidebarSelectedNode, getDirectionFromKeyCode } = internals;
 
   return {
-    handleHomeDpad(event) {
+    handleHomeDpad(event, { inputAccepted = false } = {}) {
       const keyCode = Number(event?.keyCode || 0);
       const direction = getDirectionFromKeyCode(keyCode);
       if (!direction) {
@@ -14,6 +14,11 @@ export function createHomeScreenMethods19() {
       const nav = this.navModel;
       if (!nav) {
         return false;
+      }
+
+      if (!inputAccepted && this.shouldThrottleHomeDirectionalInput(direction)) {
+        event.preventDefault?.();
+        return true;
       }
 
       const activeFastScroll = this.modernVerticalFastScrollState || null;
@@ -29,15 +34,10 @@ export function createHomeScreenMethods19() {
       if (!current) {
         return false;
       }
-      const isVidaa = Platform.isVidaa();
       const inputMeta = {
         repeat: Boolean(event?.repeat)
       };
-      if (isVidaa && inputMeta.repeat && this.shouldThrottleHomeDirectionalRepeat(direction)) {
-        event.preventDefault?.();
-        return true;
-      }
-      if (this.isMainNode(current) && !this.isNodeWithinMainViewport(current) && !this.shouldSuspendModernViewportFocusSync()) {
+      if (this.isMainNode(current) && !this.shouldSuspendModernViewportFocusSync() && !this.isNodeWithinMainViewport(current)) {
         current = this.syncMainFocusToViewport({ suppressFlows: true }) || current;
       }
       const isSidebar = this.isSidebarNode(current);
@@ -45,12 +45,6 @@ export function createHomeScreenMethods19() {
       if (typeof event?.preventDefault === "function") {
         event.preventDefault();
       }
-      // Tizen fast path: background catalog/CW batches must not trigger a
-      // full re-render while D-pad input is settling (see
-      // shouldDeferHomeRenderForInput). One timestamp covers first presses
-      // and repeats on every layout.
-      this.lastHomeInputAt = Date.now();
-
       if (
         inputMeta.repeat &&
         this.layoutMode === "modern" &&
@@ -58,10 +52,6 @@ export function createHomeScreenMethods19() {
         (direction === "up" || direction === "down") &&
         this.startModernVerticalFastScroll(direction === "down" ? 1 : -1)
       ) {
-        return true;
-      }
-
-      if (!isVidaa && inputMeta.repeat && this.shouldThrottleHomeDirectionalRepeat(direction)) {
         return true;
       }
 
@@ -127,15 +117,32 @@ export function createHomeScreenMethods19() {
 
       return false;
     },
-    shouldThrottleHomeDirectionalRepeat(direction) {
+    shouldThrottleHomeDirectionalInput(direction) {
       const now = Date.now();
+      // Every incoming arrow renews the quiet window, including events whose
+      // focus work is skipped. Releases must not let rapid taps bypass cadence.
+      const previousInputAt = this.lastHomeInputAt;
+      this.homeDirectionalInputBurst = Boolean(Number.isFinite(previousInputAt) && now >= previousInputAt && now - previousInputAt < 250);
+      this.lastHomeInputAt = now;
       const repeatThrottleMs = this.getDirectionalRepeatThrottleMs(direction);
       const repeatTimes = this.lastDirectionalKeyAtByDirection || (this.lastDirectionalKeyAtByDirection = {});
-      const lastDirectionalKeyAt = Number(repeatTimes[direction] || 0);
-      if (lastDirectionalKeyAt > 0 && now - lastDirectionalKeyAt < repeatThrottleMs) {
+      const lastDirectionalKeyAt = repeatTimes[direction];
+      if (
+        this.lastHomeDirectionalInputDirection === direction &&
+        Number.isFinite(lastDirectionalKeyAt) &&
+        now >= lastDirectionalKeyAt &&
+        now - lastDirectionalKeyAt < repeatThrottleMs
+      ) {
+        // Keep a held vertical camera run alive even when this event needs no
+        // focus work. Remote repeat intervals can be shorter than our cadence.
+        const fastScrollDirection = direction === "down" ? 1 : direction === "up" ? -1 : 0;
+        if (fastScrollDirection && this.modernVerticalFastScrollState?.direction === fastScrollDirection) {
+          this.armModernVerticalFastScrollEndTimer();
+        }
         return true;
       }
       repeatTimes[direction] = now;
+      this.lastHomeDirectionalInputDirection = direction;
       return false;
     },
     ensureDelegatedEventsBound() {

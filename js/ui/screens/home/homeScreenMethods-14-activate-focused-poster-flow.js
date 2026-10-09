@@ -73,6 +73,7 @@ export function createHomeScreenMethods14() {
           this.mountTrailerLayer(trailerLayer, source, () => {
             if (node.classList.contains("focused") && Number(this.focusedPosterFlowToken || 0) === Number(flowToken || 0)) {
               node.classList.add("is-trailer-active");
+              this.homeActivePosterNodes?.add(node);
             }
           });
         }

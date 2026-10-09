@@ -39,7 +39,7 @@ export function createHomeScreenMethods03() {
       if (this.layoutMode !== "modern") {
         return false;
       }
-      if (Platform.isVidaa() && (this._mainVertRaf || this._trackHorizRaf)) {
+      if (this._mainVertRaf || this._trackHorizRaf) {
         // Focus changes before the scroll starter runs. Keep that target when
         // another arrow arrives in the same frame, even if its row is offscreen.
         return true;
@@ -64,6 +64,10 @@ export function createHomeScreenMethods03() {
           this.isScrollAnimationActive(this.modernCameraFollowLastVerticalContainer, "y") ||
           this.isScrollAnimationActive(this.modernCameraFollowLastHorizontalContainer, "x"))
       );
+    },
+    isHomeNavigationSettling() {
+      const elapsed = Date.now() - this.lastHomeInputAt;
+      return Boolean(this.homeDirectionalInputBurst && elapsed >= 0 && elapsed < 250);
     },
     isModernVerticalScrollActive() {
       if (this.layoutMode !== "modern") {
@@ -323,6 +327,9 @@ export function createHomeScreenMethods03() {
       const legacyTizenTv =
         globalThis?.document?.body?.classList?.contains("legacy-tizen") ||
         globalThis?.document?.documentElement?.classList?.contains("legacy-tizen");
+      if (this.isPerformanceConstrained() || this.isLegacyTvRuntime() || legacyTizenTv) {
+        return direction === "up" || direction === "down" ? 160 : 120;
+      }
       if (
         (direction === "left" || direction === "right") &&
         isFastHorizontalNavigationEnabled() &&

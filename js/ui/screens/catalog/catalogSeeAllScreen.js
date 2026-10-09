@@ -1,5 +1,6 @@
 import { Router } from "../../navigation/routerState.js";
 import { ScreenUtils } from "../../navigation/screen.js";
+import { allowDpadRepeat, resetDpadRepeat } from "../../navigation/dpadRepeatThrottle.js";
 import { catalogRepository } from "../../../data/repository/catalogRepository.js";
 import { watchedItemsRepository } from "../../../data/repository/watchedItemsRepository.js";
 import { watchedTitleStateRepository } from "../../../data/repository/watchedTitleStateRepository.js";
@@ -27,6 +28,8 @@ import { createCatalogSeeAllScreenMethods03 } from "./catalogSeeAllScreenMethods
 export {
   Router,
   ScreenUtils,
+  allowDpadRepeat,
+  resetDpadRepeat,
   catalogRepository,
   watchedItemsRepository,
   watchedTitleStateRepository,

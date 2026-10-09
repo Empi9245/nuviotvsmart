@@ -65,18 +65,19 @@ export function createHomeScreenMethods15() {
         activated: Boolean(canReuseExistingState && existingState.activated),
         token: flowToken
       };
+      const isCurrentFlow = () =>
+        Number(this.focusedPosterFlowToken || 0) === flowToken &&
+        this.getCurrentFocusedNode() === node &&
+        node?.isConnected &&
+        node.classList.contains("focused");
+      const isNavigationBusy = () => this.isHomeNavigationSettling?.() || (isVidaa && this.isVidaaHomeLoadingBusy());
       if (shouldPreviewTrailer) {
         const prefetchTrailer = () => {
           this.focusedPosterTrailerPrefetchTimer = null;
-          if (
-            Number(this.focusedPosterFlowToken || 0) !== flowToken ||
-            this.getCurrentFocusedNode() !== node ||
-            !node?.isConnected ||
-            !node.classList.contains("focused")
-          ) {
+          if (!isCurrentFlow()) {
             return;
           }
-          if (isVidaa && this.isVidaaHomeLoadingBusy()) {
+          if (isNavigationBusy()) {
             this.focusedPosterTrailerPrefetchTimer = setTimeout(prefetchTrailer, MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs);
             return;
           }
@@ -84,6 +85,9 @@ export function createHomeScreenMethods15() {
         };
         const waitForVerticalSettleThenPrefetch = () => {
           this.focusedPosterTrailerPrefetchTimer = null;
+          if (!isCurrentFlow()) {
+            return;
+          }
           if (deferUntilVerticalSettle && this.isModernVerticalScrollActive()) {
             this.focusedPosterTrailerPrefetchTimer = setTimeout(
               waitForVerticalSettleThenPrefetch,
@@ -101,7 +105,7 @@ export function createHomeScreenMethods15() {
       if (
         canReuseExistingState &&
         existingState.activated &&
-        (!isVidaa || !this.isVidaaHomeLoadingBusy()) &&
+        !isNavigationBusy() &&
         this.restorePersistentHeroTrailer(node, {
           shouldExpand,
           shouldPreviewTrailer,
@@ -113,13 +117,10 @@ export function createHomeScreenMethods15() {
       }
       const activateWhenSettled = () => {
         this.focusedPosterTimer = null;
-        if (
-          isVidaa &&
-          (Number(this.focusedPosterFlowToken || 0) !== flowToken || this.getCurrentFocusedNode() !== node || !node?.isConnected)
-        ) {
+        if (!isCurrentFlow()) {
           return;
         }
-        if (isVidaa && this.isVidaaHomeLoadingBusy()) {
+        if (isNavigationBusy()) {
           this.focusedPosterTimer = setTimeout(activateWhenSettled, MODERN_HOME_CONSTANTS.verticalScrollSettlePollMs);
           return;
         }
@@ -130,12 +131,6 @@ export function createHomeScreenMethods15() {
             activated: true,
             token: flowToken
           };
-        }
-        if (Number(this.focusedPosterFlowToken || 0) !== flowToken) {
-          return;
-        }
-        if (this.getCurrentFocusedNode() !== node || !node?.isConnected || !node.classList.contains("focused")) {
-          return;
         }
         this.promotePosterCardAssets(node, { includeNeighbors: this.isPerformanceConstrained() });
         this.activateFocusedPosterFlow(node, flowToken).catch((error) => {

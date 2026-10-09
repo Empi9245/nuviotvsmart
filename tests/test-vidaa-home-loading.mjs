@@ -20,6 +20,8 @@ const { createHomeScreenMethods14 } =
   await import("../js/ui/screens/home/homeScreenMethods-14-activate-focused-poster-flow.js");
 const { createHomeScreenMethods15 } =
   await import("../js/ui/screens/home/homeScreenMethods-15-schedule-focused-poster-flow.js");
+const { createHomeScreenMethods19 } =
+  await import("../js/ui/screens/home/homeScreenMethods-19-handle-home-dpad.js");
 const { createHomeScreenMethods21 } =
   await import("../js/ui/screens/home/homeScreenMethods-21-load-data.js");
 const {
@@ -125,6 +127,7 @@ function home() {
     ...createHomeScreenMethods11(),
     ...createHomeScreenMethods14(),
     ...createHomeScreenMethods15(),
+    ...createHomeScreenMethods19(),
     layoutMode: "modern",
     layoutPrefs: { focusedPosterBackdropExpandDelaySeconds: 0 },
     container: { querySelector: () => ({ classList }) },
@@ -155,6 +158,134 @@ function home() {
     syncCollectionHeroMedia() {}
   };
   return state;
+}
+
+function watchFocusWork(state) {
+  const work = { metadata: [], trailers: [], promoted: [], activated: [] };
+  state.enrichCurrentHeroAsync = async (hero) => work.metadata.push(hero.id);
+  state.prefetchFocusedPosterTrailer = async (node) => {
+    work.trailers.push(node.hero.id);
+    return null;
+  };
+  state.promotePosterCardAssets = (node) => work.promoted.push(node.hero.id);
+  state.activateFocusedPosterFlow = async (node) => work.activated.push(node.hero.id);
+  return work;
+}
+
+function navigate(state, name, direction, id, { held = false } = {}) {
+  if (name === "vidaa") {
+    noteVidaaNavigationKeyDown(direction);
+    if (!held) noteVidaaNavigationKeyUp(direction);
+  }
+  const accepted = !state.shouldThrottleHomeDirectionalInput(direction === 40 ? "down" : "right");
+  if (accepted) {
+    state.focused = card(id);
+    state.scheduleModernHeroUpdate(state.focused, { deferUntilVerticalSettle: direction === 40 });
+    state.scheduleFocusedPosterFlow(state.focused, { deferUntilVerticalSettle: direction === 40 });
+  }
+  return accepted;
+}
+
+// Use the production input gate: a second arrow inside 60ms can be skipped for
+// focus, but it must still keep the pending 120/150ms media work suspended.
+// Later held repeats and release/repress taps at 160-200ms must have the same
+// quiet window, and only the final accepted card may start secondary work.
+for (const name of ["vidaa", "tizen", "webos", "browser"]) {
+  for (const direction of [39, 40]) {
+    for (const held of [false, true]) {
+      reset(name);
+      const state = home();
+      state.layoutPrefs.focusedPosterBackdropExpandDelaySeconds = 0.2;
+      const work = watchFocusWork(state);
+      const label = `${name} ${direction === 40 ? "vertical" : "horizontal"} ${held ? "held" : "taps"}`;
+      for (const [time, id] of [
+        [0, "first"],
+        [60, "skipped"],
+        [220, "middle-a"],
+        [420, "middle-b"],
+        [600, "final"]
+      ]) {
+        await advance(time);
+        await paint();
+        const accepted = navigate(state, name, direction, id, { held });
+        assert.equal(accepted, id !== "skipped", `${label}: production cadence`);
+        assert.deepEqual(imageLoads, [], `${label}: no intermediate artwork decoding`);
+        assert.deepEqual(
+          work,
+          { metadata: [], trailers: [], promoted: [], activated: [] },
+          `${label}: no intermediate focus effects`
+        );
+        assert.deepEqual(state.commits, [], `${label}: no intermediate hero commits`);
+      }
+      if (held && name === "vidaa") {
+        await advance(660);
+        noteVidaaNavigationKeyUp(direction);
+      }
+      await advance(held && name === "vidaa" ? 900 : 849);
+      await paint();
+      assert.deepEqual(imageLoads, [], `${label}: retain the complete quiet window`);
+      assert.deepEqual(work, { metadata: [], trailers: [], promoted: [], activated: [] });
+      await advance(1150);
+      await paint();
+      assert.deepEqual(
+        imageLoads,
+        ["https://example.com/final.jpg"],
+        `${label}: decode the settled card only`
+      );
+      assert.deepEqual(work, {
+        metadata: ["final"],
+        trailers: ["final"],
+        promoted: ["final"],
+        activated: ["final"]
+      });
+      assert.deepEqual(
+        state.commits.map((hero) => hero.id),
+        ["final"]
+      );
+      assert.equal(timers.size, 0, `${label}: settled flow must leave no polling timers`);
+    }
+  }
+}
+
+// Route/focus cleanup must cancel both polling paths after a skipped arrow has
+// made them wait. A stale card must not restart previews or keep polling.
+for (const name of ["vidaa", "tizen", "webos", "browser"]) {
+  reset(name);
+  const state = home();
+  state.layoutPrefs.focusedPosterBackdropExpandDelaySeconds = 0.2;
+  const work = watchFocusWork(state);
+  navigate(state, name, 39, "cleanup");
+  await advance(60);
+  assert.equal(navigate(state, name, 39, "skipped"), false);
+  await advance(160);
+  state.cancelFocusedPosterFlow();
+  state.cancelPendingHeroFocus();
+  assert.equal(timers.size, 0, `${name}: cleanup cancels media settle polling`);
+  state.focused = card("other-route");
+  await advance(1200);
+  await paint();
+  assert.deepEqual(imageLoads, []);
+  assert.deepEqual(work, { metadata: [], trailers: [], promoted: [], activated: [] });
+  assert.deepEqual(state.commits, []);
+
+  reset(name);
+  const stale = home();
+  stale.layoutPrefs.focusedPosterBackdropExpandDelaySeconds = 0.2;
+  const staleWork = watchFocusWork(stale);
+  navigate(stale, name, 39, "lost-focus");
+  await advance(60);
+  navigate(stale, name, 39, "skipped");
+  await advance(160);
+  stale.focused = card("different-card");
+  await advance(1200);
+  await paint();
+  assert.equal(
+    timers.size,
+    0,
+    `${name}: invalid focus must stop polling before checking navigation state`
+  );
+  assert.deepEqual(staleWork, { metadata: [], trailers: [], promoted: [], activated: [] });
+  assert.deepEqual(imageLoads, []);
 }
 
 // Fast horizontal and vertical traversal must start no secondary work for
@@ -340,26 +471,41 @@ for (const direction of [39, 40]) {
   assert.equal(mounts, 0);
 }
 
-// Tizen/webOS/browser retain the prior early artwork and trailer prefetch.
-for (const name of ["tizen", "webos", "browser"]) {
+// A single accepted tap keeps its original media timing; the burst gate must
+// not slow normal navigation or an immediate expansion preference.
+for (const name of ["vidaa", "tizen", "webos", "browser"]) {
   reset(name);
   const state = home();
-  const trailers = [];
-  state.focused = card(`${name}-prior`);
-  state.prefetchFocusedPosterTrailer = async () => {
-    trailers.push(name);
-  };
-  state.promotePosterCardAssets = () => {};
-  state.activateFocusedPosterFlow = async () => {};
-  noteVidaaNavigationKeyDown(39);
-  state.scheduleModernHeroUpdate(state.focused);
-  state.scheduleFocusedPosterFlow(state.focused);
+  const work = watchFocusWork(state);
+  const id = `${name}-first-tap`;
+  assert.equal(navigate(state, name, 39, id), true);
+  assert.equal(state.isHomeNavigationSettling(), false);
   await advance(120);
-  assert.equal(imageLoads.length, 1, `${name} retains 120ms artwork preload`);
-  assert.deepEqual(trailers, []);
+  assert.equal(
+    imageLoads.length,
+    name === "vidaa" ? 0 : 1,
+    `${name}: retain the first-tap artwork timing`
+  );
+  assert.deepEqual(
+    work.activated,
+    name === "vidaa" ? [] : [id],
+    `${name}: retain the immediate expansion preference`
+  );
+  assert.deepEqual(work.trailers, []);
   await advance(150);
-  assert.deepEqual(trailers, [name], `${name} retains 150ms trailer prefetch`);
-  assert.equal(state.isVidaaHomeLoadingBusy(), false);
+  assert.deepEqual(
+    work.trailers,
+    name === "vidaa" ? [] : [id],
+    `${name}: retain the first-tap trailer timing`
+  );
+  if (name === "vidaa") {
+    await advance(249);
+    assert.deepEqual(imageLoads, []);
+    await advance(250);
+    assert.deepEqual(imageLoads, [`https://example.com/${id}.jpg`]);
+    assert.deepEqual(work.trailers, [id]);
+    assert.deepEqual(work.activated, [id]);
+  }
 }
 
 // A resumed Home refresh must use the same input-aware render scheduler as
@@ -385,65 +531,92 @@ addonRepository.getInstalledAddons = async () => [
 ];
 try {
   for (const name of ["vidaa", "tizen", "webos", "browser"]) {
-    for (const operation of ["background-load", "catalog-refresh", "cold-load"]) {
-      reset(name);
-      let renders = 0;
-      const row = {
-        addonId: "test",
-        addonBaseUrl: "https://invalid.test",
-        type: "movie",
-        catalogId: "demo",
-        homeCatalogKey: buildCatalogOrderKey("test", "movie", "demo"),
-        result: { status: "success", data: { items: [{ id: "old", type: "movie" }] } }
-      };
-      const fresh = {
-        ...row,
-        result: { status: "success", data: { items: [{ id: "new", type: "movie" }] } }
-      };
-      const state = {
-        ...createHomeScreenMethods03(),
-        ...createHomeScreenMethods04(),
-        ...createHomeScreenMethods21(),
-        container: {},
-        layoutMode: "modern",
-        hasLoadedOnce: true,
-        continueWatchingInitialResolved: true,
-        hasUserInteractedSinceHomePaint: true,
-        rows: [row],
-        heroCandidates: [],
-        buildSyncSensitiveHomeSignature: () => "inputs",
-        buildHomeRouteInputSignature: () => "inputs",
-        fetchCatalogRows: async () => [fresh],
-        sortAndFilterRows: (rows) => rows,
-        collectHeroCandidates: () => [],
-        pickInitialHero: () => null,
-        retryPendingCatalogRows() {},
-        refreshWatchedTitleState() {},
-        captureCurrentFocusState: () => null,
-        getInitialCatalogLoadCount: () => 1,
-        getDeferredCatalogBatchSize: () => 1,
-        getBackgroundRenderDelay: () => 0,
-        isPerformanceConstrained: () => false,
-        render() {
-          renders++;
+    for (const inputMode of ["platform-held", "rapid-burst"]) {
+      for (const operation of ["background-load", "catalog-refresh", "cold-load"]) {
+        reset(name);
+        let renders = 0;
+        const row = {
+          addonId: "test",
+          addonBaseUrl: "https://invalid.test",
+          type: "movie",
+          catalogId: "demo",
+          homeCatalogKey: buildCatalogOrderKey("test", "movie", "demo"),
+          result: { status: "success", data: { items: [{ id: "old", type: "movie" }] } }
+        };
+        const fresh = {
+          ...row,
+          result: { status: "success", data: { items: [{ id: "new", type: "movie" }] } }
+        };
+        const state = {
+          ...createHomeScreenMethods03(),
+          ...createHomeScreenMethods04(),
+          ...createHomeScreenMethods19(),
+          ...createHomeScreenMethods21(),
+          container: {},
+          layoutMode: "modern",
+          hasLoadedOnce: true,
+          continueWatchingInitialResolved: true,
+          hasUserInteractedSinceHomePaint: true,
+          rows: [row],
+          heroCandidates: [],
+          buildSyncSensitiveHomeSignature: () => "inputs",
+          buildHomeRouteInputSignature: () => "inputs",
+          fetchCatalogRows: async () => [fresh],
+          sortAndFilterRows: (rows) => rows,
+          collectHeroCandidates: () => [],
+          pickInitialHero: () => null,
+          retryPendingCatalogRows() {},
+          refreshWatchedTitleState() {},
+          captureCurrentFocusState: () => null,
+          getInitialCatalogLoadCount: () => 1,
+          getDeferredCatalogBatchSize: () => 1,
+          getBackgroundRenderDelay: () => 0,
+          isPerformanceConstrained: () => false,
+          isLegacyTvRuntime: () => false,
+          render() {
+            renders++;
+          }
+        };
+        const label = `${name} ${inputMode} ${operation}`;
+        if (inputMode === "platform-held") {
+          noteVidaaNavigationKeyDown(39);
+        } else {
+          state.shouldThrottleHomeDirectionalInput("right");
+          await advance(60);
+          state.shouldThrottleHomeDirectionalInput("right");
+          assert.equal(
+            state.isHomeNavigationSettling(),
+            true,
+            `${label}: production burst input state`
+          );
         }
-      };
-      noteVidaaNavigationKeyDown(39);
-      if (operation === "catalog-refresh") await state.refreshHomeCatalogsIfStale();
-      else
-        await state.loadData({
-          background: operation === "background-load",
-          preserveReturnState: true
-        });
-      const deferred = name === "vidaa" && operation !== "cold-load";
-      assert.equal(renders, deferred ? 0 : 1, `${name} ${operation}: completion render policy`);
-      if (deferred) {
-        await paint();
-        assert.equal(renders, 0, `${operation}: held arrows must keep the live Home responsive`);
-        noteVidaaNavigationKeyUp(39);
-        await advance(400);
-        await paint();
-        assert.equal(renders, 1, `${operation}: refreshed data must render after input settles`);
+        if (operation === "catalog-refresh") await state.refreshHomeCatalogsIfStale();
+        else
+          await state.loadData({
+            background: operation === "background-load",
+            preserveReturnState: true
+          });
+        const deferred =
+          (name === "vidaa" || inputMode === "rapid-burst") && operation !== "cold-load";
+        assert.equal(renders, deferred ? 0 : 1, `${label}: completion render policy`);
+        if (deferred) {
+          await paint();
+          assert.equal(renders, 0, `${label}: arrows must keep the live Home responsive`);
+          if (inputMode === "rapid-burst") {
+            await advance(309);
+            await paint();
+            assert.equal(
+              renders,
+              0,
+              `${label}: no background DOM changes before the full quiet window`
+            );
+          } else {
+            noteVidaaNavigationKeyUp(39);
+          }
+          await advance(400);
+          await paint();
+          assert.equal(renders, 1, `${label}: refreshed data must render once after input settles`);
+        }
       }
     }
   }
@@ -456,5 +629,5 @@ try {
 }
 
 console.log(
-  "VIDAA Home loading checks passed: settled info/artwork/trailers, stale responses and platform isolation."
+  "Home loading checks passed: cross-runtime held/tap media settling, unchanged single-tap timing, polling cleanup and stale responses."
 );

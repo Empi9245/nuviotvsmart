@@ -139,7 +139,6 @@ export function createHomeScreenMethods17() {
     ensureMainVerticalVisibility(target, direction = null, current = null, layoutAdjustment = 0) {
       if (this.layoutMode === "modern") {
         if (
-          Platform.isVidaa() &&
           (direction === "left" || direction === "right") &&
           current &&
           this.getMainFocusAnchor(current) === this.getMainFocusAnchor(target)

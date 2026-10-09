@@ -215,6 +215,9 @@ export function createHomeScreenMethods04() {
       this.requestRender({ delayMs: this.getBackgroundRenderDelay() });
     },
     shouldDeferHomeRenderForInput() {
+      if (this.hasUserInteractedSinceHomePaint && this.isHomeNavigationSettling?.()) {
+        return true;
+      }
       if (Platform.isVidaa() && this.hasUserInteractedSinceHomePaint && this.isVidaaHomeLoadingBusy()) {
         return true;
       }
@@ -451,7 +454,7 @@ export function createHomeScreenMethods04() {
         if (changedRowCount) {
           this.collections = CollectionsStore.get();
           this.rows = this.sortAndFilterRows(nextRows, this.collections);
-          if (Platform.isVidaa()) this.requestBackgroundRender();
+          if (Platform.isVidaa() || this.isHomeNavigationSettling?.()) this.requestBackgroundRender();
           else this.render();
         }
         logHomePerf("catalogRefresh", {

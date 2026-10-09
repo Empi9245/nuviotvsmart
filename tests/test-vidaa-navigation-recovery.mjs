@@ -4,6 +4,10 @@ globalThis.__NUVIO_PLATFORM__ = "vidaa";
 const { Platform } = await import("../js/platform/index.js");
 const { createHomeScreenMethods29 } =
   await import("../js/ui/screens/home/homeScreenMethods-29-setup-modern-track-scroll-pagination.js");
+const { createHomeScreenMethods03 } =
+  await import("../js/ui/screens/home/homeScreenMethods-03-is-scroll-animation-active.js");
+const { createHomeScreenMethods19 } =
+  await import("../js/ui/screens/home/homeScreenMethods-19-handle-home-dpad.js");
 const { Router, buildModernRowKey } = await import("../js/ui/screens/home/homeScreenContext.js");
 const { catalogRepository } = await import("../js/data/repository/catalogRepository.js");
 const {
@@ -64,12 +68,15 @@ function surface(count = 60) {
     }
   }));
   const owner = {
+    ...createHomeScreenMethods03(),
+    ...createHomeScreenMethods19(),
     ...createHomeScreenMethods29(),
     layoutMode: "modern",
     homeLoadToken: 1,
     rows,
     container: { querySelectorAll: () => tracks },
     getRowItemLimit: () => 5,
+    getDirectionalRepeatThrottleMs: () => 112,
     getCurrentFocusedNode: () => focused,
     isScrollAnimationActive: () => false,
     isVidaaHomeLoadingBusy: () => isVidaaNavigationBusy(),
@@ -135,6 +142,78 @@ try {
     globalThis.__NUVIO_PLATFORM__ = name;
     Platform.current = null;
     resetVidaaNavigationActivity();
+    const burst = surface();
+    const burstRequestStart = requests.length;
+    let burstPeakTimers = 0;
+    // Start within an ongoing burst, using Home's real cadence and settle
+    // helpers. A single ordinary first press retains its normal prefetch below.
+    burst.owner.lastHomeInputAt = now - 80;
+    for (let step = 0; step < 600; step++) {
+      burst.owner.shouldThrottleHomeDirectionalInput("down");
+      const index = step % 60;
+      const focused = burst.focus(index);
+      const handler = burst.owner._trackScrollHandlers.get(burst.tracks[index]);
+      handler();
+      handler.requestAhead({ focusedNode: focused, focusedIndex: 0 });
+      advance(now + 80);
+      burstPeakTimers = Math.max(burstPeakTimers, timers.size);
+    }
+    assert.ok(
+      burstPeakTimers <= 8,
+      `${name}: inactive burst rows keep polling: ${burstPeakTimers} timers`
+    );
+    assert.equal(burst.scans(), 0, `${name}: bursts must skip catalog geometry`);
+    assert.equal(
+      requests.length,
+      burstRequestStart,
+      `${name}: bursts must not fetch rows that were left`
+    );
+    advance(now + 300);
+    assert.equal(
+      requests.length - burstRequestStart,
+      1,
+      `${name}: settling loads only the active row`
+    );
+    assert.equal(requests.at(-1).args.catalogId, "catalog-59");
+
+    // Returning data during a new burst waits for navigation. Leaving its row
+    // cancels that append, and the next quiet visit uses the retained data.
+    burst.owner.shouldThrottleHomeDirectionalInput("up");
+    advance(now + 80);
+    burst.owner.shouldThrottleHomeDirectionalInput("up");
+    requests[burstRequestStart].resolve({
+      status: "success",
+      data: { items: [{ id: `${name}-new`, name: "New", poster: "p" }], hasMore: false }
+    });
+    await flush();
+    assert.equal(
+      burst.rows[59].result.data.items.length,
+      2,
+      `${name}: keep the returned page in row data`
+    );
+    assert.equal(burst.appends(), 0, `${name}: returning data must defer DOM work during a burst`);
+    assert.equal(timers.size, 1, `${name}: the active row may have one deferred append`);
+    burst.focus(0);
+    advance(now + 60);
+    assert.equal(
+      burst.appends(),
+      0,
+      `${name}: a deferred append must not mutate a row that was left`
+    );
+    assert.equal(timers.size, 0, `${name}: inactive append must not leave polling behind`);
+    advance(now + 300);
+    burst.focus(59);
+    burst.owner._trackScrollHandlers.get(burst.tracks[59]).requestAhead();
+    advance(now + 300);
+    assert.equal(burst.appends(), 1, `${name}: revisit appends retained data`);
+    assert.equal(
+      requests.length - burstRequestStart,
+      1,
+      `${name}: revisit must not refetch retained data`
+    );
+    burst.owner.teardownModernTrackScrollPagination();
+    assert.equal(timers.size, 0);
+
     const other = surface(3);
     const before = requests.length;
     for (let index = 0; index < 3; index++) {
@@ -144,9 +223,35 @@ try {
     advance(now + 300);
     assert.equal(requests.length - before, 3, `${name}: retain existing row prefetch behavior`);
     other.owner.teardownModernTrackScrollPagination();
+
+    // Duplicate-page catch-up is one tracked timer on every runtime. Teardown
+    // and a newer Home generation must both stop its future request.
+    for (const cancellation of ["teardown", "new-generation"]) {
+      const retry = surface(1);
+      const retryRequestStart = requests.length;
+      retry.owner._trackScrollHandlers.get(retry.tracks[0]).requestAhead();
+      advance(now + 300);
+      assert.equal(requests.length - retryRequestStart, 1);
+      requests[retryRequestStart].resolve({
+        status: "success",
+        data: { items: [{ id: "0-first" }], hasMore: true, nextSkip: 2 }
+      });
+      await flush();
+      assert.equal(timers.size, 1, `${name}: duplicate-page retry must use one catch-up timer`);
+      if (cancellation === "teardown") retry.owner.teardownModernTrackScrollPagination();
+      else retry.owner.homeLoadToken++;
+      advance(now + 300);
+      assert.equal(
+        requests.length - retryRequestStart,
+        1,
+        `${name}: ${cancellation} must cancel catch-up requests`
+      );
+      assert.equal(timers.size, 0);
+      retry.owner.teardownModernTrackScrollPagination();
+    }
   }
   console.log(
-    `VIDAA pagination recovery passed: 600 row changes, peak ${peakTimers} timers, active-row loading, cached-page return and platform isolation.`
+    `Home pagination recovery passed: 600 row changes per runtime, bounded timers, active-row loading, cached-page return, idle prefetch and retry lifecycle.`
   );
 } finally {
   catalogRepository.getCatalog = original;

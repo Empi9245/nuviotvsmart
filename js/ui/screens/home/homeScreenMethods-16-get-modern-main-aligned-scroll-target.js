@@ -14,7 +14,7 @@ export function createHomeScreenMethods16() {
       const currentAnchor = this.getMainFocusAnchor(current);
       const sameAnchor = Boolean(currentAnchor && currentAnchor === anchor);
       const isHorizontalMove = direction === "left" || direction === "right";
-      if (Platform.isVidaa() && isHorizontalMove && sameAnchor) {
+      if (isHorizontalMove && sameAnchor) {
         // A card change within a row cannot change its vertical alignment.
         // Avoid flushing layout just to return null below.
         return null;
@@ -32,10 +32,6 @@ export function createHomeScreenMethods16() {
       const adjustedBottom = mainRect.top + anchorBottom - main.scrollTop;
       const isVerticalMove = direction === "up" || direction === "down";
       const isEnteringMainFromSidebar = direction === "right" && current && !this.isMainNode(current);
-
-      if (isHorizontalMove && sameAnchor) {
-        return null;
-      }
 
       let nextValue = null;
       if (isVerticalMove || isEnteringMainFromSidebar) {

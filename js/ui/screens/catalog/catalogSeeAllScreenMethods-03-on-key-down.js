@@ -2,7 +2,7 @@
 import * as internals from "./catalogSeeAllScreen.js";
 
 export function createCatalogSeeAllScreenMethods03() {
-  const { Router, ScreenUtils, isBackEvent } = internals;
+  const { Router, ScreenUtils, isBackEvent, allowDpadRepeat, resetDpadRepeat } = internals;
 
   return {
     async onKeyDown(event) {
@@ -15,6 +15,9 @@ export function createCatalogSeeAllScreenMethods03() {
         return;
       }
       const code = Number(event?.keyCode || 0);
+      if (code >= 37 && code <= 40 && !allowDpadRepeat(this, event, { throttleRapidPresses: true })) {
+        return;
+      }
       const focusedBeforeDpad = this.container?.querySelector(".focusable.focused") || null;
       if (code === 13 && this.isPosterHoldTarget(focusedBeforeDpad)) {
         event?.preventDefault?.();
@@ -51,6 +54,7 @@ export function createCatalogSeeAllScreenMethods03() {
       return this.closePosterOptionsMenu();
     },
     cleanup() {
+      resetDpadRepeat(this);
       this.loadToken = (this.loadToken || 0) + 1;
       this.cancelPendingPosterHold();
       this.posterOptionsController?.destroy?.({ restoreFocus: false });

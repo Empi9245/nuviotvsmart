@@ -244,7 +244,7 @@ export function createHomeScreenMethods21() {
       if (!deferredDescriptors.length) {
         this.loadedHomeRouteInputSignature = routeInputSignature;
       }
-      if (background && Platform.isVidaa()) this.requestBackgroundRender();
+      if (background && (Platform.isVidaa() || this.isHomeNavigationSettling?.())) this.requestBackgroundRender();
       else this.render();
       this.maybeStartPendingHomeBackgroundRefresh();
       logHomePerf("loadData", {

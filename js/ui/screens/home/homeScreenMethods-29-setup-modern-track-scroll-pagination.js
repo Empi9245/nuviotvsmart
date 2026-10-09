@@ -18,7 +18,8 @@ export function createHomeScreenMethods29() {
         return;
       }
       this._trackScrollHandlers = this._trackScrollHandlers || new Map();
-      const isVidaaLoadingBusy = () => Platform.isVidaa() && (this.isVidaaHomeLoadingBusy?.() ?? isVidaaNavigationBusy());
+      const isHomeLoadingBusy = () =>
+        this.isHomeNavigationSettling?.() || (Platform.isVidaa() && (this.isVidaaHomeLoadingBusy?.() ?? isVidaaNavigationBusy()));
       tracks.forEach((track) => {
         const rowKey = String(track.dataset.trackRowKey || "");
         if (!rowKey || this._trackScrollHandlers.has(track)) {
@@ -28,8 +29,8 @@ export function createHomeScreenMethods29() {
         let deferredAppendTimer = 0;
         let deferredAppend = null;
         let catchUpTimer = 0;
-        const isInactiveVidaaTrack = () => {
-          if (!Platform.isVidaa()) return false;
+        const isInactiveTrack = () => {
+          if (!Platform.isVidaa() && !isHomeLoadingBusy()) return false;
           const focused = this.getCurrentFocusedNode?.();
           return Boolean(focused && focused.closest?.(".home-track") !== track);
         };
@@ -39,7 +40,7 @@ export function createHomeScreenMethods29() {
           const timer = setTimeout(
             () => {
               catchUpTimer = 0;
-              if (Router.getCurrent() !== "home" || (Platform.isVidaa() && scheduledToken !== this.homeLoadToken)) {
+              if (Router.getCurrent() !== "home" || scheduledToken !== this.homeLoadToken) {
                 return;
               }
               const liveTrack = this.getNavigationRowSection(rowKey)?.querySelector?.(".home-track") || null;
@@ -47,7 +48,7 @@ export function createHomeScreenMethods29() {
             },
             Math.max(0, Number(delayMs || 0))
           );
-          if (Platform.isVidaa()) catchUpTimer = timer;
+          catchUpTimer = timer;
         };
         const runPagination = ({ assumeNearEnd = false } = {}) => {
           if (this._trackPaginationInFlight?.has(rowKey) || deferredAppend) {
@@ -86,7 +87,13 @@ export function createHomeScreenMethods29() {
             if (!itemsToAppend.length || !track.isConnected || this._trackScrollHandlers?.get(track) !== handler) {
               return false;
             }
-            if (isVidaaLoadingBusy()) {
+            if (isInactiveTrack()) {
+              // The fetched page remains in rowPayload. A later visit appends
+              // from its mounted count without doing work on a row just left.
+              handler.cancelPending();
+              return true;
+            }
+            if (isHomeLoadingBusy()) {
               deferredAppend = { itemsToAppend, startIndex };
               const appendWhenSettled = () => {
                 deferredAppendTimer = 0;
@@ -94,13 +101,13 @@ export function createHomeScreenMethods29() {
                   deferredAppend = null;
                   return;
                 }
-                if (isInactiveVidaaTrack()) {
+                if (isInactiveTrack()) {
                   // Page data already lives in rowPayload. The next visit can
                   // append from its mounted count without polling this old row.
                   handler.cancelPending();
                   return;
                 }
-                if (isVidaaLoadingBusy()) {
+                if (isHomeLoadingBusy()) {
                   deferredAppendTimer = setTimeout(appendWhenSettled, 50);
                   return;
                 }
@@ -257,12 +264,12 @@ export function createHomeScreenMethods29() {
           if (!track.isConnected || Router.getCurrent() !== "home") {
             return;
           }
-          if (isInactiveVidaaTrack()) {
+          if (isInactiveTrack()) {
             handler.cancelPending();
             return;
           }
           if (
-            isVidaaLoadingBusy() ||
+            isHomeLoadingBusy() ||
             this.modernVerticalFastScrollState ||
             this.isScrollAnimationActive(track, "x") ||
             this.isScrollAnimationActive(this.modernCameraFollowLastVerticalContainer, "y")
@@ -273,7 +280,7 @@ export function createHomeScreenMethods29() {
           runPagination();
         };
         const handler = () => {
-          if (isInactiveVidaaTrack()) return;
+          if (isInactiveTrack()) return;
           if (scrollTimer) {
             clearTimeout(scrollTimer);
           }
@@ -292,11 +299,11 @@ export function createHomeScreenMethods29() {
               pendingPrefetchContext = null;
               return;
             }
-            if (isInactiveVidaaTrack()) {
+            if (isInactiveTrack()) {
               handler.cancelPending();
               return;
             }
-            if (isVidaaLoadingBusy()) {
+            if (isHomeLoadingBusy()) {
               prefetchTimer = setTimeout(runPrefetch, 50);
               return;
             }

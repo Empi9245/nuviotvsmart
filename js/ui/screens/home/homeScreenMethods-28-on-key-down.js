@@ -19,7 +19,6 @@ export function createHomeScreenMethods28() {
 
   return {
     onKeyDown(event) {
-      const currentFocusedNode = this.getCurrentFocusedNode() || this.container?.querySelector(".focusable") || null;
       const code = Number(event?.keyCode || 0);
       if (code === 13 || isDirectionalKeyCode(code)) {
         this.markUserInteractionSinceHomePaint();
@@ -27,6 +26,12 @@ export function createHomeScreenMethods28() {
       if (this._homeHoldDialog) {
         return true;
       }
+      const inputAccepted = isDirectionalKeyCode(code) && !this.continueWatchingMenu && !this.posterHoldMenu;
+      if (inputAccepted && this.shouldThrottleHomeDirectionalInput(getDirectionFromKeyCode(code))) {
+        event.preventDefault?.();
+        return;
+      }
+      const currentFocusedNode = this.getCurrentFocusedNode() || this.container?.querySelector(".focusable") || null;
       if (this.suppressHoldMenuEnterUntilKeyUp && code === 13) {
         event.preventDefault?.();
         return;
@@ -59,7 +64,7 @@ export function createHomeScreenMethods28() {
       if (this.layoutMode === "modern" && isDirectionalKeyCode(code)) {
         this.cancelFocusedPosterFlow();
       }
-      if (this.handleHomeDpad(event)) {
+      if (this.handleHomeDpad(event, { inputAccepted })) {
         return;
       }
       const isHomeHoldTarget = this.isHomeHoldTarget(currentFocusedNode);
@@ -105,9 +110,6 @@ export function createHomeScreenMethods28() {
       }
       const keyCode = Number(event?.keyCode || 0);
       const direction = getDirectionFromKeyCode(keyCode);
-      if (direction && this.lastDirectionalKeyAtByDirection) {
-        delete this.lastDirectionalKeyAtByDirection[direction];
-      }
       if ((direction === "up" || direction === "down") && this.modernVerticalFastScrollState) {
         const releasedDirection = direction === "down" ? 1 : -1;
         if (this.modernVerticalFastScrollState.direction === releasedDirection) {

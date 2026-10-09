@@ -17,6 +17,7 @@ const { createHomeScreenMethods19 } =
   await import("../js/ui/screens/home/homeScreenMethods-19-handle-home-dpad.js");
 
 let now = 0;
+Date.now = () => now;
 let frameId = 0;
 const frames = new Map();
 Object.defineProperty(globalThis, "performance", { configurable: true, value: { now: () => now } });
@@ -172,8 +173,9 @@ const methods19 = createHomeScreenMethods19();
   assert.equal(frames.size, 0, "Leaving Home or opening the sidebar cancels queued scroll work");
 }
 
-// Same-row horizontal alignment needs no rectangle reads on VIDAA.
-{
+// Same-row horizontal alignment needs no rectangle reads on any runtime.
+for (const name of ["vidaa", "tizen", "webos", "browser"]) {
+  platform(name);
   const row = {};
   const viewport = {
     getBoundingClientRect() {
@@ -187,6 +189,7 @@ const methods19 = createHomeScreenMethods19();
   };
   assert.equal(home.getModernMainAlignedScrollTarget({}, "right", {}), null);
 }
+platform("vidaa");
 
 // DOWN then RIGHT before the first frame must stay on the newly focused row.
 // The scroll starter, as well as the running animation, owns viewport follow.
@@ -251,8 +254,8 @@ const methods19 = createHomeScreenMethods19();
   assert.equal(frames.size, 0);
 }
 
-// Rejected repeats skip geometry. An accepted key still checks visibility,
-// but active scrolling must prevent viewport sync from changing its focus.
+// Rejected repeats and rapid taps skip geometry. Active scrolling also avoids
+// a visibility read and keeps ownership of its destination focus.
 {
   const current = { dataset: { navRow: "0", navCol: "0" }, classList: { contains: () => false } };
   const target = {};
@@ -279,17 +282,22 @@ const methods19 = createHomeScreenMethods19();
       focusMoves++;
       return true;
     },
-    lastDirectionalKeyAtByDirection: { right: Date.now() }
+    lastDirectionalKeyAtByDirection: { right: Date.now() },
+    lastHomeDirectionalInputDirection: "right"
   };
   assert.equal(home.handleHomeDpad({ keyCode: 39, repeat: true, preventDefault() {} }), true);
   assert.equal(geometryReads, 0);
   assert.equal(focusMoves, 0);
   assert.equal(home.handleHomeDpad({ keyCode: 39, repeat: false, preventDefault() {} }), true);
-  assert.equal(geometryReads, 1, "Accepted input uses the base visibility check");
+  assert.equal(focusMoves, 0, "Rapid taps obey the same cadence as held arrows");
+  now += 80;
+  assert.equal(home.handleHomeDpad({ keyCode: 39, repeat: false, preventDefault() {} }), true);
+  assert.equal(geometryReads, 0, "Active scrolling already owns viewport alignment");
   assert.equal(focusMoves, 1);
 }
 
-// Other platforms retain their existing spring and constrained instant paths.
+// Other platforms retain their spring and constrained instant paths, while
+// pending frame work also protects the destination focus before motion starts.
 for (const name of ["tizen", "webos", "browser"]) {
   platform(name);
   const track = scroller();
@@ -311,8 +319,8 @@ for (const name of ["tizen", "webos", "browser"]) {
   home._trackHorizRaf = 102;
   assert.equal(
     home.shouldSuspendModernViewportFocusSync(),
-    false,
-    `${name} retains its viewport suspension policy`
+    true,
+    `${name} protects focus while a scroll frame is pending`
   );
   home._mainVertRaf = null;
   home._trackHorizRaf = null;
@@ -321,6 +329,26 @@ for (const name of ["tizen", "webos", "browser"]) {
   assert.equal(frames.size, 0);
   home.animateScroll(track, "x", 600, 150, { mode: "spring" });
   assert.equal(calls.length, 1, `${name} retains its spring entry point`);
+
+  const viewport = scroller();
+  const row = {};
+  const card = { isConnected: true, row };
+  home.getMainFocusAnchor = (node) => node?.row;
+  home.getModernMainAlignedScrollTarget = () => {
+    assert.fail(`${name}: cancelled frame must not measure or move a stale target`);
+  };
+  home.modernCameraFollowLastVerticalContainer = viewport;
+  home.ensureMainVerticalVisibility(card, "down", { row: {} });
+  const starter = home._mainVertRaf;
+  home.ensureMainVerticalVisibility({ isConnected: true, row }, "right", card);
+  assert.equal(
+    home._mainVertRaf,
+    starter,
+    `${name}: horizontal input retains its pending row move`
+  );
+  home.cancelModernCameraFollow({ stopAnimations: true });
+  assert.equal(home._mainVertRaf, null);
+  assert.equal(frames.size, 0, `${name}: cleanup cancels queued geometry and scrolling`);
 }
 platform("vidaa");
 assert.equal(methods03.getScrollDuration.call({ isLegacyTvRuntime: () => true }, 160), 140);
