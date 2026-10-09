@@ -258,7 +258,7 @@ assert.equal(PlayerController.setNativeTextTrack.call(trackController, 0.5), fal
 assert.equal(PlayerController.setNativeTextTrack.call(trackController, 2), false);
 assert.equal(writes.length, beforeInvalid, "Invalid selections must not mutate tracks");
 const readonlyController = { video: { textTracks: [Object.freeze({ mode: "disabled" })] } };
-assert.equal(PlayerController.setNativeTextTrack.call(readonlyController, 0), false);
+assert.equal(await PlayerController.setNativeTextTrack.call(readonlyController, 0), false);
 
 // Native audio is selected by the common controller rather than an external app.
 const audioTracks = [{ enabled: true }, { enabled: false }];

@@ -196,10 +196,11 @@ export function getPluginCapabilitySnapshot() {
         appSupported: true,
         normalAddonsSupported: true,
         candidate: true,
-        reason: "VIDAA OS runtime ready"
+        reason: "Waiting for the QuickJS worker self-test"
       }),
       precheckPassed: true,
-      pluginServicePackaged: true
+      pluginServicePackaged: false,
+      networkMode: "browser"
     };
   }
 
@@ -211,6 +212,7 @@ export function getPluginCapabilitySnapshot() {
       reason: "Waiting for the plugin runtime handshake"
     }),
     precheckPassed: true,
-    pluginServicePackaged: true
+    pluginServicePackaged: false,
+    networkMode: "browser"
   };
 }

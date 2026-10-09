@@ -1,5 +1,9 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import {
+  nativeAudioTrackSelectionMatches,
+  confirmNativeTrackSelection
+} from "../../../core/player/playerControllerMethods-02-is-likely-direct-file-url.js";
 
 export function createPlayerScreenMethods61() {
   const {
@@ -15,7 +19,7 @@ export function createPlayerScreenMethods61() {
   } = internals;
 
   return {
-    applyAudioTrack(index, { automaticFallback = false, rememberSelection = false } = {}) {
+    async applyAudioTrack(index, { automaticFallback = false, rememberSelection = false } = {}) {
       const entries = this.getAudioEntries();
       const selectedEntry = entries[index] || null;
       if (!selectedEntry) {
@@ -24,6 +28,18 @@ export function createPlayerScreenMethods61() {
       if (this.isAudioEntryPending(selectedEntry)) {
         return;
       }
+      const selectionToken = Number(this.audioSelectionToken || 0) + 1;
+      this.audioSelectionToken = selectionToken;
+      const video = PlayerController.video;
+      const playRequestToken = PlayerController.playRequestToken;
+      const mountToken = this.playerMountToken;
+      const playbackUrl = this.activePlaybackUrl;
+      const isCurrentSelection = () =>
+        this.audioSelectionToken === selectionToken &&
+        this.playerMountToken === mountToken &&
+        this.activePlaybackUrl === playbackUrl &&
+        PlayerController.video === video &&
+        PlayerController.playRequestToken === playRequestToken;
       if (!automaticFallback) {
         this.failedAutomaticAudioFallbackEntryId = "";
       }
@@ -155,11 +171,32 @@ export function createPlayerScreenMethods61() {
 
       const audioTracks = this.getAudioTracks();
       const nativeTrackIndex = Number(selectedEntry.audioTrackIndex);
-      if (!audioTracks.length || !Number.isFinite(nativeTrackIndex) || nativeTrackIndex < 0 || nativeTrackIndex >= audioTracks.length) {
+      if (!audioTracks.length || !Number.isInteger(nativeTrackIndex) || nativeTrackIndex < 0 || nativeTrackIndex >= audioTracks.length) {
         return;
       }
+      this.requestedAudioTrackIndex = nativeTrackIndex;
+      const resolveVidaaIdentity = Environment.isVidaa();
+      const nativeTrack = audioTracks[nativeTrackIndex];
+      const nativePreference = resolveVidaaIdentity ? this.getAudioTrackPreference(selectedEntry) : null;
+      const resolveNativeTrackIndex = () => {
+        if (!resolveVidaaIdentity) return nativeTrackIndex;
+        const currentTracks = this.getAudioTracks();
+        const objectIndex = currentTracks.indexOf(nativeTrack);
+        if (objectIndex >= 0) return objectIndex;
+        // A replacement list may contain new objects for the same language/ID.
+        this.invalidateTrackDialogCaches();
+        const option = this.findRememberedAudioOption(nativePreference);
+        const currentIndex = option?.entry?.audioTrackIndex;
+        return Number.isInteger(currentIndex) && currentIndex >= 0 && currentIndex < currentTracks.length ? currentIndex : -1;
+      };
+      const selectionMatches = () => nativeAudioTrackSelectionMatches(this.getAudioTracks(), resolveNativeTrackIndex());
+      const usingWebOsNativeAudio = Environment.isWebOS() && PlayerController.isUsingNativePlayback?.();
+      // Remember the user's desired language independently of backend success.
+      if (rememberSelection && !usingWebOsNativeAudio) {
+        this.rememberAudioTrackSelection(this.getAudioTrackPreference(selectedEntry));
+      }
 
-      if (Environment.isWebOS()) {
+      if (usingWebOsNativeAudio) {
         this.pendingWebOsAudioSelection = {
           selectionKind: "native",
           targetTrackIndex: nativeTrackIndex,
@@ -170,33 +207,43 @@ export function createPlayerScreenMethods61() {
           trackPreference: this.getAudioTrackPreference(selectedEntry)
         };
       }
-      const appliedByController =
+      const controllerResult =
         typeof PlayerController.setNativeAudioTrack === "function" ? PlayerController.setNativeAudioTrack(nativeTrackIndex) : false;
-      if (appliedByController) {
-        if (Environment.isWebOS()) {
+      const appliedByController = await Promise.resolve(controllerResult).catch(() => false);
+      if (!isCurrentSelection()) return false;
+      if (appliedByController || (resolveVidaaIdentity && selectionMatches())) {
+        if (usingWebOsNativeAudio) {
           this.invalidateTrackDialogCaches();
           this.renderAudioDialog();
           return;
         }
-        this.selectedAudioTrackIndex = nativeTrackIndex;
-        this.selectedEmbeddedAudioTrackIndex = -1;
-        if (rememberSelection) {
-          this.rememberAudioTrackSelection(this.getAudioTrackPreference(selectedEntry));
+        if (await confirmNativeTrackSelection(selectionMatches, isCurrentSelection)) {
+          this.selectedAudioTrackIndex = resolveNativeTrackIndex();
+          this.selectedEmbeddedAudioTrackIndex = -1;
+          this.invalidateTrackDialogCaches();
+          this.renderControlButtons();
+          this.renderAudioDialog();
+          return true;
         }
-        this.invalidateTrackDialogCaches();
-        this.renderControlButtons();
-        this.renderAudioDialog();
-        return;
+        if (!isCurrentSelection()) return false;
       }
-      if (Environment.isWebOS()) {
+      if (usingWebOsNativeAudio) {
         this.pendingWebOsAudioSelection = null;
         this.invalidateTrackDialogCaches();
         this.renderAudioDialog();
         return;
       }
 
-      audioTracks.forEach((track, trackIndex) => {
-        const selected = trackIndex === nativeTrackIndex;
+      const fallbackTracks = resolveVidaaIdentity ? this.getAudioTracks() : audioTracks;
+      const fallbackTrackIndex = resolveNativeTrackIndex();
+      if (fallbackTrackIndex < 0) {
+        this.syncTrackState();
+        this.renderControlButtons();
+        this.renderAudioDialog();
+        return false;
+      }
+      fallbackTracks.forEach((track, trackIndex) => {
+        const selected = trackIndex === fallbackTrackIndex;
         try {
           if ("enabled" in track) {
             track.enabled = selected;
@@ -212,14 +259,20 @@ export function createPlayerScreenMethods61() {
           // Best effort.
         }
       });
-      this.selectedAudioTrackIndex = nativeTrackIndex;
-      this.selectedEmbeddedAudioTrackIndex = -1;
-      if (rememberSelection) {
-        this.rememberAudioTrackSelection(this.getAudioTrackPreference(selectedEntry));
+      const applied = await confirmNativeTrackSelection(selectionMatches, isCurrentSelection);
+      if (!isCurrentSelection()) return false;
+      if (!applied) {
+        this.syncTrackState();
+        this.renderControlButtons();
+        this.renderAudioDialog();
+        return false;
       }
+      this.selectedAudioTrackIndex = resolveNativeTrackIndex();
+      this.selectedEmbeddedAudioTrackIndex = -1;
       this.invalidateTrackDialogCaches();
       this.renderControlButtons();
       this.renderAudioDialog();
+      return true;
     },
     renderAudioDialog() {
       const dialog = this.uiRefs?.audioDialog;

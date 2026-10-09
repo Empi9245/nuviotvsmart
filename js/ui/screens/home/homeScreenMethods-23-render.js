@@ -1,11 +1,14 @@
 import * as internals from "./homeScreenContext.js";
 import { Platform } from "../../../platform/index.js";
 import { hasMountedHomeDom, updateHomeDom } from "./homeDomUpdate.js";
-import { restoreAllVidaaHomeCards } from "./vidaaHomeCardWindow.js";
+import { discardVidaaHomeCards, restoreVidaaHomeCard, pruneVidaaHomeCards } from "./vidaaHomeCardWindow.js";
+import { createHomeRowRenderPass } from "./homeRowRenderCache.js";
 
 export function createHomeScreenMethods23() {
   const {
     ScreenUtils,
+    I18n,
+    LayoutPreferences,
     renderModernHomeLayout,
     bindRootSidebarEvents,
     renderRootSidebar,
@@ -46,7 +49,7 @@ export function createHomeScreenMethods23() {
       if (this.hasUserInteractedSinceHomePaint) {
         this.forceInitialContinueWatchingFocus = false;
       }
-      const canUpdateInPlace = Boolean(
+      let canUpdateInPlace = Boolean(
         hasMountedHomeDom(this.container) &&
         this.renderedLayoutMode === this.layoutMode &&
         !this.homeRouteEnterPending &&
@@ -104,6 +107,11 @@ export function createHomeScreenMethods23() {
       ]
         .filter(Boolean)
         .join(";");
+      const homePresentation = `${layoutClass}|${sizingStyle}`;
+      // Parked cards retain measured dimensions. A size/layout preference
+      // change needs a fresh tree so those measurements cannot become stale.
+      if (Platform.isVidaa() && this.renderedHomePresentation != null && this.renderedHomePresentation !== homePresentation)
+        canUpdateInPlace = false;
       const showPosterLabels = this.layoutPrefs?.posterLabelsEnabled !== false;
       const showCatalogAddonName = this.layoutPrefs?.catalogAddonNameEnabled !== false;
       const showCatalogTypeSuffix = this.layoutPrefs?.catalogTypeSuffixEnabled !== false;
@@ -166,6 +174,22 @@ export function createHomeScreenMethods23() {
           : rowItemLimit;
       this.teardownGridStickyHeader();
 
+      const rowPass = Platform.isVidaa()
+        ? createHomeRowRenderPass(canUpdateInPlace ? this.homeRowMarkupCache : new Map(), {
+            locale: I18n.getLocale(),
+            rtl: I18n.isRtl(),
+            layoutMode: this.layoutMode,
+            layoutPrefs: this.layoutPrefs,
+            storedLayoutPrefs: LayoutPreferences.get()
+          })
+        : null;
+      // Continue Watching includes time-dependent release labels. Generate its
+      // current markup each pass, while still avoiding unchanged DOM parsing.
+      const renderContinueRow = (items, options) => {
+        const markup = renderContinueWatchingSection(items, options);
+        return rowPass ? rowPass.wrapRow(options.rowKey, markup) : markup;
+      };
+
       let mainContentMarkup = "";
       let modernLayoutPayload = null;
 
@@ -195,7 +219,8 @@ export function createHomeScreenMethods23() {
           expandFocusedPoster,
           buildModernHeroPresentation,
           renderHeroBackdropImage,
-          renderContinueWatchingSection,
+          renderContinueWatchingSection: renderContinueRow,
+          renderCatalogRow: rowPass?.renderRow,
           createPosterCardMarkup,
           createSeeAllCardMarkup,
           formatCatalogRowTitle,
@@ -208,7 +233,7 @@ export function createHomeScreenMethods23() {
         mainContentMarkup = modernLayoutPayload.markup;
       } else {
         const continueHtml = continueWatchingEnabled
-          ? renderContinueWatchingSection(continueWatchingRows.main, {
+          ? renderContinueRow(continueWatchingRows.main, {
               rowKey: "continue_watching",
               loading: Boolean(this.continueWatchingLoading),
               loadingCount: effectiveContinueWatchingLoadingCount,
@@ -219,7 +244,7 @@ export function createHomeScreenMethods23() {
             })
           : "";
         const upcomingHtml = continueWatchingEnabled
-          ? renderContinueWatchingSection(continueWatchingRows.upcoming, {
+          ? renderContinueRow(continueWatchingRows.upcoming, {
               rowKey: "upcoming_section",
               titleKey: "upcoming_section_title",
               title: "Upcoming",
@@ -240,7 +265,8 @@ export function createHomeScreenMethods23() {
           expandFocusedPoster: false,
           rowItemLimit: classicCatalogRowItemLimit,
           gridMaxDisplayItems,
-          watchedTitleIds: this.watchedTitleIds
+          watchedTitleIds: this.watchedTitleIds,
+          renderCatalogRow: rowPass?.renderRow
         });
         this.catalogSeeAllMap = legacyRowsPayload.catalogSeeAllMap;
         mainContentMarkup = `
@@ -265,7 +291,7 @@ export function createHomeScreenMethods23() {
       }
       const sidebarFocusLocked = Boolean(this.sidebarExpanded && retainedFocusState?.focusKind === "sidebar");
 
-      const nextMarkup = `
+      const nextDomMarkup = `
           <div class="home-shell home-screen-shell ${layoutClass}"${sizingStyle ? ` style="${escapeAttribute(sizingStyle)}"` : ""}>
             ${renderRootSidebar({
               selectedRoute: "home",
@@ -283,6 +309,7 @@ export function createHomeScreenMethods23() {
           </div>
           ${this.renderActiveHoldMenu()}
         `;
+      const nextMarkup = rowPass ? rowPass.expand(nextDomMarkup) : nextDomMarkup;
 
       // Returning to Home re-renders several times as cached rows, the background
       // refresh and the catalog rows each land. When a pass produces markup the
@@ -298,24 +325,29 @@ export function createHomeScreenMethods23() {
 
       let updatedInPlace = canUpdateInPlace && markupUnchanged;
       if (!markupUnchanged) {
-        if (Platform.isVidaa()) restoreAllVidaaHomeCards(this);
+        if (Platform.isVidaa() && !canUpdateInPlace) discardVidaaHomeCards(this);
         if (!canUpdateInPlace) {
           this.cancelModernCameraFollow({ stopAnimations: true });
           this.cancelFocusedPosterFlow();
           this.expandedPosterNode = null;
         }
-        updatedInPlace = updateHomeDom(this.container, nextMarkup, {
+        updatedInPlace = updateHomeDom(this.container, nextDomMarkup, {
           incremental: canUpdateInPlace,
-          focusedNode: liveFocusedNode
+          focusedNode: liveFocusedNode,
+          rowSources: rowPass?.rowSources,
+          beforeCardUpdate: rowPass ? (card) => restoreVidaaHomeCard(this, card) : null
         });
         this.renderedMarkup = nextMarkup;
       }
+      this.homeRowMarkupCache = rowPass?.rows || null;
+      this.renderedHomePresentation = homePresentation;
       if (this.layoutMode === "grid") {
         normalizeHomeGridCatalogSections(this.container, {
           maxDisplayItems: gridMaxDisplayItems,
           rowCount: homeGridRowCount
         });
       }
+      if (rowPass) pruneVidaaHomeCards(this);
       const focusSurvived = Boolean(
         updatedInPlace &&
         liveFocusedNode?.isConnected &&

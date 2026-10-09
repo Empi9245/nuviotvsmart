@@ -19,7 +19,7 @@ export function createPlayerScreenMethods39() {
       this.syncSubtitleDialogSession();
       const audioTrackSetSignature = this.getStartupAudioTrackSetSignature();
       if (
-        Environment.isWebOS() &&
+        (Environment.isWebOS() || (Environment.isVidaa() && Number(this.startupAudioGateDeadline || 0) > Date.now())) &&
         this.startupAudioGateActive &&
         this.startupAudioFallbackApplied &&
         this.startupAudioTrackSetSignature &&
@@ -269,12 +269,16 @@ export function createPlayerScreenMethods39() {
           now - Number(this.trackDiscoveryStartedAt || 0) >= 1200;
         const trackDiscoveryElapsedMs = now - Number(this.trackDiscoveryStartedAt || 0);
         const webOsStartupPreferenceUnresolved = Boolean(
-          Environment.isWebOS() && this.startupAudioGateActive && !this.startupAudioPreferenceApplied
+          (Environment.isWebOS() || Environment.isVidaa()) && this.startupAudioGateActive && !this.startupAudioPreferenceApplied
         );
         const webOsStartupPreferencePending =
-          webOsStartupPreferenceUnresolved && trackDiscoveryElapsedMs < STARTUP_AUDIO_PREFERENCE_RETRY_WINDOW_MS;
+          webOsStartupPreferenceUnresolved &&
+          trackDiscoveryElapsedMs < STARTUP_AUDIO_PREFERENCE_RETRY_WINDOW_MS &&
+          (!Environment.isVidaa() || this.isVidaaStartupAudioPreferenceWindowPending());
         const webOsStartupPreferenceWaitExpired =
-          webOsStartupPreferenceUnresolved && trackDiscoveryElapsedMs >= STARTUP_AUDIO_PREFERENCE_RETRY_WINDOW_MS;
+          webOsStartupPreferenceUnresolved &&
+          (trackDiscoveryElapsedMs >= STARTUP_AUDIO_PREFERENCE_RETRY_WINDOW_MS ||
+            (Environment.isVidaa() && !this.isVidaaStartupAudioPreferenceWindowPending()));
         const doneByTimeout = now >= this.trackDiscoveryDeadline || webOsStartupPreferenceWaitExpired;
         this.refreshTrackDialogs();
 

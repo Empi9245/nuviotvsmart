@@ -147,6 +147,8 @@ export function createHomeScreenMethods30() {
         this.container.style.removeProperty("visibility");
         this.container.style.removeProperty("pointer-events");
         this.renderedMarkup = null;
+        this.homeRowMarkupCache = null;
+        this.renderedHomePresentation = null;
         forgetHomeMarkup(this.container);
         ScreenUtils.hide(this.container);
       }

@@ -41,6 +41,8 @@ export function createPluginsScreenMethods02() {
           const testable = executable && provider.enabled !== false && !runtimeUnavailable && !unavailable && !this.busy;
           const testResult = this.testResult?.scraperId === provider.id ? this.testResult : null;
           const testStreams = Array.isArray(testResult?.results) ? testResult.results : [];
+          const testError = testResult?.error;
+          const testErrorMessage = testError ? String(testError.message || testError) : "";
           const typeBadges = (provider.supportedTypes || []).map(providerTypeBadge).join("");
           const diagnostics = Array.isArray(testResult?.diagnostics?.steps) ? testResult.diagnostics.steps : [];
           const diagnosticsExpanded = this.diagnosticsProviderId === provider.id;
@@ -95,17 +97,23 @@ export function createPluginsScreenMethods02() {
               ${
                 testResult
                   ? `<div class="plugins-test-result">
-                <strong>${escapeHtml(t("plugin_test_results", { count: testStreams.length }, `Test results (${testStreams.length} streams)`))}</strong>
+                <strong>${escapeHtml(
+                  testError
+                    ? t("plugin_error_test", { message: testErrorMessage }, `Test failed: ${testErrorMessage}`)
+                    : t("plugin_test_results", { count: testStreams.length }, `Test results (${testStreams.length} streams)`)
+                )}</strong>
                 ${
-                  testStreams.length
-                    ? testStreams
-                        .slice(0, 3)
-                        .map(
-                          (stream) =>
-                            `<span>${escapeHtml([stream.title || stream.name || "", stream.quality || ""].filter(Boolean).join(" · "))}</span>`
-                        )
-                        .join("")
-                    : `<span>${escapeHtml(t("plugin_test_no_results", {}, "No results found"))}</span>`
+                  testError
+                    ? ""
+                    : testStreams.length
+                      ? testStreams
+                          .slice(0, 3)
+                          .map(
+                            (stream) =>
+                              `<span>${escapeHtml([stream.title || stream.name || "", stream.quality || ""].filter(Boolean).join(" · "))}</span>`
+                          )
+                          .join("")
+                      : `<span>${escapeHtml(t("plugin_test_no_results", {}, "No results found"))}</span>`
                 }
                 ${
                   testStreams.length > 3

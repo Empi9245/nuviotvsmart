@@ -47,6 +47,15 @@ export function restoreAllVidaaHomeCards(screen) {
   discardVidaaHomeCards(screen);
 }
 
+export function pruneVidaaHomeCards(screen) {
+  screen.homeVidaaParkedCards?.forEach((record, card) => {
+    if (!screen.container.contains(card)) screen.homeVidaaParkedCards.delete(card);
+  });
+  screen.homeVidaaActiveCards?.forEach((card) => {
+    if (!screen.container.contains(card)) screen.homeVidaaActiveCards.delete(card);
+  });
+}
+
 // This is a throttle, not a trailing debounce: uninterrupted arrows must still
 // retire old visual trees. Measure only the active window, never the catalog on
 // each key. Real viewport geometry protects cards still visible in the camera

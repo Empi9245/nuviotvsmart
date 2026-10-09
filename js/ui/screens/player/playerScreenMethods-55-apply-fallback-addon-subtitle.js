@@ -22,16 +22,27 @@ export function createPlayerScreenMethods55() {
         return;
       }
       const subtitleId = subtitle.id || subtitle.url || `subtitle-${subtitleIndex}`;
-      const isCurrentSelection = () => Number(selectionToken) === Number(this.subtitleSelectionToken);
+      const videoAtSelection = PlayerController.video;
+      const playRequestToken = PlayerController.playRequestToken;
+      const mountToken = this.playerMountToken;
+      const isCurrentSelection = () =>
+        Number(selectionToken) === Number(this.subtitleSelectionToken) &&
+        this.playerMountToken === mountToken &&
+        PlayerController.video === videoAtSelection &&
+        PlayerController.playRequestToken === playRequestToken;
       if (!isCurrentSelection()) {
         return;
       }
 
       const usingAvPlay = typeof PlayerController.isUsingAvPlay === "function" ? PlayerController.isUsingAvPlay() : false;
-      if ((usingAvPlay && Environment.isTizen()) || Environment.isWebOS()) {
+      if (
+        (usingAvPlay && Environment.isTizen()) ||
+        Environment.isWebOS() ||
+        (Environment.isVidaa() && this.subtitleRenderMode === "html")
+      ) {
         try {
           if (await this.applyTvHtmlAddonSubtitle(subtitle, subtitleIndex, selectionToken)) {
-            return;
+            return true;
           }
         } catch (error) {
           if (!isCurrentSelection()) {
@@ -78,7 +89,7 @@ export function createPlayerScreenMethods55() {
           this.refreshSubtitleCueStyles();
           this.renderControlButtons();
           this.renderSubtitleDialog();
-          return;
+          return true;
         }
       }
 
@@ -93,7 +104,9 @@ export function createPlayerScreenMethods55() {
         : currentTracks.length;
 
       this.disableEmbeddedSubtitleSelection();
+      this.cancelExternalSubtitleActivation?.();
       this.clearMountedExternalSubtitleTracks();
+      this.selectedAddonSubtitleId = null;
 
       // ASS branch: detect from the raw body and render through ass.js.
       let assFallbackVtt = "";
@@ -105,24 +118,28 @@ export function createPlayerScreenMethods55() {
           subtitleHeaders: subtitle?.headers
         });
         rawBody = raw;
+        if (!isCurrentSelection()) return false;
         detectedAss = Boolean(raw?.body != null && isAssSubtitle(raw.body, { sourceUrl: subtitle.url, contentType: raw.contentType }));
         if (detectedAss) {
           if (!isCurrentSelection()) {
             return;
           }
+          if (!(await this.disableNativeSubtitleOutputs(selectionToken)) || !isCurrentSelection()) return false;
           this.clearHtmlSubtitleOverlay();
           const assResult = await this.applyAssSubtitleBody({
             body: raw.body,
-            selectionToken
+            selectionToken,
+            isCurrent: isCurrentSelection
           });
           if (assResult.applied && isCurrentSelection()) {
             this.selectedAddonSubtitleId = subtitleId;
             this.selectedSubtitleTrackIndex = -1;
             this.selectedEmbeddedSubtitleTrackIndex = -1;
             this.selectedManifestSubtitleTrackId = null;
+            this.invalidateTrackDialogCaches();
             this.renderControlButtons();
             this.renderSubtitleDialog();
-            return;
+            return true;
           }
           assFallbackVtt = assResult.fallbackVtt || "";
         }
@@ -136,6 +153,7 @@ export function createPlayerScreenMethods55() {
         });
       }
 
+      if (!isCurrentSelection()) return false;
       let resolvedSubtitleUrl = "";
       if (detectedAss) {
         if (!assFallbackVtt) {
@@ -161,7 +179,7 @@ export function createPlayerScreenMethods55() {
       track.label = subtitle.lang || subtitleLabel(subtitleIndex);
       track.srclang = normalizeTrackLanguageCode(subtitle.lang) || "und";
       track.src = resolvedSubtitleUrl;
-      track.default = true;
+      track.default = false;
       track.setAttribute("data-addon-subtitle-id", subtitleId);
       video.appendChild(track);
       this.externalTrackNodes.push(track);
@@ -174,59 +192,86 @@ export function createPlayerScreenMethods55() {
         // Best effort.
       }
 
-      const activateTrack = () => {
-        if (!isCurrentSelection()) {
-          return false;
-        }
-        return this.activateMountedExternalSubtitleTrack(track);
-      };
-      track.addEventListener("load", activateTrack, { once: true });
-      track.addEventListener(
-        "error",
-        () => {
-          console.warn("Subtitle track failed to load", { subtitleUrl: subtitle.url });
-        },
-        { once: true }
-      );
-
-      const preferredIndex = this.builtInSubtitleCount;
-      this.selectedAddonSubtitleId = subtitleId;
-      this.selectedSubtitleTrackIndex = preferredIndex;
-      this.selectedEmbeddedSubtitleTrackIndex = -1;
-      this.selectedManifestSubtitleTrackId = null;
-      this.renderControlButtons();
-      this.renderSubtitleDialog();
-
       if (this.subtitleSelectionTimer) {
         clearTimeout(this.subtitleSelectionTimer);
         this.subtitleSelectionTimer = null;
       }
 
-      let activationAttempts = 0;
-      const scheduleActivation = () => {
-        this.subtitleSelectionTimer = setTimeout(
-          () => {
-            if (!isCurrentSelection()) {
-              this.subtitleSelectionTimer = null;
-              return;
+      return new Promise((resolve) => {
+        let activationAttempts = 0;
+        let timer = null;
+        let completionTimer = null;
+        let finished = false;
+        const finish = (applied) => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timer);
+          clearTimeout(completionTimer);
+          if (this.cancelExternalSubtitleActivation === cancelActivation) this.cancelExternalSubtitleActivation = null;
+          if (this.subtitleSelectionTimer === timer) this.subtitleSelectionTimer = null;
+          track.removeEventListener("load", activateTrack);
+          if (!applied) track.removeEventListener("error", onError);
+          if (isCurrentSelection()) {
+            if (applied) {
+              this.selectedAddonSubtitleId = subtitleId;
+              this.selectedEmbeddedSubtitleTrackIndex = -1;
+              this.selectedManifestSubtitleTrackId = null;
+              this.invalidateTrackDialogCaches();
+              this.refreshSubtitleCueStyles();
+            } else {
+              this.clearMountedExternalSubtitleTracks();
+              this.selectedAddonSubtitleId = null;
+              this.syncTrackState();
             }
-            activationAttempts += 1;
-            const activated = activateTrack();
-            if (!activated && activationAttempts < 6) {
-              scheduleActivation();
-              return;
+            this.renderControlButtons();
+            this.renderSubtitleDialog();
+          }
+          resolve(applied);
+        };
+        const cancelActivation = () => finish(false);
+        this.cancelExternalSubtitleActivation = cancelActivation;
+        const activateTrack = () => {
+          if (!isCurrentSelection()) {
+            finish(false);
+            return false;
+          }
+          if (!this.activateMountedExternalSubtitleTrack(track)) return false;
+          finish(true);
+          return true;
+        };
+        const onError = () => {
+          if (isCurrentSelection()) console.warn("Subtitle track failed to load", { subtitleUrl: subtitle.url });
+          if (finished) {
+            if (isCurrentSelection()) {
+              this.clearMountedExternalSubtitleTracks();
+              this.selectedAddonSubtitleId = null;
+              this.syncTrackState();
+              this.renderControlButtons();
+              this.renderSubtitleDialog();
             }
-            if (!activated) {
-              this.selectedSubtitleTrackIndex = -1;
-              this.refreshTrackDialogs();
-              return;
-            }
-            this.refreshSubtitleCueStyles();
-          },
-          activationAttempts === 0 ? 80 : 140
-        );
-      };
-      scheduleActivation();
+            return;
+          }
+          finish(false);
+        };
+        const scheduleActivation = () => {
+          timer = setTimeout(
+            () => {
+              activationAttempts += 1;
+              if (activateTrack() || finished) return;
+              if (activationAttempts < 6) scheduleActivation();
+              else finish(false);
+            },
+            activationAttempts === 0 ? 80 : 140
+          );
+          this.subtitleSelectionTimer = timer;
+        };
+        track.addEventListener("load", activateTrack);
+        track.addEventListener("error", onError, { once: true });
+        // Source/route cleanup may clear the activation timer itself. Keep the
+        // returned promise bounded even if that cleanup wins without a load event.
+        completionTimer = setTimeout(() => finish(false), 850);
+        scheduleActivation();
+      });
     },
     getSubtitleOptionKeys(options = []) {
       const occurrences = new Map();

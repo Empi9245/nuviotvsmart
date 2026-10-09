@@ -1017,11 +1017,12 @@ async function runWithPool(task, quota, signal) {
   if (runningExecutions >= quota.maxConcurrent) {
     // Match Android's semaphore behavior: limit active workers without dropping
     // eligible providers when a source request starts a large scraper batch.
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const queued = {
         task,
         quota,
         resolve,
+        reject,
         signal,
         onAbort: null
       };
@@ -1049,9 +1050,7 @@ async function runWithPool(task, quota, signal) {
       if (next.signal?.aborted) {
         next.resolve([]);
       } else {
-        runWithPool(next.task, next.quota, next.signal)
-          .then(next.resolve)
-          .catch(() => next.resolve([]));
+        runWithPool(next.task, next.quota, next.signal).then(next.resolve).catch(next.reject);
       }
     }
   }
@@ -1063,7 +1062,7 @@ async function executeOne(
   args,
   quota,
   signal,
-  { throwOnError = false, mapResults = true } = {}
+  { throwOnError = false, mapResults = true, onDiagnostic = null } = {}
 ) {
   const executionProfileId = getEffectivePluginProfileId();
   let code = await PluginCodeStore.get(scraper.id, executionProfileId);
@@ -1091,7 +1090,8 @@ async function executeOne(
               args,
               quota,
               timeoutMs: quota.providerTimeoutMs,
-              signal: executionSignal
+              signal: executionSignal,
+              onDiagnostic
             }),
           quota,
           executionSignal
@@ -1139,7 +1139,8 @@ export const PluginManager = {
     return {
       ...capabilities,
       executable,
-      pluginServiceAvailable: runtime.lastStatus === "ready",
+      pluginServiceAvailable:
+        runtime.lastStatus === "ready" && capabilities.networkMode !== "browser",
       localJsPluginSupported: executable,
       pluginMemoryBudget: Number(capabilities.quota?.memoryLimitBytes || 0),
       pluginMaxConcurrency: Number(capabilities.quota?.maxConcurrent || 0),
@@ -2076,11 +2077,11 @@ export const PluginManager = {
     return output;
   },
 
-  async testScraper(scraperId, { tmdbId = "603", signal = null } = {}) {
+  async testScraper(scraperId, { tmdbId = null, signal = null } = {}) {
     // Android's explicit provider test is independent from the global stream
     // discovery toggle; only normal playback execution uses pluginsEnabled.
     if (signal?.aborted) {
-      return { results: [], tmdbId: String(tmdbId), mediaType: "movie" };
+      return { results: [], tmdbId: String(tmdbId || "603"), mediaType: "movie" };
     }
     const capabilities = getPluginCapabilitySnapshot();
     if (!capabilities.candidate) throw new Error(capabilities.reason);
@@ -2096,10 +2097,17 @@ export const PluginManager = {
     ) {
       throw new Error("JS scraper is unavailable on this TV runtime");
     }
-    const mediaType = pluginSupportsType(scraper.supportedTypes, "movie") ? "movie" : "series";
+    const mediaType = pluginSupportsType(scraper.supportedTypes, "movie")
+      ? "movie"
+      : pluginSupportsType(scraper.supportedTypes, "series")
+        ? "tv"
+        : null;
+    if (!mediaType) {
+      throw new Error("Provider does not support movie or series tests");
+    }
     const season = mediaType === "movie" ? null : 1;
     const episode = mediaType === "movie" ? null : 1;
-    const testId = String(tmdbId || "603");
+    const testId = String(tmdbId || (mediaType === "movie" ? "603" : "1399"));
     const diagnostics = {
       steps: [
         `Scraper: ${scraper.name} (type=${scraper.type})`,
@@ -2114,15 +2122,44 @@ export const PluginManager = {
         { tmdbId: testId, mediaType, season, episode },
         quotaFor(capabilities),
         signal,
-        { throwOnError: true, mapResults: false }
+        {
+          throwOnError: true,
+          mapResults: false,
+          onDiagnostic(event) {
+            // Reserve the last step for the execution result or exception.
+            if (diagnostics.steps.length >= 39) return;
+            if (event?.type === "providerLog") {
+              diagnostics.steps.push(
+                `Provider ${event.level || "log"}: ${event.message || ""}`.slice(0, 320)
+              );
+            } else if (event?.type === "fetchFailure") {
+              diagnostics.steps.push(
+                `Fetch failed: ${event.status || 0} ${event.statusText || ""} ${event.url || ""}${event.truncated ? " (truncated)" : ""}`.slice(
+                  0,
+                  320
+                )
+              );
+            }
+          }
+        }
       );
       diagnostics.steps.push(`Result: ${results.length} streams`);
       return { results, tmdbId: testId, mediaType, season, episode, diagnostics };
     } catch (error) {
-      diagnostics.steps.push(
-        `Exception: ${error?.name || "Error"}: ${String(error?.message || error)}`
-      );
-      return { results: [], tmdbId: testId, mediaType, season, episode, diagnostics };
+      const testError = {
+        name: String(error?.name || "Error"),
+        message: String(error?.message || error || "Plugin test failed")
+      };
+      diagnostics.steps.push(`Exception: ${testError.name}: ${testError.message}`);
+      return {
+        results: [],
+        tmdbId: testId,
+        mediaType,
+        season,
+        episode,
+        diagnostics,
+        error: testError
+      };
     }
   },
 

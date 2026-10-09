@@ -243,6 +243,8 @@ function pluginPolyfill() {
     var __nuvioNativeFetch = __native_fetch;
     var __nuvioNativeCancel = __native_cancel;
     var __nuvioNativeLog = __native_log;
+    var __nuvioNativeSetTimer = __native_set_timer;
+    var __nuvioNativeClearTimer = __native_clear_timer;
     var __nuvioFetchCounter = 0;
     var __nuvioParseUrl = __parse_url;
     var __nuvioCheerioLoad = __cheerio_load;
@@ -262,6 +264,24 @@ function pluginPolyfill() {
     globalThis.global = globalThis;
     globalThis.window = globalThis;
     globalThis.self = globalThis;
+    function __nuvioScheduleTimer(callback, delay, repeat, args) {
+      if (typeof callback !== 'function') throw new TypeError('Timer callback must be a function');
+      delay = Number(delay);
+      if (!isFinite(delay) || delay < 0 || delay > 2147483647) delay = 0;
+      delay = Math.floor(delay);
+      if (repeat && delay < 1) delay = 1;
+      // Retain callback arguments in the guest closure, not host objects.
+      return __nuvioNativeSetTimer(function() { callback.apply(globalThis, args); }, delay, repeat);
+    }
+    globalThis.setTimeout = function(callback, delay) {
+      return __nuvioScheduleTimer(callback, delay, false, Array.prototype.slice.call(arguments, 2));
+    };
+    globalThis.setInterval = function(callback, delay) {
+      return __nuvioScheduleTimer(callback, delay, true, Array.prototype.slice.call(arguments, 2));
+    };
+    globalThis.clearTimeout = globalThis.clearInterval = function(id) {
+      __nuvioNativeClearTimer(Number(id));
+    };
     function __nuvioFormatLogValue(value) {
       try {
         if (value && value.stack) return String(value.stack);
@@ -333,7 +353,7 @@ function pluginPolyfill() {
       var abortListener = abortToken ? function() { try { __nuvioNativeCancel(abortToken); } catch (_) {} } : null;
       var cleanup = function() { if (signal && abortListener) signal.removeEventListener('abort', abortListener); };
       if (signal && abortListener) signal.addEventListener('abort', abortListener);
-      var request = { url: String(url && url.href || url || ''), method: method, headers: headers, bodyKind: body.kind, body: body.kind === 'text' ? body.value : '', responseEncoding: 'base64' };
+      var request = { url: String(url && url.href || url || ''), method: method, headers: headers, bodyKind: body.kind, body: body.kind === 'text' ? body.value : '', responseEncoding: 'base64', followRedirects: options.redirect !== 'manual' };
       if (body.kind === 'base64') request.bodyBase64 = body.value;
       return __nuvioNativeFetch(JSON.stringify(request), abortToken).then(function(raw) {
         cleanup();
@@ -560,6 +580,8 @@ async function execute(message) {
   var execution = {
     pending: new Map(),
     abortTokens: new Map(),
+    timers: new Map(),
+    timerCounter: 0,
     requestCounter: 0,
     disposeCheerio: null,
     context: null,
@@ -599,6 +621,99 @@ async function execute(message) {
   // Nuvio JS providers to fail with "Maximum call stack size exceeded".
   var deadline = Number(request.deadline) || Date.now() + Number(request.timeoutMs || 60000);
   runtime.setInterruptHandler?.(() => Date.now() > deadline);
+
+  function disposeTimer(timer) {
+    clearTimeout(timer.hostId);
+    execution.timers.delete(timer.id);
+    timer.cancelled = true;
+    // clearInterval can be called from its own guest callback. Keep that
+    // handle alive until callFunction has returned, then release it once.
+    if (!timer.firing && timer.callback) {
+      timer.callback.dispose();
+      timer.callback = null;
+    }
+  }
+  function armTimer(timer) {
+    var remaining = deadline - Date.now();
+    if (execution.cleaned || !context.alive || remaining <= 0) {
+      disposeTimer(timer);
+      return;
+    }
+    var expiresAtDeadline = timer.delay >= remaining;
+    // Long-lived provider cache timers never run early. At the provider's
+    // deadline they are cancelled; ordinary completion cancels them sooner.
+    timer.hostId = setTimeout(
+      () => {
+        if (execution.cleaned || !context.alive || expiresAtDeadline || Date.now() >= deadline) {
+          disposeTimer(timer);
+          return;
+        }
+        timer.firing = true;
+        if (!timer.repeat) execution.timers.delete(timer.id);
+        try {
+          var result = context.callFunction(timer.callback, context.undefined);
+          if (result.error) {
+            try {
+              var dumped = context.dump(result.error);
+              send({
+                type: "pluginLog",
+                level: "error",
+                message:
+                  "Timer callback failed: " +
+                  String(dumped?.message || dumped).slice(0, 2000) +
+                  (dumped?.stack ? "\n" + String(dumped.stack).slice(0, 2000) : "")
+              });
+            } finally {
+              result.error.dispose();
+            }
+          } else {
+            result.value.dispose();
+          }
+        } catch (error) {
+          send({
+            type: "pluginLog",
+            level: "error",
+            message: "Timer callback failed: " + String(error?.message || error).slice(0, 4000)
+          });
+        } finally {
+          timer.firing = false;
+          if (timer.repeat && !timer.cancelled && !execution.cleaned && context.alive)
+            armTimer(timer);
+          else disposeTimer(timer);
+        }
+        // Guest Promise reactions are driven by resolveGuestPromise(), while
+        // the context is alive, using the same job queue as the fetch bridge.
+      },
+      Math.min(timer.delay, remaining)
+    );
+  }
+  var nativeSetTimer = context.newFunction("__native_set_timer", (callback, delay, repeat) => {
+    if (execution.cleaned) throw new Error("Plugin execution ended");
+    if (context.typeof(callback) !== "function")
+      throw new TypeError("Timer callback must be a function");
+    if (execution.timers.size >= 64) throw new Error("Plugin timer quota exceeded");
+    var timer = {
+      id: ++execution.timerCounter,
+      callback: callback.dup(),
+      delay: Math.max(0, context.getNumber(delay)),
+      repeat: context.dump(repeat) === true,
+      hostId: null,
+      firing: false,
+      cancelled: false
+    };
+    execution.timers.set(timer.id, timer);
+    armTimer(timer);
+    return context.newNumber(timer.id);
+  });
+  nativeSetTimer.consume((value) => context.setProp(context.global, "__native_set_timer", value));
+  var nativeClearTimer = context.newFunction("__native_clear_timer", (id) => {
+    var timer = execution.timers.get(context.getNumber(id));
+    if (timer) disposeTimer(timer);
+    return context.undefined;
+  });
+  nativeClearTimer.consume((value) =>
+    context.setProp(context.global, "__native_clear_timer", value)
+  );
 
   function installSync(name, fn) {
     var handle = context.newFunction(name, (...args) =>
@@ -690,6 +805,7 @@ async function execute(message) {
   execution.cleanup = function () {
     if (execution.cleaned) return;
     execution.cleaned = true;
+    Array.from(execution.timers.values()).forEach(disposeTimer);
     execution.rejectPending?.(new Error("Plugin execution ended"));
     // Rejecting a QuickJS promise queues guest reactions. Drain those jobs
     // while the context is still alive so their handles are released before
@@ -769,7 +885,7 @@ async function execute(message) {
   );
   context.unwrapResult(cryptoJsResult).dispose();
   var bridgeCleanup = context.evalCode(
-    '["__native_fetch","__native_cancel","__native_log","__parse_url","__get_scraper_id","__get_scraper_settings","__get_tmdb_api_key","__cheerio_load","__cheerio_select","__cheerio_find","__cheerio_text","__cheerio_html","__cheerio_innerHtml","__cheerio_attr","__cheerio_next","__cheerio_prev","__cheerio_parent","__cheerio_children","__cheerio_filter","__cheerio_eq"].forEach(function(name){ try { globalThis[name] = undefined; delete globalThis[name]; } catch (_) {} }); true;',
+    '["__native_fetch","__native_cancel","__native_log","__native_set_timer","__native_clear_timer","__parse_url","__get_scraper_id","__get_scraper_settings","__get_tmdb_api_key","__cheerio_load","__cheerio_select","__cheerio_find","__cheerio_text","__cheerio_html","__cheerio_innerHtml","__cheerio_attr","__cheerio_next","__cheerio_prev","__cheerio_parent","__cheerio_children","__cheerio_filter","__cheerio_eq"].forEach(function(name){ try { globalThis[name] = undefined; delete globalThis[name]; } catch (_) {} }); true;',
     "nuvio-plugin-bridge-cleanup.js"
   );
   context.unwrapResult(bridgeCleanup).dispose();

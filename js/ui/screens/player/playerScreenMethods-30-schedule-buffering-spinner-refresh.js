@@ -6,6 +6,7 @@ export function createPlayerScreenMethods30() {
     PlayerController,
     canReleasePlayingNativeStartupAudioGate,
     Environment,
+    STARTUP_AUDIO_PREFERENCE_RETRY_WINDOW_MS,
     STARTUP_PLAYBACK_ADVANCE_EPSILON_SECONDS,
     BUFFERING_SPINNER_STALL_MS,
     PLAYER_SPEEDS
@@ -41,7 +42,7 @@ export function createPlayerScreenMethods30() {
     enableStartupAudioGate({ allowNativePlayback = false, maxWaitMs = 0 } = {}) {
       this.startupAudioGateActive = true;
       this.startupAudioGateAllowsNativePlayback = Boolean(allowNativePlayback);
-      const boundedWaitMs = Math.max(0, Number(maxWaitMs || 0));
+      const boundedWaitMs = Math.max(0, Number(maxWaitMs || (Environment.isVidaa() ? STARTUP_AUDIO_PREFERENCE_RETRY_WINDOW_MS : 0)));
       this.startupAudioGateDeadline = boundedWaitMs > 0 ? Date.now() + boundedWaitMs : 0;
       PlayerController.setStartupAudioGate?.(true, {
         pauseNativePlayback: !allowNativePlayback
@@ -54,6 +55,11 @@ export function createPlayerScreenMethods30() {
       this.startupAudioGateActive = false;
       this.startupAudioGateAllowsNativePlayback = false;
       this.startupAudioGateDeadline = 0;
+      if (Environment.isVidaa()) {
+        this.clearStartupAudioPreferenceRetry();
+        this.startupVidaaAudioRequest = null;
+        this.startupAudioPreferenceApplying = false;
+      }
       // Once playback leaves the startup gate, later webOS track-list churn must
       // not reopen automatic language matching. A Luna selectTrack request during
       // normal playback can interrupt the native decoder on some LG TVs.
@@ -146,19 +152,20 @@ export function createPlayerScreenMethods30() {
         canReleasePlayingNativeStartupAudioGate({
           allowNativePlayback: this.startupAudioGateAllowsNativePlayback,
           hasPresentedPlaybackFrame: this.hasPresentedPlaybackFrame,
-          pendingAudioSelection: Boolean(this.pendingWebOsAudioSelection),
+          pendingAudioSelection: Boolean(this.pendingWebOsAudioSelection || (Environment.isVidaa() && this.startupAudioPreferenceApplying)),
           readyState
         })
       ) {
         if (!this.startupAudioPreferenceApplied) {
-          // A native frame can arrive before webOS publishes audio languages.
+          // A native frame can arrive before webOS/VIDAA publish audio languages.
           // Keep the bounded startup match alive until discovery settles or the
           // gate deadline expires; fallback would otherwise latch the default.
           if (
-            Environment.isWebOS() &&
-            Number(this.startupAudioGateDeadline || 0) > 0 &&
-            !gateDeadlineExpired &&
-            this.isAudioPreferenceDiscoveryPending()
+            this.isVidaaStartupAudioPreferenceWindowPending() ||
+            (Environment.isWebOS() &&
+              Number(this.startupAudioGateDeadline || 0) > 0 &&
+              !gateDeadlineExpired &&
+              this.isAudioPreferenceDiscoveryPending())
           ) {
             return false;
           }
@@ -178,7 +185,10 @@ export function createPlayerScreenMethods30() {
       const audioPreferenceSettled =
         !this.pendingWebOsAudioSelection &&
         (Boolean(this.startupAudioPreferenceApplied) ||
-          (!Environment.isWebOS() && !this.startupAudioPreferenceApplying && !this.hasAudioTracksAvailable()));
+          (!Environment.isWebOS() &&
+            !this.startupAudioPreferenceApplying &&
+            !this.isVidaaStartupAudioPreferenceWindowPending() &&
+            !this.hasAudioTracksAvailable()));
       return audioPreferenceSettled && Number.isFinite(readyState) && readyState >= 3;
     },
     scheduleLoadingCompletionCheck(delayMs = 250, { force = false } = {}) {

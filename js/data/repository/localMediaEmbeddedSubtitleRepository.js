@@ -1,4 +1,5 @@
 import { Platform } from "../../platform/index.js";
+import { vidaaEmbeddedTextProvider } from "../../platform/vidaa/vidaaEmbeddedTextProvider.js";
 import { TizenCapabilities } from "../../platform/tizen/tizenCapabilities.js";
 import { TizenEngineFsService } from "../../platform/tizen/tizenEngineFsService.js";
 import { requestWebOsCompanionService } from "../../platform/webos/webosCompanionService.js";
@@ -152,13 +153,24 @@ async function requestTizenEmbeddedTextWindow({ url, trackOrdinal, startSeconds,
 }
 
 export const localMediaEmbeddedSubtitleRepository = {
+  cancelVidaaWindow() {
+    vidaaEmbeddedTextProvider.cancelWindow();
+  },
+  disposeVidaaSource() {
+    vidaaEmbeddedTextProvider.dispose();
+  },
+  getVidaaDiagnostics() {
+    return vidaaEmbeddedTextProvider.diagnostics();
+  },
   async getWindow({
     url,
     trackNumber,
     trackOrdinal,
     startSeconds,
     endSeconds,
-    includeAssBody = false
+    includeAssBody = false,
+    sourceIdentity,
+    headers = {}
   }) {
     const targetUrl = String(url || "").trim();
     const targetTrack = Math.trunc(Number(trackNumber));
@@ -173,6 +185,16 @@ export const localMediaEmbeddedSubtitleRepository = {
     }
 
     let result;
+    if (Platform.isVidaa()) {
+      return vidaaEmbeddedTextProvider.getWindow({
+        url: targetUrl,
+        trackNumber: targetTrack,
+        sourceIdentity,
+        startSeconds,
+        endSeconds,
+        headers
+      });
+    }
     try {
       result = await withTimeout(
         Platform.isTizen()

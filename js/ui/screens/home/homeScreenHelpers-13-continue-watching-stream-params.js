@@ -241,10 +241,13 @@ export function renderLegacyCatalogRowsMarkup(rows = [], options = {}) {
     expandFocusedPoster = false,
     rowItemLimit = HOME_MAX_ITEMS_PER_ROW_DEFAULT,
     gridMaxDisplayItems = HOME_GRID_SAFE_MAX_COLUMNS * HOME_GRID_DEFAULT_ROW_COUNT,
-    watchedTitleIds = null
+    watchedTitleIds = null,
+    renderCatalogRow = null
   } = options;
   const catalogSeeAllMap = new Map();
   const sectionsMarkup = [];
+  const hasCatalogRowRenderer = typeof renderCatalogRow === "function";
+  const watchedTitleIdsSnapshot = hasCatalogRowRenderer ? Array.from(watchedTitleIds || []) : null;
 
   rows.forEach((rowData, rowIndex) => {
     const isCollectionRow = rowData?.rowKind === "collection";
@@ -289,32 +292,34 @@ export function renderLegacyCatalogRowsMarkup(rows = [], options = {}) {
     const gridLimit = Math.max(1, hasSeeAll ? maxItems - 1 : maxItems);
     const visibleItems = isCollectionRow ? rowItems : layoutMode === "grid" ? rowItems.slice(0, gridLimit) : rowItems.slice(0, maxItems);
     const deferRowImages = shouldDeferHomeRowImages(rowIndex, rowKey, focusedRowKey);
-    const cardsMarkup = visibleItems
-      .map((item, itemIndex) =>
-        createPosterCardMarkup(
-          item,
-          rowIndex,
-          itemIndex,
-          rowData.type,
-          rowData,
-          showPosterLabels,
-          layoutMode,
-          expandFocusedPoster && focusedRowKey === rowKey && focusedItemIndex === itemIndex,
-          false,
-          deferRowImages,
-          watchedTitleIds
+    const expandedItemIndex = expandFocusedPoster && focusedRowKey === rowKey ? focusedItemIndex : -1;
+    const renderRowMarkup = () => {
+      const cardsMarkup = visibleItems
+        .map((item, itemIndex) =>
+          createPosterCardMarkup(
+            item,
+            rowIndex,
+            itemIndex,
+            rowData.type,
+            rowData,
+            showPosterLabels,
+            layoutMode,
+            expandFocusedPoster && focusedRowKey === rowKey && focusedItemIndex === itemIndex,
+            false,
+            deferRowImages,
+            watchedTitleIds
+          )
         )
-      )
-      .join("");
-    const trackMarkup = `
+        .join("");
+      const trackMarkup = `
       <div class="${layoutMode === "grid" ? "home-grid-track" : "home-track"}" data-track-row-key="${escapeAttribute(rowKey)}">
         ${cardsMarkup}
         ${hasSeeAll ? createSeeAllCardMarkup(seeAllId, rowData, visibleItems.length, rowIndex) : ""}
       </div>
     `;
 
-    if (layoutMode === "grid") {
-      sectionsMarkup.push(`
+      if (layoutMode === "grid") {
+        return `
         <section class="home-grid-section"
                  data-row-key="${escapeAttribute(rowKey)}"
                  data-row-index="${rowIndex}"
@@ -322,18 +327,46 @@ export function renderLegacyCatalogRowsMarkup(rows = [], options = {}) {
           <div class="home-grid-section-divider">${escapeHtml(rowTitle)}</div>
           ${trackMarkup}
         </section>
-      `);
-      return;
-    }
+      `;
+      }
 
-    sectionsMarkup.push(`
+      return `
       <section class="home-row"
                data-row-key="${escapeAttribute(rowKey)}"
                data-row-index="${rowIndex}">
         ${renderRowHeader(rowTitle, rowSubtitle)}
         ${trackMarkup}
       </section>
-    `);
+    `;
+    };
+    sectionsMarkup.push(
+      hasCatalogRowRenderer
+        ? renderCatalogRow(
+            rowKey,
+            {
+              rowData,
+              rowIndex,
+              visibleItems,
+              rowTitle,
+              rowSubtitle,
+              layoutMode,
+              showPosterLabels,
+              showCatalogAddonName,
+              showCatalogTypeSuffix,
+              preferLandscapePosters: false,
+              deferRowImages,
+              rowItemLimit,
+              gridMaxDisplayItems,
+              maxItems,
+              gridLimit,
+              hasSeeAll,
+              expandedItemIndex,
+              watchedTitleIds: watchedTitleIdsSnapshot
+            },
+            renderRowMarkup
+          )
+        : renderRowMarkup()
+    );
   });
 
   return {

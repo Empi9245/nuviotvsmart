@@ -4,6 +4,7 @@ import { getHomeFocusIdentity } from "./homeFocusPolicy.js";
 // expansion and trailer playback all add state that a data refresh must retain.
 const sourceByNode = new WeakMap();
 const mountedShells = new WeakMap();
+const canonicalRows = new WeakMap();
 
 export function hasMountedHomeDom(container) {
   const shell = mountedShells.get(container);
@@ -47,6 +48,8 @@ function snapshot(source) {
 
 function remember(node, source) {
   sourceByNode.set(node, snapshot(source));
+  const canonical = canonicalRows.get(source);
+  if (canonical !== undefined) canonicalRows.set(node, canonical);
   const liveChildren = children(node);
   children(source).forEach((child, index) => remember(liveChildren[index], child));
 }
@@ -111,20 +114,40 @@ function updateAttributes(node, previous, next) {
   }
 }
 
-function updateNode(node, source, protectedNode) {
+function updateNode(node, source, options) {
   const previous = sourceByNode.get(node);
   const markup = signature(source);
   if (markup !== undefined && previous.markup === markup) return;
   if (node.nodeType === 1) {
+    if (node.classList.contains("home-content-card")) options.beforeCardUpdate?.(node);
     updateAttributes(node, previous.node, source);
-    updateChildren(node, source, protectedNode);
+    updateChildren(node, source, options);
   } else {
     node.textContent = source.textContent;
   }
   sourceByNode.set(node, snapshot(source));
 }
 
-function updateChildren(parent, source, protectedNode) {
+function resolveRowSource(marker, rowSources) {
+  const entry = rowSources?.get(marker.dataset?.homeRowSource);
+  if (!entry) return marker;
+  const parsed = marker.ownerDocument.createElement("div");
+  parsed.innerHTML = entry.markup;
+  const row = parsed.firstElementChild;
+  if (!row || row.dataset.rowKey !== entry.rowKey) throw new Error("Invalid Home row source");
+  canonicalRows.set(row, entry.markup);
+  return row;
+}
+
+function resolveNestedRows(source, rowSources) {
+  if (!rowSources) return;
+  source.querySelectorAll?.("[data-home-row-source]").forEach((marker) => {
+    marker.replaceWith(resolveRowSource(marker, rowSources));
+  });
+}
+
+function updateChildren(parent, source, options) {
+  const { focusedNode: protectedNode, rowSources } = options;
   const available = new Map();
   children(parent).forEach((node) => {
     const previous = sourceByNode.get(node);
@@ -134,17 +157,25 @@ function updateChildren(parent, source, protectedNode) {
     available.get(nodeKey).push(node);
   });
   const desired = children(source).map((child) => {
+    const rowEntry = child.nodeType === 1 ? rowSources?.get(child.dataset.homeRowSource) : null;
     const candidates = available.get(key(child));
     const existing = candidates?.find(
       (node) => node.nodeType === child.nodeType && node.nodeName === child.nodeName
     );
     if (existing) {
       candidates.splice(candidates.indexOf(existing), 1);
-      updateNode(existing, child, protectedNode);
+      if (rowEntry && canonicalRows.get(existing) === rowEntry.markup) return existing;
+      const resolved = rowEntry ? resolveRowSource(child, rowSources) : child;
+      updateNode(existing, resolved, options);
+      if (rowEntry) canonicalRows.set(existing, rowEntry.markup);
       return existing;
     }
-    const inserted = child.cloneNode(true);
-    remember(inserted, child);
+    const resolved = rowEntry ? resolveRowSource(child, rowSources) : child;
+    // A loading screen can become a whole new stage/catalog wrapper. Its
+    // nested rows must be materialized before that branch reaches the live DOM.
+    resolveNestedRows(resolved, rowSources);
+    const inserted = resolved.cloneNode(true);
+    remember(inserted, resolved);
     return inserted;
   });
   available.forEach((nodes) => nodes.forEach((node) => node.remove()));
@@ -179,15 +210,28 @@ function updateChildren(parent, source, protectedNode) {
   }
 }
 
-export function updateHomeDom(container, markup, { incremental = false, focusedNode = null } = {}) {
+export function updateHomeDom(
+  container,
+  markup,
+  { incremental = false, focusedNode = null, rowSources = null, beforeCardUpdate = null } = {}
+) {
   const source = container.ownerDocument.createElement("div");
   source.innerHTML = markup;
   const canUpdate = incremental && hasMountedHomeDom(container);
   if (canUpdate) {
-    updateChildren(container, source, focusedNode);
+    updateChildren(container, source, { focusedNode, rowSources, beforeCardUpdate });
   } else {
-    container.innerHTML = markup;
-    remember(container, source);
+    if (rowSources) {
+      resolveNestedRows(source, rowSources);
+      // Parse once and move the generated tree; snapshots keep only shallow
+      // nodes, never a second detached copy of every visual subtree.
+      remember(source, source);
+      container.textContent = "";
+      while (source.firstChild) container.appendChild(source.firstChild);
+    } else {
+      container.innerHTML = markup;
+      remember(container, source);
+    }
   }
   mountedShells.set(container, container.querySelector(".home-shell"));
   return Boolean(canUpdate);

@@ -3,9 +3,10 @@ import { TizenCapabilities } from "./tizen/tizenCapabilities.js";
 import { TizenPluginService } from "./tizen/tizenPluginService.js";
 import { WebOsPluginService } from "./webos/webosPluginService.js";
 import {
-  normalizePluginHeaders,
-  validatePluginFetchRequest
+  validatePluginFetchRequest,
+  isExpectedPluginRedirectResponse
 } from "../core/player/pluginSecurity.js";
+import { cancelBrowserPluginRequest, fetchBrowserPluginRequest } from "./pluginBrowserTransport.js";
 import {
   diagnosticError,
   emitPluginDiagnosticEvent,
@@ -74,6 +75,14 @@ function reportHealthFailure(error) {
 function assertCompatibleHealth(health) {
   if (health.returnValue !== true)
     throw new Error(health.detail || "Plugin network service is not ready");
+  // Direct requests remain subject to browser networking rules. Readiness in
+  // this mode means the host APIs exist; PluginRuntime separately runs the
+  // packaged QuickJS worker self-test before allowing provider execution.
+  if (!serviceForPlatform() && health.networkMode === "browser") {
+    if (health.workerSupport !== true || health.jsPluginCapability !== true)
+      throw new Error(health.detail || "Plugin worker capabilities are unavailable");
+    return health;
+  }
   if (
     Number(health.protocolVersion || 0) !== PLUGIN_PROTOCOL_VERSION ||
     Number(health.serviceVersion || 0) < 1 ||
@@ -235,59 +244,7 @@ function androidFetchFailure(request = {}, error) {
 }
 
 async function directBrowserFetch(request) {
-  const validation = validatePluginFetchRequest(request, {
-    maxBodyBytes: Number(request.maxBodyBytes || 1024 * 1024)
-  });
-  if (!validation.ok) throw new Error(validation.reason);
-  const controller = typeof AbortController === "function" ? new AbortController() : null;
-  const abort = () => controller?.abort();
-  request.signal?.addEventListener?.("abort", abort, { once: true });
-  const timer = setTimeout(abort, Number(request.timeoutMs || 30000));
-  try {
-    const requestBody =
-      validation.bodyKind === "base64"
-        ? Uint8Array.from(atob(validation.bodyBase64), (char) => char.charCodeAt(0))
-        : validation.bodyKind === "text"
-          ? validation.body
-          : new Uint8Array(0);
-    const methodHasBody =
-      ["POST", "PUT", "PATCH"].includes(validation.method) ||
-      (validation.method === "DELETE" && validation.bodyKind !== "none");
-    const response = await fetch(validation.url, {
-      method: validation.method,
-      headers: normalizePluginHeaders(validation.headers),
-      body: methodHasBody ? requestBody : undefined,
-      signal: controller?.signal || request.signal
-    });
-    const binaryResponse =
-      request.responseEncoding === "base64" ? await response.clone().arrayBuffer() : null;
-    const body = await response.text();
-    let bodyBase64;
-    if (binaryResponse) {
-      const bytes = new Uint8Array(binaryResponse);
-      const chunks = [];
-      for (let index = 0; index < bytes.length; index += 8192) {
-        chunks.push(String.fromCharCode.apply(null, bytes.subarray(index, index + 8192)));
-      }
-      bodyBase64 = btoa(chunks.join(""));
-    }
-    return normalizeResponse(
-      {
-        returnValue: true,
-        ok: response.ok,
-        status: response.status,
-        statusText: response.statusText,
-        url: response.url,
-        body,
-        ...(bodyBase64 !== undefined ? { bodyBase64 } : {}),
-        headers: {}
-      },
-      validation.url
-    );
-  } finally {
-    clearTimeout(timer);
-    request.signal?.removeEventListener?.("abort", abort);
-  }
+  return normalizeResponse(await fetchBrowserPluginRequest(request), request.url);
 }
 
 export const PluginServiceClient = {
@@ -305,28 +262,26 @@ export const PluginServiceClient = {
     if (!force && cachedHealth && now - cachedHealthAt < HEALTH_TTL_MS) return cachedHealth;
     const service = serviceForPlatform();
     if (!service) {
-      if (Platform.isVidaa()) {
-        cachedHealth = {
-          returnValue: true,
-          status: "vidaa",
-          protocolVersion: PLUGIN_PROTOCOL_VERSION,
-          serviceVersion: 1,
-          runtimeVersion: "1.0.0",
-          quickjsVersion: "2024-01-13",
-          workerSupport: true,
-          maxConcurrency: 4,
-          memoryTier: "modern",
-          jsPluginCapability: true,
-          networkBoundary: true
-        };
-        cachedHealthAt = now;
-        return cachedHealth;
-      }
+      const allowed =
+        Platform.isVidaa() ||
+        (Platform.isBrowser() && globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ === true);
+      const workerSupport = typeof globalThis.Worker === "function";
+      const jsPluginCapability = workerSupport && typeof globalThis.WebAssembly === "object";
+      const networkSupport = typeof globalThis.fetch === "function";
       cachedHealth = {
-        returnValue: globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ === true,
-        status:
-          globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ === true ? "browser" : "unsupported",
-        detail: "No packaged TV plugin service"
+        returnValue: allowed && jsPluginCapability && networkSupport,
+        status: allowed ? (Platform.isVidaa() ? "vidaa" : "browser") : "unsupported",
+        networkMode: "browser",
+        networkBoundary: false,
+        workerSupport,
+        jsPluginCapability,
+        detail: !allowed
+          ? "No packaged TV plugin service"
+          : !jsPluginCapability
+            ? "Worker and WebAssembly are required"
+            : !networkSupport
+              ? "Fetch API unavailable"
+              : "Browser networking rules apply"
       };
       cachedHealthAt = now;
       return cachedHealth;
@@ -434,7 +389,11 @@ export const PluginServiceClient = {
         if (Platform.isBrowser() && globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ !== true)
           throw new Error("Plugin execution is TV-only");
         const result = await directBrowserFetch(request);
-        if (!result.ok || result.truncated || result.returnValue === false) {
+        if (
+          (!result.ok && !isExpectedPluginRedirectResponse(request, result)) ||
+          result.truncated ||
+          result.returnValue === false
+        ) {
           emitPluginDiagnosticEvent(
             result.truncated ? "provider response truncated" : "provider response failed",
             {
@@ -464,6 +423,7 @@ export const PluginServiceClient = {
           url: validation.url,
           method: validation.method,
           headers: validation.headers,
+          followRedirects: validation.followRedirects,
           bodyKind: validation.bodyKind,
           body: validation.body,
           ...(validation.bodyBase64 !== undefined ? { bodyBase64: validation.bodyBase64 } : {}),
@@ -482,7 +442,11 @@ export const PluginServiceClient = {
         }
       );
       const normalized = normalizeResponse(result, validation.url);
-      if (!normalized.ok || normalized.truncated || normalized.returnValue === false) {
+      if (
+        (!normalized.ok && !isExpectedPluginRedirectResponse(request, normalized)) ||
+        normalized.truncated ||
+        normalized.returnValue === false
+      ) {
         emitPluginDiagnosticEvent(
           normalized.truncated ? "provider response truncated" : "provider response failed",
           {
@@ -543,7 +507,8 @@ export const PluginServiceClient = {
   cancel(requestId) {
     if (!areTizenPluginsSupported()) return Promise.resolve(false);
     const service = serviceForPlatform();
-    if (!service || !requestId) return Promise.resolve(false);
+    if (!requestId) return Promise.resolve(false);
+    if (!service) return Promise.resolve(cancelBrowserPluginRequest(requestId));
     return service.cancel({ requestId: String(requestId) });
   },
 

@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import { getVidaaEmbeddedTextNotice } from "./vidaaEmbeddedTextAdapter.js";
 
 export function createPlayerScreenMethods40() {
   const {
@@ -7,6 +8,7 @@ export function createPlayerScreenMethods40() {
     formatAudioCodecName,
     getAuthoritativeAudioCodecValue,
     localMediaTracksRepository,
+    localMediaEmbeddedSubtitleRepository,
     Environment,
     trackListToArray,
     createTrackDialogCache
@@ -26,6 +28,10 @@ export function createPlayerScreenMethods40() {
     },
     async loadEmbeddedSubtitleTracks() {
       const probeUrl = this.getTrackProbeUrl();
+      if (Environment.isVidaa() && this.lastEmbeddedTrackProbeUrl && probeUrl !== this.lastEmbeddedTrackProbeUrl) {
+        this.clearWebOsEmbeddedTextSubtitleOverlay({ dispose: true });
+        localMediaEmbeddedSubtitleRepository.disposeVidaaSource();
+      }
       if (probeUrl && this.embeddedTrackRequestPromise && this.embeddedTrackRequestUrl === probeUrl && this.embeddedSubtitleLoading) {
         return this.embeddedTrackRequestPromise;
       }
@@ -58,12 +64,23 @@ export function createPlayerScreenMethods40() {
           Environment.isWebOS() && typeof PlayerController.refreshWebOsDeviceInfo === "function"
             ? PlayerController.refreshWebOsDeviceInfo()
             : Promise.resolve();
-        const [, tracks] = await Promise.all([capabilityPromise, localMediaTracksRepository.getTracks(probeUrl)]);
+        const [, tracks] = await Promise.all([
+          capabilityPromise,
+          localMediaTracksRepository.getTracks(probeUrl, {
+            headers: Environment.isVidaa() ? this.getCurrentStreamRequestHeaders() : {},
+            probeTimeSeconds: Environment.isVidaa() ? Number(this.getPlaybackCurrentSeconds?.()) || 0 : 0
+          })
+        ]);
         if (requestToken !== this.embeddedSubtitleLoadToken) {
           return;
         }
 
         this.lastEmbeddedTrackProbeUrl = probeUrl;
+        if (Environment.isVidaa()) {
+          const diagnostic = localMediaEmbeddedSubtitleRepository.getVidaaDiagnostics();
+          this.embeddedTextSubtitleSupportNotice =
+            tracks.length || !diagnostic.errorCode ? "" : getVidaaEmbeddedTextNotice(diagnostic.errorCode);
+        }
         this.embeddedSubtitleTracks = canLoadSubtitleTracks ? this.normalizeEmbeddedSubtitleTracks(tracks) : [];
         this.embeddedAudioTracks = canLoadAudioTracks ? this.normalizeEmbeddedAudioTracks(tracks) : [];
         this.warmBitmapSubtitleSharedResources();
@@ -75,7 +92,9 @@ export function createPlayerScreenMethods40() {
           typeof PlayerController.getSelectedWebOsEmbeddedAudioTrackIndex === "function"
             ? PlayerController.getSelectedWebOsEmbeddedAudioTrackIndex()
             : -1;
-        this.selectedEmbeddedSubtitleTrackIndex = Number.isFinite(selectedEmbeddedSubtitleTrack) ? selectedEmbeddedSubtitleTrack : -1;
+        if (!Environment.isVidaa() || this.webOsEmbeddedTextSubtitleTrack?.embeddedTextProvider !== "vidaa-range") {
+          this.selectedEmbeddedSubtitleTrackIndex = Number.isFinite(selectedEmbeddedSubtitleTrack) ? selectedEmbeddedSubtitleTrack : -1;
+        }
         this.selectedEmbeddedAudioTrackIndex = Number.isFinite(selectedEmbeddedAudioTrack) ? selectedEmbeddedAudioTrack : -1;
         this.refreshTrackDialogs();
       })()

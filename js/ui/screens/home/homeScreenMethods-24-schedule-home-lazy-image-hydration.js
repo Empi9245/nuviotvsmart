@@ -20,6 +20,33 @@ const VIDAA_HORIZONTAL_MAX_AHEAD = 12;
 const VIDAA_VERTICAL_MIN_ROWS_AHEAD = 2;
 const VIDAA_VERTICAL_MAX_ROWS_AHEAD = 8;
 const VIDAA_VERTICAL_PREFETCH_BUDGET = 18;
+const VIDAA_IMAGE_COMMIT_BUDGET_MS = 4;
+const VIDAA_IMAGE_COMMIT_MAX_SCANNED = 8;
+
+function createVidaaImageCommitElapsedTime() {
+  const readPerformanceTime = () => {
+    try {
+      const value = globalThis.performance?.now?.();
+      return Number.isFinite(value) ? value : null;
+    } catch (_) {
+      return null;
+    }
+  };
+  let previousPerformanceTime = readPerformanceTime();
+  let previousWallTime = Date.now();
+  let elapsed = 0;
+  return () => {
+    const performanceTime = readPerformanceTime();
+    const wallTime = Date.now();
+    const performanceDelta = performanceTime != null && previousPerformanceTime != null ? performanceTime - previousPerformanceTime : -1;
+    // Keep elapsed monotonic when a TV clock is missing, throws or moves back.
+    const delta = performanceDelta >= 0 ? performanceDelta : wallTime - previousWallTime;
+    if (Number.isFinite(delta)) elapsed += Math.max(0, delta);
+    previousPerformanceTime = performanceTime;
+    previousWallTime = wallTime;
+    return elapsed;
+  };
+}
 
 function clampNumber(value, min, max) {
   return Math.max(min, Math.min(max, Number(value || 0)));
@@ -69,10 +96,7 @@ function warmVidaaPosterNode(screen, node, priority = "low") {
 function getVidaaNavigationIntervalMs(
   screen,
   direction,
-  {
-    horizontalFloorMs = VIDAA_HORIZONTAL_REPEAT_FLOOR_MS,
-    verticalFloorMs = VIDAA_VERTICAL_REPEAT_FLOOR_MS
-  } = {}
+  { horizontalFloorMs = VIDAA_HORIZONTAL_REPEAT_FLOOR_MS, verticalFloorMs = VIDAA_VERTICAL_REPEAT_FLOOR_MS } = {}
 ) {
   const horizontal = direction === "left" || direction === "right";
   const vertical = direction === "up" || direction === "down";
@@ -110,21 +134,13 @@ function getVidaaPrefetchPlan(screen, anchor, direction, throttle = {}) {
     };
   }
 
-  const posterReadyMs = clampNumber(
-    Number(screen.homeVidaaPosterReadyEwmaMs || VIDAA_DEFAULT_POSTER_READY_MS),
-    280,
-    1200
-  );
+  const posterReadyMs = clampNumber(Number(screen.homeVidaaPosterReadyEwmaMs || VIDAA_DEFAULT_POSTER_READY_MS), 280, 1200);
   const readyWindowMs = clampNumber(posterReadyMs + VIDAA_PREFETCH_SAFETY_MS, 480, 1250);
   const horizontal = direction === "left" || direction === "right";
 
   if (horizontal) {
     return {
-      horizontalAhead: clampNumber(
-        Math.ceil(readyWindowMs / intervalMs),
-        VIDAA_HORIZONTAL_MIN_AHEAD,
-        VIDAA_HORIZONTAL_MAX_AHEAD
-      ),
+      horizontalAhead: clampNumber(Math.ceil(readyWindowMs / intervalMs), VIDAA_HORIZONTAL_MIN_AHEAD, VIDAA_HORIZONTAL_MAX_AHEAD),
       verticalRowsAhead: 0,
       verticalVisibleCount: 0,
       verticalBudget: 0
@@ -134,11 +150,7 @@ function getVidaaPrefetchPlan(screen, anchor, direction, throttle = {}) {
   const landscape = Boolean(anchor?.classList?.contains?.("is-landscape"));
   return {
     horizontalAhead: 0,
-    verticalRowsAhead: clampNumber(
-      Math.ceil(readyWindowMs / intervalMs),
-      VIDAA_VERTICAL_MIN_ROWS_AHEAD,
-      VIDAA_VERTICAL_MAX_ROWS_AHEAD
-    ),
+    verticalRowsAhead: clampNumber(Math.ceil(readyWindowMs / intervalMs), VIDAA_VERTICAL_MIN_ROWS_AHEAD, VIDAA_VERTICAL_MAX_ROWS_AHEAD),
     verticalVisibleCount: landscape ? 5 : 7,
     verticalBudget: VIDAA_VERTICAL_PREFETCH_BUDGET
   };
@@ -187,9 +199,7 @@ function allocateVidaaVerticalPrefetchCounts(rowsAhead, visibleCount, totalBudge
   if (!rows) return [];
   const counts = Array(rows).fill(1);
   let remaining = Math.max(0, Math.floor(Number(totalBudget || 0)) - rows);
-  const caps = counts.map((_, index) =>
-    Math.max(1, Math.min(visibleCount, visibleCount - Math.floor(index * 0.9)))
-  );
+  const caps = counts.map((_, index) => Math.max(1, Math.min(visibleCount, visibleCount - Math.floor(index * 0.9))));
 
   while (remaining > 0) {
     let changed = false;
@@ -207,11 +217,7 @@ function allocateVidaaVerticalPrefetchCounts(rowsAhead, visibleCount, totalBudge
 function getVidaaVerticalPrefetchNodes(screen, anchor, direction, plan) {
   if (direction !== "up" && direction !== "down") return [];
   const step = direction === "down" ? 1 : -1;
-  const counts = allocateVidaaVerticalPrefetchCounts(
-    plan.verticalRowsAhead,
-    plan.verticalVisibleCount,
-    plan.verticalBudget
-  );
+  const counts = allocateVidaaVerticalPrefetchCounts(plan.verticalRowsAhead, plan.verticalVisibleCount, plan.verticalBudget);
   const groups = [];
   counts.forEach((count, index) => {
     const nodes = getVidaaRowNeighborhoodNodes(screen, anchor, count, step * (index + 1));
@@ -354,10 +360,7 @@ export function createHomeScreenMethods24() {
         });
       });
     },
-    scheduleVidaaHomeLazyImageHydration(
-      anchorNode = null,
-      { refreshIndex = false, navigationDirection = null } = {}
-    ) {
+    scheduleVidaaHomeLazyImageHydration(anchorNode = null, { refreshIndex = false, navigationDirection = null } = {}) {
       if (!this.container || this.container.isConnected === false) return;
       const anchor = anchorNode || this.getCurrentFocusedNode();
       this.pendingHomeLazyImageAnchor = anchor;
@@ -374,16 +377,14 @@ export function createHomeScreenMethods24() {
 
       const enteredNodes = verticalNavigation ? getVidaaRowNeighborhoodNodes(this, anchor, prefetchPlan.verticalVisibleCount) : [];
       const predictedNodes = horizontalNavigation
-        ? getVidaaHorizontalPrefetchNodes(
-            this,
-            anchor,
-            navigationDirection,
-            prefetchPlan.horizontalAhead
-          )
+        ? getVidaaHorizontalPrefetchNodes(this, anchor, navigationDirection, prefetchPlan.horizontalAhead)
         : getVidaaVerticalPrefetchNodes(this, anchor, navigationDirection, prefetchPlan);
 
       if (horizontalNavigation || verticalNavigation) {
-        reconcileVidaaHomePosterPrefetches(this, [anchor, ...enteredNodes, ...predictedNodes].map(node => getVidaaPosterSource(this, node)));
+        reconcileVidaaHomePosterPrefetches(
+          this,
+          [anchor, ...enteredNodes, ...predictedNodes].map((node) => getVidaaPosterSource(this, node))
+        );
       }
       if (verticalNavigation) {
         // The row being entered is already visible while its 140 ms camera move
@@ -611,8 +612,17 @@ export function createHomeScreenMethods24() {
           return;
         }
         let assigned = 0;
-        const maxPerFrame = Platform.isVidaa() ? 4 : HOME_LEGACY_LAZY_HYDRATION_MAX_PER_FRAME;
+        let scanned = 0;
+        const isVidaa = Platform.isVidaa();
+        const maxPerFrame = isVidaa ? 4 : HOME_LEGACY_LAZY_HYDRATION_MAX_PER_FRAME;
+        const elapsedTime = isVidaa ? createVidaaImageCommitElapsedTime() : null;
         while (pending.length && assigned < maxPerFrame) {
+          // Process at least one entry. Stale/disconnected entries also consume
+          // the budget so a long invalid queue cannot monopolize one TV frame.
+          if (isVidaa && scanned > 0 && (scanned >= VIDAA_IMAGE_COMMIT_MAX_SCANNED || elapsedTime() >= VIDAA_IMAGE_COMMIT_BUDGET_MS)) {
+            break;
+          }
+          scanned += 1;
           const { image, src } = pending.shift();
           if (!(image instanceof HTMLImageElement) || !image.isConnected) {
             continue;

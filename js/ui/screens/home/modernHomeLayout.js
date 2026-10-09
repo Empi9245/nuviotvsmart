@@ -51,11 +51,14 @@ export function renderModernHomeLayout({
   formatCatalogRowTitle,
   shouldDeferRowImages,
   watchedTitleIds = null,
+  renderCatalogRow = null,
   escapeHtml,
   escapeAttribute
 } = {}) {
   const catalogSeeAllMap = new Map();
   const sectionsMarkup = [];
+  const hasCatalogRowRenderer = typeof renderCatalogRow === "function";
+  const watchedTitleIdsSnapshot = hasCatalogRowRenderer ? Array.from(watchedTitleIds || []) : null;
 
   rows.forEach((rowData, rowIndex) => {
     const isCollectionRow = rowData?.rowKind === "collection";
@@ -100,25 +103,28 @@ export function renderModernHomeLayout({
       typeof shouldDeferRowImages === "function"
         ? shouldDeferRowImages(rowIndex, rowKey, focusedRowKey)
         : false;
-    const cardsMarkup = visibleItems
-      .map((item, itemIndex) =>
-        createPosterCardMarkup(
-          item,
-          rowIndex,
-          itemIndex,
-          rowData.type,
-          rowData,
-          showPosterLabels,
-          "modern",
-          expandFocusedPoster && focusedRowKey === rowKey && focusedItemIndex === itemIndex,
-          preferLandscapePosters,
-          deferRowImages,
-          watchedTitleIds
+    const expandedItemIndex =
+      expandFocusedPoster && focusedRowKey === rowKey ? focusedItemIndex : -1;
+    const renderRowMarkup = () => {
+      const cardsMarkup = visibleItems
+        .map((item, itemIndex) =>
+          createPosterCardMarkup(
+            item,
+            rowIndex,
+            itemIndex,
+            rowData.type,
+            rowData,
+            showPosterLabels,
+            "modern",
+            expandFocusedPoster && focusedRowKey === rowKey && focusedItemIndex === itemIndex,
+            preferLandscapePosters,
+            deferRowImages,
+            watchedTitleIds
+          )
         )
-      )
-      .join("");
+        .join("");
 
-    sectionsMarkup.push(`
+      return `
       <section class="home-row home-modern-row home-row-enter" data-row-key="${escapeHtml(rowKey)}" data-row-index="${rowIndex}">
         <div class="home-row-head">
           <h2 class="home-row-title">${escapeHtml(rowTitle)}</h2>
@@ -127,7 +133,32 @@ export function renderModernHomeLayout({
           ${cardsMarkup}
         </div>
       </section>
-    `);
+    `;
+    };
+    sectionsMarkup.push(
+      hasCatalogRowRenderer
+        ? renderCatalogRow(
+            rowKey,
+            {
+              rowData,
+              rowIndex,
+              visibleItems,
+              rowTitle,
+              layoutMode: "modern",
+              showPosterLabels,
+              showCatalogTypeSuffix,
+              preferLandscapePosters,
+              deferRowImages,
+              rowItemLimit,
+              maxItems,
+              focusedItemLimit,
+              expandedItemIndex,
+              watchedTitleIds: watchedTitleIdsSnapshot
+            },
+            renderRowMarkup
+          )
+        : renderRowMarkup()
+    );
   });
 
   return {

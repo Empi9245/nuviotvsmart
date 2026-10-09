@@ -1,5 +1,9 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import {
+  nativeTextTrackSelectionMatches,
+  confirmNativeTrackSelection
+} from "../../../core/player/playerControllerMethods-02-is-likely-direct-file-url.js";
 
 export function createPlayerScreenMethods46() {
   const {
@@ -13,6 +17,39 @@ export function createPlayerScreenMethods46() {
   } = internals;
 
   return {
+    async disableNativeSubtitleOutputs(selectionToken = this.subtitleSelectionToken) {
+      const video = PlayerController.video;
+      const playRequestToken = PlayerController.playRequestToken;
+      const mountToken = this.playerMountToken;
+      const isCurrent = () =>
+        Number(selectionToken) === Number(this.subtitleSelectionToken) &&
+        this.playerMountToken === mountToken &&
+        PlayerController.video === video &&
+        PlayerController.playRequestToken === playRequestToken;
+      if (!isCurrent()) return false;
+      if (PlayerController.isUsingAvPlay?.()) {
+        const applied = await PlayerController.setAvPlaySubtitleTrack?.(-1);
+        return Boolean(applied) && isCurrent();
+      }
+      if (PlayerController.getDashTextTracks?.().length) {
+        if (!(await PlayerController.setDashTextTrack?.(-1)) || !isCurrent()) return false;
+      } else if (PlayerController.getHlsSubtitleTracks?.().length) {
+        if (!(await PlayerController.setHlsSubtitleTrack?.(-1)) || !isCurrent()) return false;
+      }
+      const applied = await Promise.resolve(PlayerController.setNativeTextTrack?.(-1)).catch(() => false);
+      if (!isCurrent()) return false;
+      if (applied && Environment.isWebOS()) return true;
+      if (!applied) {
+        this.getTextTracks().forEach((track) => {
+          try {
+            track.mode = "disabled";
+          } catch (_) {
+            /* Check all outputs below. */
+          }
+        });
+      }
+      return confirmNativeTrackSelection(() => nativeTextTrackSelectionMatches(this.getTextTracks(), -1), isCurrent);
+    },
     scheduleHtmlSubtitleOverlayRender() {
       if (!Array.isArray(this.htmlSubtitleCues) || !this.htmlSubtitleCues.length) {
         return;
@@ -133,7 +170,14 @@ export function createPlayerScreenMethods46() {
       }, hideDelayMs);
     },
     async applyTvHtmlAddonSubtitle(subtitle, subtitleIndex, selectionToken = this.subtitleSelectionToken) {
-      const isCurrentSelection = () => Number(selectionToken) === Number(this.subtitleSelectionToken);
+      const video = PlayerController.video;
+      const playRequestToken = PlayerController.playRequestToken;
+      const mountToken = this.playerMountToken;
+      const isCurrentSelection = () =>
+        Number(selectionToken) === Number(this.subtitleSelectionToken) &&
+        this.playerMountToken === mountToken &&
+        PlayerController.video === video &&
+        PlayerController.playRequestToken === playRequestToken;
       if (!isCurrentSelection()) {
         return false;
       }
@@ -143,7 +187,7 @@ export function createPlayerScreenMethods46() {
       // ASS branch: fetch the raw body and render through ass.js when
       // detected. Native AVPlay subtitle handling cannot consume ASS text,
       // so the HTML overlay (or ass.js overlay) is the only presentation.
-      if (Environment.isWebOS() || (Environment.isTizen() && PlayerController.isUsingAvPlay?.())) {
+      if (Environment.isWebOS() || Environment.isVidaa() || (Environment.isTizen() && PlayerController.isUsingAvPlay?.())) {
         let raw = null;
         try {
           raw = await this.fetchSubtitleRawBody(sourceUrl, {
@@ -164,14 +208,13 @@ export function createPlayerScreenMethods46() {
           if (!isCurrentSelection()) {
             return false;
           }
+          if (!(await this.disableNativeSubtitleOutputs(selectionToken)) || !isCurrentSelection()) return false;
           this.clearMountedExternalSubtitleTracks();
           this.clearHtmlSubtitleOverlay();
-          if (typeof PlayerController.setAvPlaySubtitleTrack === "function") {
-            PlayerController.setAvPlaySubtitleTrack(-1);
-          }
           const assResult = await this.applyAssSubtitleBody({
             body: raw.body,
-            selectionToken
+            selectionToken,
+            isCurrent: isCurrentSelection
           });
           if (assResult.applied && isCurrentSelection()) {
             this.selectedAddonSubtitleId = subtitleId;
@@ -216,12 +259,10 @@ export function createPlayerScreenMethods46() {
           if (!cues.length) {
             throw new Error("HTML subtitle fetch returned no cues");
           }
+          if (!(await this.disableNativeSubtitleOutputs(selectionToken)) || !isCurrentSelection()) return false;
           this.clearMountedExternalSubtitleTracks();
           this.clearHtmlSubtitleOverlay();
           this.destroyAssSubtitleRenderer();
-          if (typeof PlayerController.setAvPlaySubtitleTrack === "function") {
-            PlayerController.setAvPlaySubtitleTrack(-1);
-          }
           this.htmlSubtitleCues = cues;
           this.htmlSubtitleSelectedId = subtitleId;
           this.selectedAddonSubtitleId = subtitleId;
@@ -265,12 +306,10 @@ export function createPlayerScreenMethods46() {
       if (!cues.length) {
         throw new Error("HTML subtitle fetch returned no cues");
       }
+      if (!(await this.disableNativeSubtitleOutputs(selectionToken)) || !isCurrentSelection()) return false;
       this.clearMountedExternalSubtitleTracks();
       this.clearHtmlSubtitleOverlay();
       this.destroyAssSubtitleRenderer();
-      if (typeof PlayerController.setAvPlaySubtitleTrack === "function") {
-        PlayerController.setAvPlaySubtitleTrack(-1);
-      }
       this.htmlSubtitleCues = cues;
       this.htmlSubtitleSelectedId = subtitleId;
       this.selectedAddonSubtitleId = subtitleId;
@@ -288,34 +327,31 @@ export function createPlayerScreenMethods46() {
     activateMountedExternalSubtitleTrack(trackNode) {
       const textTracks = this.getTextTracks();
       const targetTrack = trackNode?.track || null;
-      if (!targetTrack && !textTracks.length) {
+      const targetIndex = targetTrack
+        ? textTracks.indexOf(targetTrack)
+        : trackNode && textTracks.length > Number(this.builtInSubtitleCount || 0)
+          ? textTracks.length - 1
+          : -1;
+      if (targetIndex < 0) {
         return false;
       }
 
-      let activatedIndex = -1;
       textTracks.forEach((textTrack, index) => {
-        const shouldShow = targetTrack ? textTrack === targetTrack : index === textTracks.length - 1;
         try {
-          textTrack.mode = shouldShow ? "showing" : "disabled";
-          if (shouldShow) {
-            activatedIndex = index;
-          }
+          textTrack.mode = "disabled";
         } catch (_) {
           // Best effort.
         }
       });
 
-      if (activatedIndex < 0 && targetTrack) {
-        try {
-          targetTrack.mode = "showing";
-          activatedIndex = textTracks.indexOf(targetTrack);
-        } catch (_) {
-          // Best effort.
-        }
+      try {
+        textTracks[targetIndex].mode = "showing";
+      } catch (_) {
+        /* Verify below. */
       }
 
-      if (activatedIndex >= 0) {
-        this.selectedSubtitleTrackIndex = activatedIndex;
+      if (nativeTextTrackSelectionMatches(textTracks, targetIndex)) {
+        this.selectedSubtitleTrackIndex = targetIndex;
         this.refreshTrackDialogs();
         return true;
       }

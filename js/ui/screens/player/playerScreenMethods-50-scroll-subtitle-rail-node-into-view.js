@@ -195,18 +195,30 @@ export function createPlayerScreenMethods50() {
     isStartupAudioPreferenceRetryPending() {
       return Number(this.startupAudioPreferenceRetryDeadline || 0) > Date.now();
     },
+    isVidaaStartupAudioPreferenceWindowPending() {
+      return Boolean(
+        Environment.isVidaa() &&
+        this.startupAudioGateActive &&
+        !this.startupAudioPreferenceApplied &&
+        Number(this.startupAudioGateDeadline || 0) > Date.now() &&
+        (this.rememberedAudioTrackPreference || this.getStartupPreferredAudioLanguageTargets().length)
+      );
+    },
     scheduleStartupAudioPreferenceRetry() {
       const canRetryTizenAvPlay = Boolean(
         Environment.isTizen() && typeof PlayerController.isUsingAvPlay === "function" && PlayerController.isUsingAvPlay()
       );
       const canRetryWebOsTracks = Environment.isWebOS();
-      if (!canRetryTizenAvPlay && !canRetryWebOsTracks) {
+      const canRetryVidaaTracks = this.isVidaaStartupAudioPreferenceWindowPending();
+      if (!canRetryTizenAvPlay && !canRetryWebOsTracks && !canRetryVidaaTracks) {
         return false;
       }
 
       const now = Date.now();
       if (!Number(this.startupAudioPreferenceRetryDeadline || 0)) {
-        this.startupAudioPreferenceRetryDeadline = now + STARTUP_AUDIO_PREFERENCE_RETRY_WINDOW_MS;
+        this.startupAudioPreferenceRetryDeadline = canRetryVidaaTracks
+          ? Number(this.startupAudioGateDeadline)
+          : now + STARTUP_AUDIO_PREFERENCE_RETRY_WINDOW_MS;
       }
       if (now >= Number(this.startupAudioPreferenceRetryDeadline || 0)) {
         this.clearStartupAudioPreferenceRetry();
@@ -216,13 +228,24 @@ export function createPlayerScreenMethods50() {
         return true;
       }
 
+      const mountToken = this.playerMountToken;
+      const video = PlayerController.video;
+      const playToken = PlayerController.playRequestToken;
       this.startupAudioPreferenceRetryTimer = setTimeout(() => {
         this.startupAudioPreferenceRetryTimer = null;
-        if (this.startupAudioPreferenceApplied || !this.playerRouteActive) {
+        if (
+          this.startupAudioPreferenceApplied ||
+          !this.playerRouteActive ||
+          (canRetryVidaaTracks &&
+            (this.playerMountToken !== mountToken ||
+              PlayerController.video !== video ||
+              PlayerController.playRequestToken !== playToken ||
+              !this.isVidaaStartupAudioPreferenceWindowPending()))
+        ) {
           this.clearStartupAudioPreferenceRetry();
           return;
         }
-        if (typeof PlayerController.syncAvPlayTrackInfo === "function") {
+        if (!canRetryVidaaTracks && typeof PlayerController.syncAvPlayTrackInfo === "function") {
           PlayerController.syncAvPlayTrackInfo({ force: true });
         }
         if (canRetryWebOsTracks) {

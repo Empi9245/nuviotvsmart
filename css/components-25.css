@@ -348,6 +348,40 @@
   overflow: hidden;
 }
 
+.debug-console-frame-diagnostics {
+  flex: 0 0 auto;
+  padding: 16px 20px;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 20px;
+  background: var(--card-bg, #181d25);
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.debug-console-frame-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.debug-console-frame-toolbar h2 {
+  margin: 0 auto 0 0;
+  font-size: 24px;
+}
+
+.debug-console-frame-diagnostics p {
+  margin: 6px 0 0;
+}
+
+.debug-console-frame-stats {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.debug-console-frame-note {
+  color: var(--text-secondary, rgba(255, 255, 255, 0.68));
+}
+
 .debug-console-log-list {
   width: 100%;
   height: 100%;

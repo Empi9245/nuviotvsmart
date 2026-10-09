@@ -1,6 +1,12 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerController.js";
 import { selectVidaaTextTrack } from "../../platform/vidaa/vidaaVideo.js";
+import {
+  nativeTrackListToArray,
+  nativeAudioTrackSelectionMatches,
+  nativeTextTrackSelectionMatches,
+  confirmNativeTrackSelection
+} from "./playerControllerMethods-02-is-likely-direct-file-url.js";
 
 export function createPlayerControllerMethods15() {
   const { Platform, isValidAvPlayPlaybackSpeedState, resolveWebOsSubtitleFontSizeLevel } = internals;
@@ -62,12 +68,16 @@ export function createPlayerControllerMethods15() {
       return true;
     },
     setNativeAudioTrack(index) {
+      // Native flags confirm immediately or through a bounded promise. The
+      // webOS native service retains its request/confirmation event contract.
+      const requestToken = Number(this.nativeAudioTrackSelectionToken || 0) + 1;
+      this.nativeAudioTrackSelectionToken = requestToken;
       if (!this.video) {
         return false;
       }
       const targetIndex = Number(index);
       const tracks = this.nativeAudioTrackListToArray();
-      if (!Number.isFinite(targetIndex) || targetIndex < 0 || targetIndex >= tracks.length) {
+      if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= tracks.length) {
         return false;
       }
 
@@ -104,7 +114,12 @@ export function createPlayerControllerMethods15() {
       this.webOsAudioSelectionExplicit = false;
       this.selectedWebOsEmbeddedAudioTrackIndex = -1;
       applySelection();
-      return true;
+      const video = this.video;
+      const playRequestToken = this.playRequestToken;
+      return confirmNativeTrackSelection(
+        () => nativeAudioTrackSelectionMatches(this.nativeAudioTrackListToArray(), targetIndex),
+        () => this.video === video && this.playRequestToken === playRequestToken && this.nativeAudioTrackSelectionToken === requestToken
+      );
     },
     setWebOsEmbeddedAudioTrack(trackIndex, selectedTrackIndex = trackIndex) {
       if (!Platform.isWebOS() || !this.video || !this.isUsingNativePlayback()) {
@@ -154,31 +169,39 @@ export function createPlayerControllerMethods15() {
       });
     },
     setNativeTextTrack(index) {
+      // A fulfilled result confirms DOM modes or the native service command;
+      // stored webOS indices remain desired selections while a command is pending.
+      const requestToken = Number(this.nativeTextTrackSelectionToken || 0) + 1;
+      this.nativeTextTrackSelectionToken = requestToken;
       if (!this.video) {
         return false;
       }
       const targetIndex = Number(index);
       const textTrackList = this.video.textTracks || this.video.webkitTextTracks || this.video.mozTextTracks || null;
-      let tracks = [];
-      if (textTrackList) {
-        try {
-          tracks = Array.from(textTrackList).filter(Boolean);
-        } catch (_) {
-          const trackCount = Number(textTrackList.length || 0);
-          for (let trackIndex = 0; trackIndex < trackCount; trackIndex += 1) {
-            const track = textTrackList[trackIndex] || textTrackList.item?.(trackIndex) || null;
-            if (track) {
-              tracks.push(track);
-            }
-          }
-        }
-      }
-      if (!Number.isFinite(targetIndex) || targetIndex < -1 || targetIndex >= tracks.length) {
+      const tracks = nativeTrackListToArray(textTrackList);
+      if (!Number.isInteger(targetIndex) || targetIndex < -1 || targetIndex >= tracks.length) {
         return false;
       }
 
+      const video = this.video;
+      const playRequestToken = this.playRequestToken;
+      const isCurrent = () =>
+        this.video === video &&
+        this.playRequestToken === playRequestToken &&
+        this.nativeTextTrackSelectionToken === requestToken &&
+        (!Platform.isWebOS() ||
+          !this.isUsingNativePlayback() ||
+          (this.selectedWebOsSubtitleTrackIndex === targetIndex && this.selectedWebOsEmbeddedSubtitleTrackIndex === -1));
       if (Platform.isVidaa()) {
-        return selectVidaaTextTrack(tracks, targetIndex);
+        selectVidaaTextTrack(tracks, targetIndex);
+        return confirmNativeTrackSelection(
+          () =>
+            nativeTextTrackSelectionMatches(
+              nativeTrackListToArray(video.textTracks || video.webkitTextTracks || video.mozTextTracks),
+              targetIndex
+            ),
+          isCurrent
+        );
       }
 
       if (Platform.isWebOS() && this.isUsingNativePlayback()) {
@@ -188,35 +211,23 @@ export function createPlayerControllerMethods15() {
       this.selectedWebOsEmbeddedSubtitleTrackIndex = -1;
 
       const mediaId = this.syncNativeMediaId();
+      let nativeCommand = null;
       if (mediaId && Platform.isWebOS()) {
-        if (targetIndex < 0) {
-          this.requestWebOsMediaCommand("setSubtitleEnable", {
-            mediaId,
-            enable: false
-          }).catch(() => {
-            // Ignore Luna subtitle disable failures and keep native toggles.
-          });
-        } else {
-          this.requestWebOsMediaCommand("setSubtitleEnable", {
-            mediaId,
-            enable: true
-          }).catch(() => {
-            // Ignore Luna subtitle enable failures and keep native toggles.
-          });
-          this.applyWebOsSubtitleFontSize(mediaId, { force: true });
-          setTimeout(() => {
-            if (mediaId !== this.nativeMediaId) {
-              return;
-            }
-            this.requestWebOsMediaCommand("selectTrack", {
-              type: "text",
-              mediaId,
-              index: targetIndex
-            }).catch(() => {
-              // Ignore Luna subtitle track selection failures and keep native toggles.
-            });
-          }, 350);
-        }
+        const succeeded = (result) => result?.returnValue !== false && !result?.errorCode;
+        nativeCommand = this.requestWebOsMediaCommand("setSubtitleEnable", {
+          mediaId,
+          enable: targetIndex >= 0
+        })
+          .then(async (result) => {
+            if (!succeeded(result) || !isCurrent() || mediaId !== this.nativeMediaId) return false;
+            if (targetIndex < 0) return true;
+            this.applyWebOsSubtitleFontSize(mediaId, { force: true });
+            await new Promise((resolve) => setTimeout(resolve, 350));
+            if (!isCurrent() || mediaId !== this.nativeMediaId) return false;
+            const selection = await this.requestWebOsMediaCommand("selectTrack", { type: "text", mediaId, index: targetIndex });
+            return isCurrent() && mediaId === this.nativeMediaId && succeeded(selection);
+          })
+          .catch(() => false);
       }
 
       tracks.forEach((track, trackIndex) => {
@@ -227,7 +238,16 @@ export function createPlayerControllerMethods15() {
         }
       });
 
-      return true;
+      const confirmation = () =>
+        confirmNativeTrackSelection(
+          () =>
+            nativeTextTrackSelectionMatches(
+              nativeTrackListToArray(video.textTracks || video.webkitTextTracks || video.mozTextTracks),
+              targetIndex
+            ),
+          isCurrent
+        );
+      return nativeCommand ? nativeCommand.then((applied) => applied || confirmation()) : confirmation();
     },
     applyWebOsSubtitleFontSize(mediaId, { force = false } = {}) {
       const normalizedMediaId = String(mediaId || "").trim();

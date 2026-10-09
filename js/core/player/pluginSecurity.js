@@ -32,8 +32,27 @@ export function normalizePluginHttpMethod(method) {
   return ["POST", "PUT", "PATCH", "DELETE"].includes(normalized) ? normalized : "GET";
 }
 
+export function isExpectedPluginRedirectResponse(request = {}, response = {}) {
+  return (
+    (request.followRedirects === false || request.redirect === "manual") &&
+    response.returnValue !== false &&
+    [300, 301, 302, 303, 307, 308].includes(Number(response.status)) &&
+    typeof response.headers?.location === "string" &&
+    response.headers.location.trim().length > 0
+  );
+}
+
 export function validatePluginFetchRequest(
-  { url, method = "GET", headers = {}, body = "", bodyBase64, bodyKind: requestedBodyKind } = {},
+  {
+    url,
+    method = "GET",
+    headers = {},
+    body = "",
+    bodyBase64,
+    bodyKind: requestedBodyKind,
+    followRedirects = true,
+    redirect
+  } = {},
   limits = {}
 ) {
   const urlResult = validatePluginUrl(url);
@@ -94,6 +113,9 @@ export function validatePluginFetchRequest(
     url: urlResult.url,
     method: normalizedMethod,
     headers: normalizedHeaders,
+    // Android disables native redirects only for fetch({ redirect: 'manual' }).
+    // The Worker passes that decision as a boolean across the service bridge.
+    followRedirects: followRedirects !== false && redirect !== "manual",
     bodyKind,
     body: bodyKind === "text" ? bodyText : "",
     ...(hasBinaryBody ? { bodyBase64 } : {})

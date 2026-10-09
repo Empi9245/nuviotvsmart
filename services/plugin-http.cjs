@@ -220,6 +220,7 @@ function validatePayload(payload) {
     url: parsed.toString(),
     method: method,
     headers: headers,
+    followRedirects: payload.followRedirects !== false && payload.redirect !== "manual",
     bodyKind: bodyKind,
     body: requestBody,
     responseEncoding: payload && payload.responseEncoding === "base64" ? "base64" : "text",
@@ -672,12 +673,12 @@ function performFetch(payload, callback, redirects, trace, networkState) {
         var headers = responseHeaders(response);
         var bodyEncoding = responseCharset(response.headers["content-type"]);
         var location = headers.location;
-        if (response.statusCode >= 300 && response.statusCode < 400) {
+        if (
+          validation.followRedirects &&
+          [300, 301, 302, 303, 307, 308].indexOf(Number(response.statusCode)) >= 0 &&
+          location
+        ) {
           response.resume();
-          if (!location) {
-            responseDone(new Error("Plugin provider redirect has no location"));
-            return;
-          }
           if ((redirects || 0) >= MAX_REDIRECTS) {
             responseDone(new Error("Plugin provider redirect limit exceeded"));
             return;

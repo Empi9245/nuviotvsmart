@@ -63,8 +63,18 @@ export function scraperIdForManifest(repositoryId, manifestId, filename = "scrap
 
 export function pluginSupportsType(supportedTypes, mediaType) {
   const target = text(mediaType).toLowerCase();
-  const targets = target === "series" ? ["series", "tv", "anime"] : target === "other" ? ["other", "tv"] : [target];
-  return list(supportedTypes).some((entry) => targets.includes(entry));
+  // Android normalizes both the request and each manifest type. Playback
+  // requests use "tv", so one-way alias matching skips valid series providers.
+  const normalize = (value) => {
+    const type = text(value).toLowerCase();
+    return ["series", "show", "other"].includes(type) ? "tv" : type;
+  };
+  return list(supportedTypes).some(
+    (entry) =>
+      normalize(entry) === normalize(target) ||
+      // Retain the existing Smart TV anime match for explicit series requests.
+      (target === "series" && text(entry).toLowerCase() === "anime")
+  );
 }
 
 export function normalizePluginManifest(raw, manifestUrl = "") {

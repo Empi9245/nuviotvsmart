@@ -4,6 +4,7 @@ import * as internals from "./playerScreenContext.js";
 export function createPlayerScreenMethods43() {
   const {
     PlayerController,
+    localMediaEmbeddedSubtitleRepository,
     Environment,
     parseVttCueLayout,
     convertAssBodyToVtt,
@@ -46,9 +47,12 @@ export function createPlayerScreenMethods43() {
     isAssAddonSubtitleActive() {
       return Boolean(this.assSubtitleRenderer?.active);
     },
-    async applyAssSubtitleBody({ body, selectionToken, isCurrent = null }) {
+    async applyAssSubtitleBody({ body, selectionToken, isCurrent = null, isRendererCurrent = null }) {
+      let initialized = false;
       const isCurrentSelection = () =>
-        Number(selectionToken) === Number(this.subtitleSelectionToken) && (typeof isCurrent !== "function" || isCurrent());
+        initialized && typeof isRendererCurrent === "function"
+          ? isRendererCurrent()
+          : Number(selectionToken) === Number(this.subtitleSelectionToken) && (typeof isCurrent !== "function" || isCurrent());
       this.destroyAssSubtitleRenderer();
       const container = this.getAssSubtitleContainer();
       const video = PlayerController.video;
@@ -60,11 +64,11 @@ export function createPlayerScreenMethods43() {
         isCurrentSelection,
         // webOS exposes requestVideoFrameCallback but its video pipeline does
         // not fire it; make ass.js capture requestAnimationFrame instead.
-        forceRafFrameLoop: Environment.isWebOS(),
+        forceRafFrameLoop: Environment.isWebOS() || Environment.isVidaa(),
         // The webOS native pipeline can leave video.paused=true while the app
         // is playing, and the UI paused flag can lag that state. The controller
         // state is authoritative when deciding whether to kick the renderer.
-        forcePlaybackFrameLoopKick: Environment.isWebOS() && PlayerController.isPlaying
+        forcePlaybackFrameLoopKick: (Environment.isWebOS() || Environment.isVidaa()) && PlayerController.isPlaying
       });
       if (!renderer || typeof renderer.init !== "function") {
         return { applied: false, fallbackVtt: convertAssBodyToVtt(body) };
@@ -76,6 +80,7 @@ export function createPlayerScreenMethods43() {
         this.destroyAssSubtitleRenderer(renderer);
         return { applied: false, fallbackVtt };
       }
+      initialized = true;
       renderer.setDelay(this.subtitleDelayMs);
       this.showAssSubtitleContainer();
       return { applied: true };
@@ -198,11 +203,13 @@ export function createPlayerScreenMethods43() {
       }
     },
     clearWebOsEmbeddedTextSubtitleOverlay({ dispose = false } = {}) {
+      if (Environment.isVidaa()) localMediaEmbeddedSubtitleRepository.cancelVidaaWindow();
       const overlayActive =
         this.webOsEmbeddedTextSubtitleUsingHtml ||
         String(this.htmlSubtitleSelectedId || "").startsWith("webos-embedded-text-") ||
         String(this.htmlSubtitleSelectedId || "").startsWith("tizen-tx3g-") ||
         String(this.htmlSubtitleSelectedId || "").startsWith("tizen-embedded-text-");
+      const vidaaOverlayActive = String(this.htmlSubtitleSelectedId || "").startsWith("vidaa-embedded-text-");
       if (this.webOsEmbeddedTextSubtitleUsingAss) {
         this.destroyAssSubtitleRenderer();
       }
@@ -216,11 +223,12 @@ export function createPlayerScreenMethods43() {
         this.embeddedTextSubtitleSupportNotice = "";
         this.webOsEmbeddedTextSubtitleFallbackUnavailable = false;
       }
-      if (overlayActive) {
+      if (overlayActive || vidaaOverlayActive) {
         this.clearHtmlSubtitleOverlay();
       }
       this.webOsEmbeddedTextSubtitleUsingAss = false;
       if (dispose) {
+        this.vidaaEmbeddedTextPendingIndex = null;
         this.webOsEmbeddedTextSubtitleTrack = null;
         this.webOsEmbeddedTextSubtitleUsingHtml = false;
       }
@@ -252,6 +260,7 @@ export function createPlayerScreenMethods43() {
       if (hasReusableWindow) {
         return;
       }
+      if (Environment.isVidaa()) localMediaEmbeddedSubtitleRepository.cancelVidaaWindow();
       this.webOsEmbeddedTextSubtitleLoadToken = Number(this.webOsEmbeddedTextSubtitleLoadToken || 0) + 1;
       this.webOsEmbeddedTextSubtitleLoading = false;
       this.webOsEmbeddedTextSubtitleWindowStart = 0;

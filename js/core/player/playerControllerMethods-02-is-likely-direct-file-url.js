@@ -1,6 +1,97 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerController.js";
 
+// Some TV track lists expose item() without indexed properties. Array.from()
+// succeeds on those lists but produces undefined entries instead of tracks.
+export function nativeTrackListToArray(trackList) {
+  if (!trackList) return [];
+  let length;
+  try {
+    length = Number(trackList.length);
+  } catch (_) {
+    return [];
+  }
+  if (!Number.isInteger(length) || length < 0) {
+    try {
+      return Array.from(trackList).filter(Boolean);
+    } catch (_) {
+      return [];
+    }
+  }
+  try {
+    const iterableTracks = Array.from(trackList).filter(Boolean);
+    if (iterableTracks.length === length) return iterableTracks;
+  } catch (_) {
+    /* Try indexed access and item() below. */
+  }
+  const tracks = [];
+  for (let index = 0; index < length; index += 1) {
+    let track = null;
+    try {
+      track = trackList[index];
+    } catch (_) {
+      /* Try item() below. */
+    }
+    if (!track) {
+      try {
+        track = trackList.item?.(index);
+      } catch (_) {
+        /* Skip inaccessible entries. */
+      }
+    }
+    if (track) tracks.push(track);
+  }
+  return tracks;
+}
+
+export function nativeAudioTrackSelectionMatches(tracks, targetIndex) {
+  try {
+    return (
+      Boolean(tracks[targetIndex]) && tracks.every((track, index) => Boolean(track.enabled || track.selected) === (index === targetIndex))
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+export function nativeTextTrackSelectionMatches(tracks, targetIndex) {
+  try {
+    return (
+      (targetIndex === -1 || Boolean(tracks[targetIndex])) &&
+      tracks.every((track, index) => track.mode === (index === targetIndex ? "showing" : "disabled"))
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+// Return a synchronous confirmation when possible, otherwise allow a bounded
+// window for native setters to take effect. A request is not a confirmation.
+// Existing track change events continue to reconcile changes after this window.
+export function confirmNativeTrackSelection(isApplied, isCurrent = () => true) {
+  if (!isCurrent()) return false;
+  if (isApplied()) return true;
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const check = () => {
+      if (!isCurrent()) {
+        resolve(false);
+        return;
+      }
+      if (isApplied()) {
+        resolve(true);
+        return;
+      }
+      if (++attempts >= 6) {
+        resolve(false);
+        return;
+      }
+      setTimeout(check, 100);
+    };
+    setTimeout(check, 100);
+  });
+}
+
 export function createPlayerControllerMethods02() {
   const { Platform, WebOsLunaService, subscribeWebOsCompanionService, WebOSPlayerExtensions } = internals;
 
@@ -147,6 +238,8 @@ export function createPlayerControllerMethods02() {
       });
     },
     resetNativeMediaState() {
+      this.nativeAudioTrackSelectionToken = Number(this.nativeAudioTrackSelectionToken || 0) + 1;
+      this.nativeTextTrackSelectionToken = Number(this.nativeTextTrackSelectionToken || 0) + 1;
       this.nativeMediaId = "";
       this.nativeMediaIdLookupToken = Number(this.nativeMediaIdLookupToken || 0) + 1;
       this.webOsPlaybackRateRequestToken = Number(this.webOsPlaybackRateRequestToken || 0) + 1;
@@ -190,20 +283,7 @@ export function createPlayerControllerMethods02() {
       const hasAudioSelection =
         this.webOsAudioSelectionExplicit && Number.isFinite(audioIndex) && audioIndex >= 0 && audioIndex < audioTracks.length;
       const textTrackList = this.video.textTracks || this.video.webkitTextTracks || this.video.mozTextTracks || null;
-      let textTracks = [];
-      if (textTrackList) {
-        try {
-          textTracks = Array.from(textTrackList).filter(Boolean);
-        } catch (_) {
-          const trackCount = Number(textTrackList.length || 0);
-          for (let trackIndex = 0; trackIndex < trackCount; trackIndex += 1) {
-            const track = textTrackList[trackIndex] || textTrackList.item?.(trackIndex) || null;
-            if (track) {
-              textTracks.push(track);
-            }
-          }
-        }
-      }
+      const textTracks = nativeTrackListToArray(textTrackList);
       const subtitleIndex = Number(this.selectedWebOsSubtitleTrackIndex);
       const hasSubtitleSelection =
         this.webOsSubtitleSelectionExplicit && (subtitleIndex < 0 || (Number.isFinite(subtitleIndex) && subtitleIndex < textTracks.length));
@@ -338,22 +418,7 @@ export function createPlayerControllerMethods02() {
     },
     nativeAudioTrackListToArray() {
       const audioTrackList = this.video?.audioTracks || this.video?.webkitAudioTracks || this.video?.mozAudioTracks || null;
-      if (!audioTrackList) {
-        return [];
-      }
-      try {
-        return Array.from(audioTrackList).filter(Boolean);
-      } catch (_) {
-        const tracks = [];
-        const trackCount = Number(audioTrackList.length || 0);
-        for (let trackIndex = 0; trackIndex < trackCount; trackIndex += 1) {
-          const track = audioTrackList[trackIndex] || audioTrackList.item?.(trackIndex) || null;
-          if (track) {
-            tracks.push(track);
-          }
-        }
-        return tracks;
-      }
+      return nativeTrackListToArray(audioTrackList);
     },
     stopAvPlayTickTimer() {
       if (this.avplayTickTimer) {

@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import { applyVidaaEmbeddedTextSubtitleTrack } from "./vidaaEmbeddedTextAdapter.js";
 
 export function createPlayerScreenMethods53() {
   const {
@@ -26,6 +27,7 @@ export function createPlayerScreenMethods53() {
   } = internals;
 
   return {
+    applyVidaaEmbeddedTextSubtitleTrack,
     renderSubtitleStyleControlInPlace(controlId) {
       const dialog = this.uiRefs?.subtitleDialog;
       if (!dialog || !this.subtitleDialogVisible) return false;

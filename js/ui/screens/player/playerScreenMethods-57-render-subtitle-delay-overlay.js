@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import { isAssSubtitle, convertAssBodyToVtt } from "../../../core/player/assSubtitle.js";
 
 export function createPlayerScreenMethods57() {
   const {
@@ -244,7 +245,10 @@ export function createPlayerScreenMethods57() {
           throw new Error("Subtitle body is empty");
         }
 
-        const parsedCues = this.parseSubtitleCues(raw.body)
+        const cueBody = isAssSubtitle(raw.body, { sourceUrl: subtitleUrl, contentType: raw.contentType })
+          ? convertAssBodyToVtt(raw.body)
+          : raw.body;
+        const parsedCues = this.parseSubtitleCues(cueBody)
           .map((cue) => ({
             startTimeMs: Math.max(0, Math.round(Number(cue.start || 0) * 1000)),
             endTimeMs: Math.max(0, Math.round(Number(cue.end || 0) * 1000)),

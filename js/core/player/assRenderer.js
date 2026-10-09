@@ -134,9 +134,10 @@ export function createAssRenderer({
         // scheduler so ass.js binds requestAnimationFrame instead, then
         // restore the element.
         const shadowRvfc =
-          forceRafFrameLoop &&
-          typeof video.requestVideoFrameCallback === "function" &&
-          !Object.prototype.hasOwnProperty.call(video, "requestVideoFrameCallback");
+          forceRafFrameLoop && typeof video.requestVideoFrameCallback === "function";
+        const rvfcDescriptor = shadowRvfc
+          ? Object.getOwnPropertyDescriptor(video, "requestVideoFrameCallback")
+          : null;
         if (shadowRvfc) {
           video.requestVideoFrameCallback = undefined;
         }
@@ -144,7 +145,9 @@ export function createAssRenderer({
           instance = new AssConstructor(sourceBody, video, { container, resampling });
         } finally {
           if (shadowRvfc) {
-            delete video.requestVideoFrameCallback;
+            if (rvfcDescriptor)
+              Object.defineProperty(video, "requestVideoFrameCallback", rvfcDescriptor);
+            else delete video.requestVideoFrameCallback;
           }
         }
         debugAssRender("constructed", {

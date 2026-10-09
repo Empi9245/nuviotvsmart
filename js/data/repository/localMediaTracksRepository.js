@@ -1,5 +1,6 @@
 import { Platform } from "../../platform/index.js";
 import { TizenEngineFsService } from "../../platform/tizen/tizenEngineFsService.js";
+import { vidaaEmbeddedTextProvider } from "../../platform/vidaa/vidaaEmbeddedTextProvider.js";
 import {
   isWebOsCompanionServiceAvailable,
   requestWebOsCompanionService
@@ -124,10 +125,13 @@ async function fetchJson(url) {
 }
 
 export const localMediaTracksRepository = {
-  async getTracks(mediaUrl) {
+  async getTracks(mediaUrl, { headers = {}, probeTimeSeconds = 0 } = {}) {
     const targetUrl = String(mediaUrl || "").trim();
     if (!targetUrl) {
       return [];
+    }
+    if (Platform.isVidaa()) {
+      return vidaaEmbeddedTextProvider.getTracks(targetUrl, { headers, probeTimeSeconds });
     }
 
     const cachedEntry = tracksCache.get(targetUrl);

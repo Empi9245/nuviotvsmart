@@ -2,8 +2,10 @@ import { TMDB_API_KEY } from "../../config.js";
 import { PluginServiceClient } from "../../platform/pluginServiceClient.js";
 import { PLUGIN_QUOTAS } from "./pluginPolicy.js";
 import { PluginStore } from "../../data/local/pluginStore.js";
+import { isExpectedPluginRedirectResponse } from "./pluginSecurity.js";
 import {
   diagnosticError,
+  diagnosticUrl,
   emitPluginDiagnostic,
   emitPluginDiagnosticEvent
 } from "../diagnostics/pluginDiagnostics.js";
@@ -112,13 +114,22 @@ export const PluginRuntime = {
     quota = PLUGIN_QUOTAS.limited,
     timeoutMs = quota.providerTimeoutMs || 60000,
     skipService = false,
-    signal = null
+    signal = null,
+    onDiagnostic = null
   } = {}) {
     const runtimeDetails = {
       filename: String(filename || "plugin.js").slice(0, 240),
       scraperId: String(scraperId || "").slice(0, 128),
       repositoryId: String(repositoryId || "").slice(0, 128),
       profileId: String(profileId || "").slice(0, 64)
+    };
+    const reportDiagnostic = (details) => {
+      if (typeof onDiagnostic !== "function") return;
+      try {
+        onDiagnostic(details);
+      } catch (_) {
+        // A diagnostic observer must not change a provider's execution result.
+      }
     };
     if (byteLength(code) > Number(quota.maxCodeBytes || PLUGIN_QUOTAS.limited.maxCodeBytes)) {
       const error = new Error("Plugin code exceeds the platform quota");
@@ -224,6 +235,11 @@ export const PluginRuntime = {
         const message = event?.data || {};
         if (message.type === "pluginLog") {
           const level = message.level === "error" ? "error" : "warn";
+          reportDiagnostic({
+            type: "providerLog",
+            level,
+            message: diagnosticError(new Error(String(message.message || ""))).message
+          });
           emitPluginDiagnostic(
             level,
             `provider ${level === "error" ? "error" : "warning"}`,
@@ -257,10 +273,31 @@ export const PluginRuntime = {
           })
             .then((payload) => {
               pendingRequestIds.delete(requestId);
+              if (
+                !settled &&
+                ((!payload.ok && !isExpectedPluginRedirectResponse(message.payload, payload)) ||
+                  payload.truncated)
+              ) {
+                reportDiagnostic({
+                  type: "fetchFailure",
+                  url: diagnosticUrl(payload.url || message.payload?.url),
+                  status: Number(payload.status || 0),
+                  statusText: diagnosticError(new Error(String(payload.statusText || ""))).message,
+                  truncated: payload.truncated === true
+                });
+              }
               if (!settled) worker.postMessage({ type: "fetchResult", requestId, payload });
             })
             .catch((error) => {
               pendingRequestIds.delete(requestId);
+              if (!settled)
+                reportDiagnostic({
+                  type: "fetchFailure",
+                  url: diagnosticUrl(message.payload?.url),
+                  status: 0,
+                  statusText: diagnosticError(error).message,
+                  truncated: false
+                });
               if (!settled)
                 worker.postMessage({
                   type: "fetchResult",

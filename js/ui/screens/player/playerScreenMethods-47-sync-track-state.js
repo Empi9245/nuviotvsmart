@@ -50,7 +50,7 @@ export function createPlayerScreenMethods47() {
         this.selectedSubtitleTrackIndex = Number.isFinite(selectedHlsSubtitleTrack) ? selectedHlsSubtitleTrack : -1;
         this.selectedManifestSubtitleTrackId = null;
       } else if (this.shouldUseEmbeddedSubtitleTracks()) {
-        if (!this.bitmapSubtitleTrack) {
+        if (!this.bitmapSubtitleTrack && this.webOsEmbeddedTextSubtitleTrack?.embeddedTextProvider !== "vidaa-range") {
           this.selectedEmbeddedSubtitleTrackIndex = Number.isFinite(selectedEmbeddedSubtitleTrack) ? selectedEmbeddedSubtitleTrack : -1;
         }
         this.selectedSubtitleTrackIndex = -1;

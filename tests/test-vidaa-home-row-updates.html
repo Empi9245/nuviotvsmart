@@ -1,0 +1,243 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>VIDAA Home row updates</title>
+    <style>
+      body {
+        margin: 0;
+      }
+      .home-main {
+        width: 400px;
+        height: 220px;
+        overflow: auto;
+      }
+      .home-row {
+        width: 400px;
+        height: 190px;
+      }
+      .home-track {
+        display: flex;
+        width: 400px;
+        overflow-x: auto;
+        gap: 12px;
+      }
+      .home-content-card {
+        flex: 0 0 120px;
+        width: 120px;
+        height: 140px;
+        box-sizing: border-box;
+      }
+      .content-poster {
+        width: 100px;
+        height: 90px;
+      }
+    </style>
+  </head>
+  <body>
+    <pre id="result">RUNNING</pre>
+    <div id="fixture"></div>
+    <script type="module">
+      import { createHomeRowRenderPass } from "../js/ui/screens/home/homeRowRenderCache.js";
+      import { updateHomeDom, registerHomeDomNodes } from "../js/ui/screens/home/homeDomUpdate.js";
+      import {
+        updateVidaaHomeCardWindow,
+        restoreVidaaHomeCard,
+        pruneVidaaHomeCards,
+        discardVidaaHomeCards
+      } from "../js/ui/screens/home/vidaaHomeCardWindow.js";
+
+      const fixture = document.querySelector("#fixture");
+      const result = document.querySelector("#result");
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+      const rows = Array.from({ length: 8 }, (_, row) => ({
+        key: `row-${row}`,
+        title: `Row ${row}`,
+        items: Array.from({ length: 12 }, (_, index) => ({
+          id: `${row}-${index}`,
+          title: `Item ${row}-${index}`
+        }))
+      }));
+      let previous = new Map();
+      let generated = 0;
+      const rowMarkup = (row) => {
+        generated++;
+        return `<section class="home-row" data-row-key="${row.key}"><h2>${row.title}</h2>
+    <div class="home-track" data-track-row-key="${row.key}">${row.items
+      .map(
+        (item, index) => `
+    <article class="home-content-card home-poster-card focusable" tabindex="0"
+      data-action="openDetail" data-item-id="${item.id}" data-item-type="movie"
+      data-nav-row-key="${row.key}" data-nav-col="${index}">
+      <div class="home-poster-frame"><img class="content-poster" data-src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="${item.title}"></div>
+      <span>${item.title}</span></article>`
+      )
+      .join("")}</div></section>`;
+      };
+      const screen = {
+        container: fixture,
+        getCurrentFocusedNode: () => fixture.querySelector(".focused")
+      };
+      function render(inputRows, { incremental = true, context = "it" } = {}) {
+        const pass = createHomeRowRenderPass(previous, context);
+        const markup = `<div class="home-shell"><main class="home-main"><div class="home-catalogs">${inputRows
+          .map((row, index) => pass.renderRow(row.key, [row, index], () => rowMarkup(row)))
+          .join("")}</div></main></div>`;
+        updateHomeDom(fixture, markup, {
+          incremental,
+          focusedNode: screen.getCurrentFocusedNode(),
+          rowSources: pass.rowSources,
+          beforeCardUpdate: (card) => restoreVidaaHomeCard(screen, card)
+        });
+        pruneVidaaHomeCards(screen);
+        previous = pass.rows;
+      }
+
+      try {
+        updateHomeDom(
+          fixture,
+          '<div class="home-shell"><main class="home-main"><div class="home-loading">Loading</div></main></div>'
+        );
+        render(rows);
+        assert(generated === 8, "Initial render generates each row");
+        assert(
+          !fixture.querySelector("[data-home-row-source]"),
+          "No source placeholders reach live DOM"
+        );
+        const main = fixture.querySelector(".home-main");
+        const focus = fixture.querySelector('[data-item-id="0-0"]');
+        focus.classList.add("focused");
+        focus.focus();
+        const hydrated = focus.querySelector("img");
+        hydrated.src = hydrated.dataset.src;
+        hydrated.removeAttribute("data-src");
+        updateVidaaHomeCardWindow(screen, main.getBoundingClientRect(), focus);
+        assert(screen.homeVidaaParkedCards.size > 20, "Distant visual trees are parked");
+        const distantRow = fixture.querySelector('[data-row-key="row-7"]');
+        const distant = fixture.querySelector('[data-item-id="7-0"]');
+        const record = screen.homeVidaaParkedCards.get(distant);
+        const visual = record.content.firstElementChild;
+        let clicks = 0;
+        visual.onclick = () => clicks++;
+        const parkedCount = screen.homeVidaaParkedCards.size;
+        const observer = new MutationObserver(() => {});
+        observer.observe(distantRow, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          characterData: true
+        });
+
+        // Count actual parser inputs: an update must never parse unchanged cards.
+        const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
+        const parsed = [];
+        Object.defineProperty(Element.prototype, "innerHTML", {
+          ...descriptor,
+          set(value) {
+            parsed.push(String(value));
+            descriptor.set.call(this, value);
+          }
+        });
+        try {
+          rows[0].title = "Changed near row";
+          render(rows);
+        } finally {
+          Object.defineProperty(Element.prototype, "innerHTML", descriptor);
+        }
+        assert(generated === 9, "Only the changed row is regenerated");
+        assert(parsed.length === 2, "Only shell and one changed row are parsed");
+        assert(
+          parsed.every((markup) => !markup.includes('data-item-id="7-0"')),
+          "Unchanged row cards are not parsed"
+        );
+        assert(observer.takeRecords().length === 0, "Unchanged parked row receives no DOM writes");
+        observer.disconnect();
+        assert(
+          screen.homeVidaaParkedCards.get(distant) === record && distant.childNodes.length === 0,
+          "Unchanged row keeps its original detached tree"
+        );
+        assert(
+          screen.homeVidaaParkedCards.size === parkedCount,
+          "Single row update does not restore all parked cards"
+        );
+        assert(
+          document.activeElement === focus && focus.classList.contains("focused"),
+          "Focus survives changed row update"
+        );
+        assert(
+          focus.querySelector("img") === hydrated &&
+            hydrated.hasAttribute("src") &&
+            !hydrated.hasAttribute("data-src"),
+          "Hydrated image is preserved"
+        );
+
+        rows[7].items[0].title = "Updated distant title";
+        render(rows);
+        assert(
+          fixture.querySelector('[data-item-id="7-0"]') === distant,
+          "Changed parked card keeps its anchor"
+        );
+        assert(
+          distant.firstElementChild === visual &&
+            distant.textContent.includes("Updated distant title"),
+          "Changed card is restored and updated"
+        );
+        visual.click();
+        assert(clicks === 1, "Restored visual keeps event listeners");
+        updateVidaaHomeCardWindow(screen, main.getBoundingClientRect(), focus);
+
+        // Runtime pagination belongs to the current row and survives a source hit.
+        const extra = document.createElement("article");
+        extra.className = "home-content-card home-poster-card focusable";
+        extra.dataset.action = "openDetail";
+        extra.dataset.itemId = "runtime";
+        extra.dataset.itemType = "movie";
+        focus.parentNode.appendChild(extra);
+        registerHomeDomNodes([extra]);
+        generated = 0;
+        render(rows);
+        assert(
+          generated === 0 && extra.isConnected,
+          "Unchanged row retains progressively appended cards"
+        );
+
+        render([rows[7], ...rows.slice(0, 7)]);
+        assert(document.activeElement === focus, "Row reordering preserves focus");
+        assert(
+          fixture.querySelector(".home-catalogs").firstElementChild === distantRow,
+          "Rows follow current source order"
+        );
+        render(rows.slice(0, 7));
+        assert(
+          !distant.isConnected && !screen.homeVidaaParkedCards.has(distant),
+          "Removed row drops detached records"
+        );
+        assert(previous.size === 7, "Removed row drops cached source");
+        render(rows.slice(0, 7), { context: "en" });
+        assert(
+          !fixture.querySelector("[data-home-row-source]"),
+          "Locale invalidation leaves no placeholders"
+        );
+
+        // A cache entry cannot stand in for a DOM row that was externally discarded.
+        const removed = fixture.querySelector('[data-row-key="row-6"]');
+        removed.remove();
+        render(rows.slice(0, 7), { context: "en" });
+        assert(
+          fixture.querySelector('[data-row-key="row-6"] .home-content-card'),
+          "Missing row materializes from canonical source"
+        );
+        discardVidaaHomeCards(screen);
+        result.dataset.status = "passed";
+        result.textContent =
+          "PASS: production row cache, parser budget, parking, focus, hydration, reorder and lifecycle";
+      } catch (error) {
+        discardVidaaHomeCards(screen);
+        result.dataset.status = "failed";
+        result.textContent = `FAIL: ${error.stack}`;
+      }
+    </script>
+  </body>
+</html>

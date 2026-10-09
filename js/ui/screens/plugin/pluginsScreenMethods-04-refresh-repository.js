@@ -41,6 +41,11 @@ export function createPluginsScreenMethods04() {
         });
         if (!this.isBusyActionActive(operationToken)) return;
         this.testResult = { scraperId, ...result };
+        if (result?.error) {
+          const message = String(result.error.message || result.error);
+          this.setStatus(t("plugin_error_test", { message }, `Test failed: ${message}`), "error");
+          return;
+        }
         const count = Array.isArray(result?.results) ? result.results.length : 0;
         this.setStatus(
           count

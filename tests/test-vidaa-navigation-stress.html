@@ -1,0 +1,146 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>VIDAA sustained navigation regression</title>
+<style>
+  body {
+    margin: 0;
+    background: #121212;
+    color: white;
+    font: 16px monospace;
+  }
+  .home-main {
+    width: var(--viewport-width, 800px);
+    height: var(--viewport-height, 320px);
+    overflow: auto;
+  }
+  .home-row {
+    margin-bottom: 20px;
+  }
+  .home-track {
+    display: flex;
+    gap: 20px;
+    overflow: auto;
+  }
+  .home-content-card {
+    box-sizing: border-box;
+    flex: 0 0 var(--card-width, 180px);
+  }
+  .home-poster-frame,
+  img {
+    width: var(--card-width, 180px);
+    height: var(--card-height, 240px);
+  }
+  .vidaa-card-parked {
+    visibility: hidden;
+  }
+  #result {
+    white-space: pre-wrap;
+  }
+</style>
+<div id="fixture"></div>
+<pre id="result">Testing sustained navigation...</pre>
+<script type="module">
+  import {
+    updateVidaaHomeCardWindow,
+    restoreVidaaHomeNavigationNeighborhood,
+    restoreAllVidaaHomeCards
+  } from "../js/ui/screens/home/vidaaHomeCardWindow.js";
+  const container = document.getElementById("fixture");
+  const result = document.getElementById("result");
+  // Separate portrait/landscape runs cover the different visible card counts
+  // of the modern Home at TV width, alongside the small-window regression.
+  const mode = new URLSearchParams(location.search).get("mode") || "small";
+  const tv = mode === "portrait" || mode === "landscape";
+  const cardWidth = mode === "landscape" ? 318 : tv ? 212 : 180;
+  if (tv) {
+    container.style.setProperty("--viewport-width", "1920px");
+    container.style.setProperty("--viewport-height", "720px");
+    container.style.setProperty("--card-width", `${cardWidth}px`);
+    container.style.setProperty("--card-height", mode === "landscape" ? "179px" : "318px");
+  }
+  const assert = (condition, message) => {
+    if (!condition) throw Error(message);
+  };
+  const imageUrl =
+    "data:image/svg+xml," +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="240"><rect width="180" height="240" fill="teal"/></svg>'
+    );
+  try {
+    container.innerHTML = `<main class="home-main">${Array.from({ length: 20 }, (_, r) => `<section class="home-row"><div class="home-track">${Array.from({ length: 30 }, (_, c) => `<article tabindex="0" class="home-content-card" data-nav-row="${r}" data-nav-col="${c}"><div class="home-poster-frame"><img class="content-poster" data-src="${imageUrl}"></div><button>${r}-${c}</button></article>`).join("")}</div></section>`).join("")}</main>`;
+    const viewport = container.querySelector("main");
+    let measurements = 0;
+    const measureViewport = viewport.getBoundingClientRect.bind(viewport);
+    viewport.getBoundingClientRect = () => {
+      measurements++;
+      return measureViewport();
+    };
+    const tracks = [...container.querySelectorAll(".home-track")];
+    const rows = tracks.map((track) => [...track.querySelectorAll("article")]);
+    let focused = rows[0][0];
+    const screen = { container, navModel: { rows }, getCurrentFocusedNode: () => focused };
+    const height = viewport.scrollHeight;
+    const widths = tracks.map((track) => track.scrollWidth);
+    updateVidaaHomeCardWindow(screen, viewport.getBoundingClientRect(), focused);
+    let peak = 0,
+      peakSources = 0;
+    // No quiet window: every run changes direction before the previous run ends.
+    for (let step = 0; step < 240; step++) {
+      const phase = Math.floor(step / 30) % 4;
+      const n = step % 30;
+      const r =
+        phase === 0 ? Math.min(19, n) : phase === 1 ? 19 : phase === 2 ? Math.max(0, 19 - n) : 0;
+      const c = phase === 0 ? 0 : phase === 1 ? n : phase === 2 ? 29 : 29 - n;
+      focused = rows[r][c];
+      focused.classList.add("focused");
+      restoreVidaaHomeNavigationNeighborhood(
+        screen,
+        focused,
+        ["down", "right", "up", "left"][phase]
+      );
+      focused.focus({ preventScroll: true });
+      viewport.scrollTop = tracks[r].parentElement.offsetTop;
+      tracks[r].scrollLeft = c * (cardWidth + 20);
+      for (const image of focused.querySelectorAll("img[data-src]")) {
+        image.src = image.dataset.src;
+        image.removeAttribute("data-src");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      peak = Math.max(peak, container.querySelectorAll(".home-poster-frame").length);
+      peakSources = Math.max(peakSources, container.querySelectorAll("img[src]").length);
+      assert(document.activeElement === focused, "Focus lost during direction reversal");
+      assert(focused.querySelector("img"), "Selected card must stay restored");
+      assert(viewport.scrollHeight === height, "Vertical scroll extent changed");
+      tracks.forEach((track, index) =>
+        assert(track.scrollWidth === widths[index], "Horizontal scroll extent changed")
+      );
+      focused.classList.remove("focused");
+    }
+    result.textContent = `${mode}: 240 uninterrupted mixed-direction steps: peak ${peak} attached cards, ${peakSources} image sources, ${measurements - 1} maintenance passes.\n`;
+    assert(
+      peak < (tv ? 200 : 150),
+      "Visual subtrees accumulate during sustained navigation: " + peak
+    );
+    assert(
+      peakSources < 80,
+      "Image sources accumulate during sustained navigation: " + peakSources
+    );
+    assert(
+      measurements <= 13,
+      "Maintenance must follow budget pressure, not every repeat/animation: " + measurements
+    );
+    updateVidaaHomeCardWindow(screen, viewport.getBoundingClientRect(), focused);
+    restoreAllVidaaHomeCards(screen);
+    assert(
+      !screen.homeVidaaCardWindowTimer && !screen.homeVidaaCardWindowRaf,
+      "Window work must stop at cleanup"
+    );
+    assert(screen.homeVidaaParkedCards.size === 0, "Cleanup must release fragments");
+    result.textContent +=
+      "PASS: bounded work, stable geometry/focus, immediate restoration and cleanup.";
+    result.dataset.status = "passed";
+  } catch (error) {
+    result.textContent += "\nFAIL: " + error.stack;
+    result.dataset.status = "failed";
+  }
+</script>

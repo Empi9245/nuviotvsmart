@@ -1,5 +1,10 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import {
+  nativeTextTrackSelectionMatches,
+  confirmNativeTrackSelection
+} from "../../../core/player/playerControllerMethods-02-is-likely-direct-file-url.js";
+import { selectVidaaTextTrack } from "../../../platform/vidaa/vidaaVideo.js";
 
 export function createPlayerScreenMethods54() {
   const { PlayerController, Environment, isTizenEmbeddedTextSubtitleFallbackTrack } = internals;
@@ -70,7 +75,7 @@ export function createPlayerScreenMethods54() {
       });
       return true;
     },
-    applySubtitleEntry(entry) {
+    async applySubtitleEntry(entry) {
       if (!entry || entry.disabled) {
         return;
       }
@@ -79,7 +84,23 @@ export function createPlayerScreenMethods54() {
       }
       const selectionToken = Number(this.subtitleSelectionToken || 0) + 1;
       this.subtitleSelectionToken = selectionToken;
+      this.cancelExternalSubtitleActivation?.();
+      this.requestedSubtitleEntry = entry;
+      const video = PlayerController.video;
+      const playRequestToken = PlayerController.playRequestToken;
+      const mountToken = this.playerMountToken;
+      const playbackUrl = this.activePlaybackUrl;
+      const isCurrentSelection = () =>
+        this.subtitleSelectionToken === selectionToken &&
+        this.playerMountToken === mountToken &&
+        this.activePlaybackUrl === playbackUrl &&
+        PlayerController.video === video &&
+        PlayerController.playRequestToken === playRequestToken;
       const previousSubtitleSelectionKey = this.getActiveSubtitleSelectionKey();
+      if (this.subtitleSelectionTimer) {
+        clearTimeout(this.subtitleSelectionTimer);
+        this.subtitleSelectionTimer = null;
+      }
 
       const isEmbeddedEntry = Object.prototype.hasOwnProperty.call(entry, "embeddedSubtitleTrackIndex");
       if (!isEmbeddedEntry) {
@@ -87,9 +108,12 @@ export function createPlayerScreenMethods54() {
       }
 
       if (isEmbeddedEntry) {
-        this.destroyAssSubtitleRenderer();
         const targetTrackIndex = Number(entry.embeddedSubtitleTrackIndex);
         const embeddedTrack = this.getEmbeddedSubtitleTrackByEmbeddedIndex(targetTrackIndex);
+        if (Environment.isVidaa() && embeddedTrack?.embeddedTextProvider === "vidaa-range") {
+          return this.applyVidaaEmbeddedTextSubtitleTrack(embeddedTrack, targetTrackIndex);
+        }
+        this.destroyAssSubtitleRenderer();
         if (embeddedTrack?.bitmapSubtitle) {
           this.applyBitmapEmbeddedSubtitleTrack(embeddedTrack, targetTrackIndex);
         } else {
@@ -107,6 +131,7 @@ export function createPlayerScreenMethods54() {
         // renderer. The fallbackAddonSubtitle branch re-activates ASS when
         // the new selection is itself an ASS body.
         this.destroyAssSubtitleRenderer();
+        this.selectedAddonSubtitleId = null;
       }
 
       if (Object.prototype.hasOwnProperty.call(entry, "avplaySubtitleTrackIndex")) {
@@ -203,11 +228,7 @@ export function createPlayerScreenMethods54() {
         }
         const subtitle = entry.track || this.subtitles[entry.subtitleIndex];
         const subtitleId = entry.subtitleId || subtitle?.id || subtitle?.url || `subtitle-${entry.subtitleIndex}`;
-        this.selectedAddonSubtitleId = subtitleId;
-        this.selectedSubtitleTrackIndex = -1;
-        this.selectedEmbeddedSubtitleTrackIndex = -1;
-        this.selectedManifestSubtitleTrackId = null;
-        this.resetSubtitleDelayAfterSelectionChange(previousSubtitleSelectionKey);
+        this.selectedAddonSubtitleId = null;
         this.invalidateTrackDialogCaches();
         this.refreshSubtitleCueStyles();
         this.renderControlButtons();
@@ -216,8 +237,21 @@ export function createPlayerScreenMethods54() {
           const candidateId = candidate?.id || candidate?.url || "";
           return candidateId && candidateId === subtitleId;
         });
-        void this.applyFallbackAddonSubtitle(liveSubtitleIndex >= 0 ? liveSubtitleIndex : entry.subtitleIndex, selectionToken, subtitle);
-        return;
+        const applied = await this.applyFallbackAddonSubtitle(
+          liveSubtitleIndex >= 0 ? liveSubtitleIndex : entry.subtitleIndex,
+          selectionToken,
+          subtitle
+        );
+        if (applied && isCurrentSelection()) {
+          this.resetSubtitleDelayAfterSelectionChange(previousSubtitleSelectionKey);
+          return true;
+        }
+        if (isCurrentSelection()) {
+          this.syncTrackState();
+          this.renderControlButtons();
+          this.renderSubtitleDialog();
+        }
+        return false;
       }
 
       if (this.externalTrackNodes.length) {
@@ -226,6 +260,7 @@ export function createPlayerScreenMethods54() {
 
       const textTracks = this.getTextTracks();
       const targetIndex = Number(entry.trackIndex);
+      if (!Number.isInteger(targetIndex) || targetIndex < -1 || targetIndex >= textTracks.length) return false;
 
       if (targetIndex < 0 && this.selectedManifestSubtitleTrackId) {
         this.applyManifestTrackSelection({ subtitleTrackId: null });
@@ -234,9 +269,14 @@ export function createPlayerScreenMethods54() {
         this.selectedManifestSubtitleTrackId = null;
       }
 
-      const appliedByController =
+      const controllerResult =
         typeof PlayerController.setNativeTextTrack === "function" ? PlayerController.setNativeTextTrack(targetIndex) : false;
-      if (appliedByController) {
+      const appliedByController = await Promise.resolve(controllerResult).catch(() => false);
+      if (!isCurrentSelection()) return false;
+      const matchesSelection = () => nativeTextTrackSelectionMatches(this.getTextTracks(), targetIndex);
+      // Luna resolves asynchronously and may own outputs whose DOM flags are
+      // readonly. Other native backends must expose the applied modes.
+      if (appliedByController && (Environment.isWebOS() || (await confirmNativeTrackSelection(matchesSelection, isCurrentSelection)))) {
         this.selectedAddonSubtitleId = null;
         this.selectedSubtitleTrackIndex = targetIndex;
         this.selectedEmbeddedSubtitleTrackIndex = -1;
@@ -245,25 +285,29 @@ export function createPlayerScreenMethods54() {
         this.refreshSubtitleCueStyles();
         this.renderControlButtons();
         this.renderSubtitleDialog();
-        return;
+        return true;
       }
+      if (!isCurrentSelection()) return false;
 
-      textTracks.forEach((track, index) => {
-        try {
-          track.mode = index === targetIndex ? "showing" : "disabled";
-        } catch (_) {
-          // Best effort: some WebOS builds expose readonly mode.
-        }
-      });
-
-      if (targetIndex < 0) {
-        textTracks.forEach((track) => {
+      if (Environment.isVidaa()) {
+        selectVidaaTextTrack(textTracks, targetIndex);
+      } else {
+        textTracks.forEach((track, index) => {
           try {
-            track.mode = "disabled";
+            track.mode = index === targetIndex ? "showing" : "disabled";
           } catch (_) {
-            // Best effort.
+            // Best effort: some WebOS builds expose readonly mode.
           }
         });
+      }
+
+      const applied = await confirmNativeTrackSelection(matchesSelection, isCurrentSelection);
+      if (!isCurrentSelection()) return false;
+      if (!applied) {
+        this.syncTrackState();
+        this.renderControlButtons();
+        this.renderSubtitleDialog();
+        return false;
       }
 
       this.selectedAddonSubtitleId = null;
@@ -274,6 +318,7 @@ export function createPlayerScreenMethods54() {
       this.refreshSubtitleCueStyles();
       this.renderControlButtons();
       this.renderSubtitleDialog();
+      return true;
     }
   };
 }

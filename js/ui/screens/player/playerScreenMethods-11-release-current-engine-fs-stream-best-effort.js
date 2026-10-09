@@ -119,6 +119,8 @@ export function createPlayerScreenMethods11() {
       if (probeUrl.includes(".mkv")) {
         return true;
       }
+      const fileName = String(streamCandidate?.behaviorHints?.filename || streamCandidate?.filename || "").toLowerCase();
+      if (/\.mkv(?:$|[?#])/.test(fileName)) return true;
       const sourceType = this.resolvePlaybackMediaSourceType(streamCandidate);
       const normalizedSourceType =
         typeof PlayerController.normalizeMimeType === "function"
@@ -127,7 +129,7 @@ export function createPlayerScreenMethods11() {
               .toLowerCase()
               .split(";")[0]
               .trim();
-      return normalizedSourceType === "video/x-matroska";
+      return ["video/x-matroska", "video/matroska", "application/x-matroska"].includes(normalizedSourceType);
     },
     canDiscoverEmbeddedSubtitleTracks() {
       const usingNativePlayback =
@@ -150,6 +152,22 @@ export function createPlayerScreenMethods11() {
         return Boolean(usingAvPlay);
       }
 
+      if (Environment.isVidaa()) {
+        if (this.getTextTracks().length > (this.externalTrackNodes?.length || 0)) return false;
+        if (this.isCurrentSourceLikelyMkv()) return true;
+        // Signed streaming URLs often omit filename/container. A bounded EBML
+        // header probe identifies those sources; known other containers skip it.
+        const declared = String(this.resolvePlaybackMediaSourceType(this.getCurrentStreamCandidate()) || "")
+          .toLowerCase()
+          .split(";")[0]
+          .trim();
+        return (
+          (!declared || declared === "application/octet-stream") &&
+          /^https?:/i.test(probeUrl) &&
+          !/\.(?:mp4|m4v|mov|avi|ts|m2ts|wmv|webm)(?:$|[?#])/i.test(probeUrl)
+        );
+      }
+
       return typeof PlayerController.isLikelyDirectFileUrl === "function" ? PlayerController.isLikelyDirectFileUrl(probeUrl) : false;
     },
     canDiscoverEmbeddedAudioTracks() {
@@ -163,6 +181,7 @@ export function createPlayerScreenMethods11() {
       return this.canDiscoverEmbeddedSubtitleTracks();
     },
     shouldUseEmbeddedSubtitleTracks() {
+      if (Environment.isVidaa() && this.webOsEmbeddedTextSubtitleTrack?.embeddedTextProvider === "vidaa-range") return true;
       if (!this.canDiscoverEmbeddedSubtitleTracks() || this.embeddedSubtitleTracks.length <= 0) {
         return false;
       }
@@ -173,7 +192,11 @@ export function createPlayerScreenMethods11() {
         return false;
       }
 
-      return Environment.isWebOS() || this.getTextTracks().length <= 0;
+      return (
+        Environment.isWebOS() ||
+        (Environment.isVidaa() && this.embeddedSubtitleTracks.some((track) => track.embeddedTextProvider === "vidaa-range")) ||
+        this.getTextTracks().length <= 0
+      );
     },
     normalizeEmbeddedSubtitleTracks(rawTracks = []) {
       const isTizenAvPlayMetadata = Environment.isTizen();
@@ -233,7 +256,22 @@ export function createPlayerScreenMethods11() {
             embeddedTrackIndex: index,
             sourceTrackId: Number.isFinite(sourceTrackId) ? sourceTrackId : -1,
             sourceTrackOrdinal: Number.isFinite(sourceTrackOrdinal) && sourceTrackOrdinal >= 0 ? sourceTrackOrdinal : -1,
-            nativeTrackIndex: isTizenAvPlayMetadata ? currentNativeTrackIndex : bitmapSubtitle ? -1 : currentNativeTrackIndex,
+            nativeTrackIndex:
+              track.embeddedTextProvider === "vidaa-range"
+                ? -1
+                : isTizenAvPlayMetadata
+                  ? currentNativeTrackIndex
+                  : bitmapSubtitle
+                    ? -1
+                    : currentNativeTrackIndex,
+            ...(track.embeddedTextProvider === "vidaa-range"
+              ? {
+                  embeddedTextProvider: "vidaa-range",
+                  sourceIdentity: track.sourceIdentity,
+                  containerTrackUid: track.containerTrackUid,
+                  sourceTrackOrdinal: track.trackOrdinal
+                }
+              : {}),
             bitmapSubtitle,
             bitmapSubtitleFormat,
             label: getMeaningfulTrackLabel(track) || fallbackLabel,

@@ -1,0 +1,249 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>VIDAA Home window regression</title>
+<style>
+  body {
+    margin: 0;
+    background: #121212;
+    color: white;
+    font: 16px monospace;
+  }
+  .home-main {
+    width: 800px;
+    height: 320px;
+    overflow: auto;
+  }
+  .home-row {
+    margin-bottom: 20px;
+  }
+  .home-track {
+    display: flex;
+    gap: 20px;
+    overflow: auto;
+  }
+  .home-grid-track {
+    display: grid;
+    grid-template-columns: repeat(3, 180px);
+    gap: 20px;
+  }
+  .home-content-card {
+    box-sizing: border-box;
+    flex: 0 0 180px;
+  }
+  .home-poster-frame {
+    width: 180px;
+    height: 240px;
+  }
+  img {
+    width: 180px;
+    height: 240px;
+  }
+  .vidaa-card-parked {
+    visibility: hidden;
+  }
+  #result {
+    white-space: pre-wrap;
+  }
+</style>
+<div id="fixture"></div>
+<pre id="result">Testing...</pre>
+<script type="module">
+  import {
+    updateVidaaHomeCardWindow,
+    restoreVidaaHomeCard,
+    restoreAllVidaaHomeCards,
+    restoreVidaaHomeNavigationNeighborhood,
+    suspendVidaaHomeCardWindow,
+    discardVidaaHomeCards
+  } from "../js/ui/screens/home/vidaaHomeCardWindow.js";
+  import { releaseDistantVidaaHomeImages } from "../js/ui/screens/home/vidaaHomeImageWindow.js";
+  import { patchHomeMarkup } from "../js/ui/screens/home/patchHomeMarkup.js";
+  const result = document.getElementById("result");
+  try {
+    const assert = (condition, message) => {
+      if (!condition) throw Error(message);
+    };
+    const container = document.getElementById("fixture");
+    const imageUrl =
+      "data:image/svg+xml," +
+      encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="240"><rect width="180" height="240" fill="teal"/></svg>'
+      );
+    const markup = `<main class="home-main">${Array.from({ length: 10 }, (_, r) => `<section class="home-row" data-row-key="row-${r}"><div class="home-track">${Array.from({ length: 30 }, (_, c) => `<article tabindex="0" class="home-content-card home-poster-card" data-item-id="${r}-${c}"><div class="home-poster-frame"><img class="content-poster" src="${imageUrl}"></div><button>${r}-${c}</button></article>`).join("")}</div></section>`).join("")}</main>`;
+    patchHomeMarkup(container, markup);
+    const screen = { container };
+    const viewport = container.querySelector("main");
+    const cards = Array.from(container.querySelectorAll("article"));
+    const tracks = Array.from(container.querySelectorAll(".home-track"));
+    const originalSizes = tracks.map((t) => [t.scrollWidth, t.offsetHeight]);
+    const originalScrollHeight = viewport.scrollHeight;
+    let clicks = 0;
+    const distant = cards[299];
+    const child = distant.querySelector("button");
+    child.addEventListener("click", () => clicks++);
+    cards[0].focus({ preventScroll: true });
+    releaseDistantVidaaHomeImages(container, viewport.getBoundingClientRect(), cards[0]);
+    updateVidaaHomeCardWindow(screen, viewport.getBoundingClientRect(), cards[0]);
+    const active = container.querySelectorAll(".home-poster-frame").length;
+    assert(active < 80, "Only the viewport neighborhood should retain visual subtrees");
+    assert(
+      screen.homeVidaaParkedCards.size > 220,
+      "Long catalogs must not keep every subtree attached"
+    );
+    assert(
+      container.querySelectorAll("article").length === 300,
+      "Remote-navigation anchors must remain mounted"
+    );
+    assert(
+      viewport.scrollHeight === originalScrollHeight,
+      "Vertical extent must stay exactly unchanged"
+    );
+    tracks.forEach((t, i) =>
+      assert(
+        t.scrollWidth === originalSizes[i][0] && t.offsetHeight === originalSizes[i][1],
+        "Track geometry changed"
+      )
+    );
+    assert(document.activeElement === cards[0], "Virtualization must preserve current focus");
+    screen.navModel = {
+      rows: Array.from({ length: 10 }, (_, rowIndex) =>
+        cards.slice(rowIndex * 30, rowIndex * 30 + 30)
+      )
+    };
+    screen.navModel.rows.forEach((rowNodes, rowIndex) =>
+      rowNodes.forEach((card, colIndex) => {
+        card.dataset.navRow = String(rowIndex);
+        card.dataset.navCol = String(colIndex);
+      })
+    );
+    const warmTarget = screen.navModel.rows[5][15];
+    const parkedBeforeWarm = screen.homeVidaaParkedCards.size;
+    const warmed = restoreVidaaHomeNavigationNeighborhood(screen, warmTarget, "down");
+    assert(
+      warmed > 0 && warmed <= 14,
+      "Navigation warming must restore only a bounded target neighborhood"
+    );
+    assert(
+      warmTarget.querySelector(".home-poster-frame"),
+      "The next focus row must regain its visual subtree before settling"
+    );
+    assert(
+      screen.homeVidaaParkedCards.size === parkedBeforeWarm - warmed,
+      "Only warmed cards should leave the parked set"
+    );
+    assert(restoreVidaaHomeCard(screen, distant), "A remote target restores synchronously");
+    assert(
+      distant.querySelector("button") === child,
+      "Restore must preserve actual nodes and listeners"
+    );
+    assert(
+      !distant.querySelector("img").hasAttribute("src") &&
+        distant.querySelector("img").dataset.src === imageUrl,
+      "Distant images must be deferred and restorable"
+    );
+    distant.focus({ preventScroll: true });
+    child.click();
+    assert(
+      document.activeElement === distant && clicks === 1,
+      "Restored target must accept focus and clicks"
+    );
+    assert(!distant.style.width && !distant.style.height, "Slot styles must be removed on restore");
+    viewport.scrollTop = viewport.scrollHeight;
+    tracks[9].scrollLeft = tracks[9].scrollWidth;
+    const left = tracks[9].scrollLeft;
+    updateVidaaHomeCardWindow(screen, viewport.getBoundingClientRect(), distant);
+    assert(distant.querySelector("img"), "Focused card must never park");
+    assert(tracks[9].scrollLeft === left, "Moving the window must preserve horizontal scroll");
+    const retainedCards = container.querySelectorAll(".home-poster-frame").length;
+    const retainedFragments = screen.homeVidaaParkedCards.size;
+    screen.homeVidaaCardWindowTimer = setTimeout(() => {
+      throw Error("Hidden Home timer ran");
+    }, 0);
+    screen.homeVidaaCardWindowRaf = requestAnimationFrame(() => {
+      throw Error("Hidden Home frame ran");
+    });
+    suspendVidaaHomeCardWindow(screen);
+    for (let trip = 0; trip < 10; trip++) {
+      container.style.display = "none";
+      container.style.display = "block";
+      distant.focus({ preventScroll: true });
+      assert(
+        container.querySelectorAll(".home-poster-frame").length === retainedCards,
+        "Route return must retain the bounded visual window"
+      );
+      assert(
+        screen.homeVidaaParkedCards.size === retainedFragments,
+        "Route exit must not reattach distant fragments"
+      );
+      assert(
+        distant.querySelector("button") === child,
+        "Route return must preserve actual nodes and listeners"
+      );
+      assert(
+        viewport.scrollHeight === originalScrollHeight && tracks[9].scrollLeft === left,
+        "Route return must preserve scroll geometry"
+      );
+    }
+    assert(
+      !screen.homeVidaaCardWindowTimer && !screen.homeVidaaCardWindowRaf,
+      "Hidden Home maintenance must be cancelled"
+    );
+    restoreAllVidaaHomeCards(screen);
+    patchHomeMarkup(container, markup);
+    assert(
+      container.querySelectorAll(".home-poster-frame").length === 300,
+      "Reconciliation must see the complete restored tree"
+    );
+    assert(
+      distant === container.querySelector('[data-item-id="9-29"]'),
+      "Rendering must retain card identity"
+    );
+    updateVidaaHomeCardWindow(screen, viewport.getBoundingClientRect(), distant);
+    restoreAllVidaaHomeCards(screen);
+    assert(
+      screen.homeVidaaParkedCards.size === 0 &&
+        container.querySelectorAll(".vidaa-card-parked").length === 0,
+      "Cleanup must release detached fragments"
+    );
+    // Grid sections span many rows: retaining their section rect alone must not
+    // retain every image/card in the section. Card geometry remains authoritative.
+    container.innerHTML = `<main class="home-main"><section class="home-grid-section"><div class="home-grid-track">${Array.from({ length: 60 }, (_, c) => `<article tabindex="0" class="home-content-card home-poster-card"><div class="home-poster-frame"><img class="content-poster" src="${imageUrl}"></div><button>${c}</button></article>`).join("")}</div></section></main>`;
+    const gridViewport = container.querySelector("main");
+    const gridCards = Array.from(container.querySelectorAll("article"));
+    const gridHeight = gridViewport.scrollHeight;
+    const gridPositions = gridCards.map((c) => c.offsetTop);
+    releaseDistantVidaaHomeImages(container, gridViewport.getBoundingClientRect(), gridCards[0]);
+    updateVidaaHomeCardWindow(screen, gridViewport.getBoundingClientRect(), gridCards[0]);
+    assert(
+      container.querySelectorAll(".home-poster-frame").length < 18,
+      "Grid must bound subtrees by card position"
+    );
+    assert(
+      container.querySelectorAll("img[src]").length < 18,
+      "Grid must release distant decoded images"
+    );
+    assert(gridViewport.scrollHeight === gridHeight, "Grid extent must remain unchanged");
+    gridCards.forEach((c, i) =>
+      assert(c.offsetTop === gridPositions[i], "Grid card positions changed")
+    );
+    restoreAllVidaaHomeCards(screen);
+    updateVidaaHomeCardWindow(screen, gridViewport.getBoundingClientRect(), gridCards[0]);
+    const beforeDiscard = container.querySelectorAll(".home-poster-frame").length;
+    discardVidaaHomeCards(screen);
+    assert(
+      container.querySelectorAll(".home-poster-frame").length === beforeDiscard,
+      "Discard must not restore doomed card trees"
+    );
+    assert(
+      screen.homeVidaaParkedCards.size === 0 && screen.homeVidaaActiveCards === null,
+      "Discard must release window references"
+    );
+    container.replaceChildren();
+    result.textContent = `PASS: 300 card anchors, ${active} active visual subtrees.\nScroll geometry, focus, listeners, image release, reversal, reconciliation and cleanup verified.`;
+    result.dataset.status = "passed";
+  } catch (error) {
+    result.textContent = "FAIL: " + error.stack;
+    result.dataset.status = "failed";
+    console.error(error);
+  }
+</script>

@@ -1,9 +1,14 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import {
+  nativeAudioTrackSelectionMatches,
+  confirmNativeTrackSelection
+} from "../../../core/player/playerControllerMethods-02-is-likely-direct-file-url.js";
 
 export function createPlayerScreenMethods51() {
   const {
     hasOnlyImplicitStartupAudioOptions,
+    PlayerController,
     PlayerSettingsStore,
     I18n,
     Environment,
@@ -212,6 +217,68 @@ export function createPlayerScreenMethods51() {
       }
       return null;
     },
+    requestVidaaStartupAudioOption(option) {
+      // Keep ownership until the existing async selector settles. A change
+      // event emitted by that selector must not start a duplicate request.
+      const request = {
+        mountToken: this.playerMountToken,
+        video: PlayerController.video,
+        playToken: PlayerController.playRequestToken,
+        preference: this.getAudioTrackPreference(option.entry),
+        remembered: Boolean(this.rememberedAudioTrackPreference)
+      };
+      this.startupVidaaAudioRequest = request;
+      this.startupAudioPreferenceApplying = true;
+      const isCurrentMount = () =>
+        this.playerMountToken === request.mountToken &&
+        PlayerController.video === request.video &&
+        PlayerController.playRequestToken === request.playToken;
+      let result;
+      try {
+        result = this.applyAudioTrack(option.entryIndex);
+      } catch (_) {
+        result = false;
+      }
+      request.audioToken = this.audioSelectionToken;
+      const isCurrentSelection = () =>
+        this.startupVidaaAudioRequest === request && isCurrentMount() && this.audioSelectionToken === request.audioToken;
+      const resolveAppliedOption = () => {
+        this.invalidateTrackDialogCaches();
+        const currentOption = this.findRememberedAudioOption(request.preference);
+        const nativeIndex = currentOption?.entry?.audioTrackIndex;
+        return currentOption?.selected &&
+          (!Number.isInteger(nativeIndex) || nativeAudioTrackSelectionMatches(this.getAudioTracks(), nativeIndex))
+          ? currentOption
+          : null;
+      };
+      Promise.resolve(result)
+        .catch(() => false)
+        .then(() => confirmNativeTrackSelection(() => Boolean(resolveAppliedOption()), isCurrentSelection))
+        .then(() => {
+          if (this.startupVidaaAudioRequest !== request) return;
+          this.startupVidaaAudioRequest = null;
+          if (!isCurrentMount()) return;
+          this.startupAudioPreferenceApplying = false;
+          if (this.audioSelectionToken !== request.audioToken) return;
+          this.invalidateTrackDialogCaches();
+          this.syncTrackState();
+          // Resolve the identity again: a native list can change order while the
+          // request is pending. An old array index is not an audio preference.
+          const currentOption = resolveAppliedOption();
+          const targetIndex = this.getStartupPreferredAudioLanguageTargets().findIndex((target) =>
+            this.matchesStartupAudioTarget(currentOption, target)
+          );
+          const waitForPrimary = !request.remembered && targetIndex > 0 && this.isVidaaStartupAudioPreferenceWindowPending();
+          const applied = Boolean(!waitForPrimary && currentOption);
+          this.startupAudioPreferenceApplied = applied;
+          if (applied) this.clearStartupAudioPreferenceRetry();
+          else if (!this.scheduleStartupAudioPreferenceRetry()) this.applyStartupAudioFallback();
+          this.renderControlButtons();
+          if (this.audioDialogVisible) this.renderAudioDialog();
+          this.scheduleLoadingCompletionCheck(0);
+        });
+      return false;
+    },
     applyStartupAudioPreference() {
       if (this.startupAudioPreferenceApplied || this.startupAudioPreferenceApplying) {
         return false;
@@ -232,6 +299,7 @@ export function createPlayerScreenMethods51() {
           this.startupAudioPreferenceApplied = true;
           return true;
         }
+        if (Environment.isVidaa()) return this.requestVidaaStartupAudioOption(rememberedOption);
         this.startupAudioPreferenceApplying = true;
         try {
           this.applyAudioTrack(rememberedOption.entryIndex);
@@ -272,6 +340,14 @@ export function createPlayerScreenMethods51() {
         targetIndex > 0 && Boolean(this.findStartupPreferredAudioOption(preferredTargets.slice(0, targetIndex)));
       const selectedOption = this.collectAudioOptionItems().find((entry) => entry.selected);
       const selectedTargetIndex = getPreferredTargetIndex(selectedOption);
+      if (
+        selectedTargetIndex > 0 &&
+        !hasHigherPriorityPreferredOption(selectedTargetIndex) &&
+        this.isVidaaStartupAudioPreferenceWindowPending()
+      ) {
+        this.scheduleStartupAudioPreferenceRetry();
+        return false;
+      }
       if (selectedTargetIndex >= 0 && !hasHigherPriorityPreferredOption(selectedTargetIndex)) {
         this.clearStartupAudioPreferenceRetry();
         this.startupAudioFallbackApplied = false;
@@ -282,6 +358,10 @@ export function createPlayerScreenMethods51() {
       const matchedPreferredOption = this.findStartupPreferredAudioOption(preferredTargets);
       const preferredOption = isStillLoading && matchedPreferredOption?.entry?.implicitAudioTrack ? null : matchedPreferredOption;
       if (!preferredOption?.entry || !Number.isFinite(preferredOption.entryIndex)) {
+        if (this.isVidaaStartupAudioPreferenceWindowPending()) {
+          this.scheduleStartupAudioPreferenceRetry();
+          return false;
+        }
         if (isStillLoading) {
           const retryingTrackDiscovery = this.scheduleStartupAudioPreferenceRetry();
           if (retryingTrackDiscovery || this.isAudioPreferenceDiscoveryPending()) {
@@ -291,8 +371,9 @@ export function createPlayerScreenMethods51() {
         return this.applyStartupAudioFallback();
       }
 
-      this.startupAudioPreferenceApplying = true;
       this.startupAudioFallbackApplied = false;
+      if (Environment.isVidaa()) return this.requestVidaaStartupAudioOption(preferredOption);
+      this.startupAudioPreferenceApplying = true;
       try {
         this.applyAudioTrack(preferredOption.entryIndex);
       } finally {

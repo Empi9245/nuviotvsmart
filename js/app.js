@@ -1,6 +1,7 @@
 /* global __NUVIO_APP_VERSION__ */
 
 import "./core/diagnostics/consoleDebugBuffer.js";
+import { VidaaFrameDiagnostics } from "./core/diagnostics/vidaaFrameDiagnostics.js";
 import { detailWatchedEnrichmentService } from "./data/repository/detailWatchedEnrichmentService.js";
 import { Router } from "./ui/navigation/router.js";
 import { FocusEngine } from "./ui/navigation/focusEngine.js";
@@ -542,6 +543,7 @@ async function bootstrapApp() {
   appShellRendered = true;
   markBootStage("Initializing TV platform");
   Platform.init();
+  VidaaFrameDiagnostics.initialize({ enabled: Platform.isVidaa() });
   setupPluginServiceLifecycle();
   if (shouldDisableTizenPluginSupport()) {
     markBootStage("PluginService disabled on Tizen below 6.0");
@@ -593,7 +595,9 @@ async function bootstrapApp() {
       StartupSyncService.stop();
       ProviderCredentialSyncService.cancelForegroundPull();
       hasSelectedProfileThisSession = false;
-      const shouldBypassQr = ServerConfigurationStore.getActive().isLocal || Boolean(LocalStore.get(GUEST_QR_BYPASS_KEY, false));
+      const shouldBypassQr =
+        ServerConfigurationStore.getActive().isLocal ||
+        Boolean(LocalStore.get(GUEST_QR_BYPASS_KEY, false));
       if (isSignedOutRouteAllowed()) {
         return;
       }
