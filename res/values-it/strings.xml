@@ -659,6 +659,8 @@
     <string name="mdblist_dialog_placeholder">Inserisci la chiave API MDBList</string>
     <string name="mdblist_not_set">Non impostata</string>
     <string name="mdblist_invalid_api_key">Chiave API MDBList non valida</string>
+    <string name="mdblist_connection_error">Impossibile connettersi a MDBList. Controlla la connessione e riprova.</string>
+    <string name="mdblist_rate_limit_error">Limite di richieste MDBList raggiunto. Riprova più tardi.</string>
     <string name="animeskip_title">Anime Skip</string>
     <string name="animeskip_subtitle">Configura il Client ID di Anime Skip per saltare sigle iniziali e finali degli anime</string>
     <string name="animeskip_enable_title">Abilita Anime Skip</string>
@@ -674,6 +676,19 @@
     <string name="tmdb_subtitle">Scegli quali campi dei metadati devono provenire da TMDB</string>
     <string name="tmdb_enable_title">Abilita arricchimento TMDB</string>
     <string name="tmdb_enable_subtitle">Usa TMDB come sorgente di metadati per migliorare i dati degli addon</string>
+    <string name="tmdb_api_key_title">Chiave API TMDB</string>
+    <string name="tmdb_api_key_subtitle">La chiave viene salvata su questo dispositivo per questo profilo e sostituisce la chiave predefinita, se presente.</string>
+    <string name="tmdb_api_key_placeholder">Chiave API (v3 auth)</string>
+    <string name="tmdb_api_key_default">Chiave predefinita</string>
+    <string name="tmdb_api_key_required">Aggiungi la tua chiave API TMDB per abilitare l\'arricchimento dei metadati.</string>
+    <string name="tmdb_api_key_validating">Verifica della chiave TMDB...</string>
+    <string name="tmdb_api_key_invalid">Chiave API TMDB non valida. Inserisci la chiave API (v3 auth) del tuo account TMDB.</string>
+    <string name="tmdb_api_key_rate_limit">Limite di richieste TMDB raggiunto. Riprova più tardi.</string>
+    <string name="tmdb_api_key_connection_error">Impossibile connettersi a TMDB. Controlla la connessione e riprova.</string>
+    <string name="tmdb_api_key_reset_default">Usa la chiave predefinita</string>
+    <string name="tmdb_api_key_reset_subtitle">Rimuovi la chiave personale e usa quella predefinita configurata nell\'app.</string>
+    <string name="tmdb_api_key_remove">Rimuovi la chiave API</string>
+    <string name="tmdb_api_key_remove_subtitle">Rimuovi la chiave TMDB salvata per questo profilo.</string>
     <string name="tmdb_modern_home_title">Abilita nella Home moderna</string>
     <string name="tmdb_modern_home_subtitle">Applica l\'arricchimento TMDB anche alla Home moderna e alle schede a fuoco</string>
     <string name="tmdb_enrich_continue_watching_title">Arricchisci Continua a guardare</string>
@@ -719,7 +734,7 @@
     <string name="trakt_code_expires">Il codice scade in %1$s</string>
     <string name="trakt_token_refreshes">Il token di accesso Trakt si rinnoverà tra %1$s</string>
     <string name="trakt_login_instruction">Premi Accedi per avviare l\'autenticazione del dispositivo Trakt. Un codice QR apparirà qui.</string>
-    <string name="trakt_missing_credentials">TRAKT_CLIENT_ID / TRAKT_CLIENT_SECRET mancanti in local.properties.</string>
+    <string name="trakt_missing_credentials">Inserisci Client ID e Client Secret in Integrazioni &gt; Trakt.</string>
     <string name="trakt_watch_progress_title">Avanzamento visione</string>
     <string name="trakt_watch_progress_subtitle">Scegli quale origine usa Riprendi e Continua a guardare</string>
     <string name="trakt_watch_progress_dialog_title">Avanzamento visione</string>
@@ -2936,4 +2951,13 @@
     <string name="addon_shared_manifest_error">Impossibile caricare questo add-on. Controlla l’URL del manifest.</string>
     <string name="addon_shared_already_installed">Questo add-on è già installato.</string>
     <string name="addon_shared_saved">Add-on salvati nel tuo account.</string>
+    <string name="trakt_client_settings_title">Credenziali dell’app Trakt</string>
+    <string name="trakt_client_settings_subtitle">Configura le credenziali dell’app e collega il tuo account Trakt</string>
+    <string name="trakt_client_id_title">Client ID</string>
+    <string name="trakt_client_secret_title">Client Secret</string>
+    <string name="trakt_client_credentials_local">Salvato su questo dispositivo per il profilo attuale</string>
+    <string name="trakt_client_value_set">Configurato</string>
+    <string name="trakt_client_value_default">Predefinito dell’app</string>
+    <string name="trakt_login_instruction_short">Apri Tracciamento per collegare il tuo account Trakt</string>
+    <string name="settings_integration_back">Torna alle integrazioni</string>
 </resources>

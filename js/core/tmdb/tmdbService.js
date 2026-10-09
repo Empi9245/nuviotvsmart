@@ -1,76 +1,12 @@
 import { TmdbSettingsStore } from "../../data/local/tmdbSettingsStore.js";
-import { TMDB_API_KEY } from "../../config.js";
-import { PluginServiceClient } from "../../platform/pluginServiceClient.js";
-import { Platform } from "../../platform/index.js";
+import { getTmdbApiKey } from "./tmdbApiConfig.js";
+import { fetchTmdbJson } from "./tmdbTransport.js";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-const TMDB_SERVICE_FETCH_TIMEOUT_MS = 10000;
-const TMDB_DIRECT_FETCH_TIMEOUT_MS = 60_000;
-const TMDB_SERVICE_MAX_RESPONSE_BYTES = 512 * 1024;
 const imdbToTmdbCache = new Map();
 const imdbToTmdbInFlight = new Map();
 const tmdbToImdbCache = new Map();
 const tmdbToImdbInFlight = new Map();
-
-async function fetchJson(url, { signal = null } = {}) {
-  // Some webOS TV runtimes can reject direct cross-origin fetches even while
-  // the packaged network service can reach the same HTTPS endpoint. Keep the
-  // service path scoped to webOS and retain the browser fetch as a fallback
-  // for older installs or when the optional service is unavailable.
-  if (Platform.isWebOS()) {
-    try {
-      const result = await PluginServiceClient.fetch({
-        url,
-        method: "GET",
-        maxResponseBytes: TMDB_SERVICE_MAX_RESPONSE_BYTES,
-        timeoutMs: TMDB_SERVICE_FETCH_TIMEOUT_MS,
-        signal
-      });
-      if (!result?.ok) {
-        return null;
-      }
-      return JSON.parse(result.body || "");
-    } catch (error) {
-      if (signal?.aborted) throw error;
-      // Fall back to the existing direct request for compatibility.
-    }
-  }
-
-  if (signal?.aborted) throw new Error("TMDB request aborted");
-  const controller = typeof AbortController === "function" ? new AbortController() : null;
-  let rejectDeadline;
-  const deadline = new Promise((_, reject) => {
-    rejectDeadline = reject;
-  });
-  const abortRequest = (error) => {
-    try {
-      controller?.abort();
-    } catch (_) {
-      // Abort is best effort; the deadline still settles the caller below.
-    }
-    rejectDeadline(error);
-  };
-  const forwardAbort = () => abortRequest(new Error("TMDB request aborted"));
-  signal?.addEventListener?.("abort", forwardAbort, { once: true });
-  const timeoutId = setTimeout(
-    () => abortRequest(new Error(`TMDB request timed out after ${TMDB_DIRECT_FETCH_TIMEOUT_MS}ms`)),
-    TMDB_DIRECT_FETCH_TIMEOUT_MS
-  );
-
-  try {
-    const request = (async () => {
-      const response = await fetch(url, controller ? { signal: controller.signal } : undefined);
-      if (!response.ok) {
-        return null;
-      }
-      return response.json();
-    })();
-    return await Promise.race([request, deadline]);
-  } finally {
-    clearTimeout(timeoutId);
-    signal?.removeEventListener?.("abort", forwardAbort);
-  }
-}
 
 function getContentType(type) {
   const normalized = String(type || "").toLowerCase();
@@ -127,12 +63,12 @@ export const TmdbService = {
     // API-key requirements.
     const settings = TmdbSettingsStore.get();
     const requireEnabled = options?.requireEnabled !== false;
-    const apiKey = String(TMDB_API_KEY || "").trim();
+    const apiKey = getTmdbApiKey(settings);
     if ((requireEnabled && !settings.enabled) || !apiKey) return null;
 
     const url = `${TMDB_BASE_URL}/find/${encodeURIComponent(parsed.idPart)}?external_source=imdb_id&api_key=${encodeURIComponent(apiKey)}`;
     const request = (async () => {
-      const data = await fetchJson(url, { signal: options?.signal || null });
+      const data = await fetchTmdbJson(url, { signal: options?.signal || null });
       if (!data) return null;
       const list = contentType === "tv" ? data.tv_results : data.movie_results;
       const first = Array.isArray(list) ? list[0] : null;
@@ -156,7 +92,7 @@ export const TmdbService = {
   },
 
   async tmdbToImdb(tmdbId, type = "movie") {
-    const apiKey = String(TMDB_API_KEY || "").trim();
+    const apiKey = getTmdbApiKey();
     const numericId = String(tmdbId || "").trim();
     if (!apiKey || !/^\d+$/.test(numericId)) {
       return null;
@@ -173,7 +109,7 @@ export const TmdbService = {
 
     const url = `${TMDB_BASE_URL}/${contentType}/${encodeURIComponent(numericId)}/external_ids?api_key=${encodeURIComponent(apiKey)}`;
     const request = (async () => {
-      const data = await fetchJson(url);
+      const data = await fetchTmdbJson(url);
       if (!data) return null;
       const imdbId = String(data?.imdb_id || "").trim();
       if (!/^tt\d+$/i.test(imdbId)) {

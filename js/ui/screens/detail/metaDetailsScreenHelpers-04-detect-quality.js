@@ -123,14 +123,14 @@ export function formatMdbListRating(provider, rating) {
   const normalizedProvider = String(provider || "")
     .trim()
     .toLowerCase();
-  if (["imdb", "tmdb", "letterboxd"].includes(normalizedProvider)) {
+  if (["imdb", "tmdb", "letterboxd", "mal"].includes(normalizedProvider)) {
     return formatRatingValue(rating, { digits: 1 });
   }
   return formatRatingValue(rating, { digits: 1, stripTrailingZero: true });
 }
 
 export function hasMdbListRatings(ratings = {}) {
-  return ["trakt", "imdb", "tmdb", "letterboxd", "tomatoes", "audience", "metacritic"].some(
+  return ["trakt", "imdb", "tmdb", "letterboxd", "tomatoes", "audience", "metacritic", "mal"].some(
     (key) => ratings?.[key] != null && String(ratings[key]).trim() !== ""
   );
 }

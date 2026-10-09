@@ -24,6 +24,10 @@ export function createPlayerScreenMethods35() {
       if (!streamCandidate) {
         return;
       }
+      const sourceAttemptToken = this.beginSourcePlaybackAttempt(streamCandidate, options);
+      if (options.preservePlaybackState) this.captureSourcePlaybackRestore();
+      const isCurrentAttempt = () => this.isActiveMountToken(mountToken) && this.isCurrentSourcePlaybackAttempt(sourceAttemptToken);
+      try {
       streamRepository.setLocalPluginSearchPaused(true);
       const forceEngineFsResolve = options?.forceEngineFsResolve === true;
       let targetUrl = forceEngineFsResolve ? "" : streamDirectPlaybackUrl(streamCandidate);
@@ -55,7 +59,7 @@ export function createPlayerScreenMethods35() {
 
         if (DirectDebridResolver.canResolveStream(streamCandidate, resolveContext)) {
           const result = await DirectDebridResolver.resolve(streamCandidate, resolveContext);
-          if (!this.isActiveMountToken(mountToken)) {
+          if (!isCurrentAttempt()) {
             return;
           }
           if (result.status === "success" && result.stream?.url) {
@@ -84,6 +88,7 @@ export function createPlayerScreenMethods35() {
             resolveFailureStatus = result.status || "debrid-failed";
             resolveFailureDetail = result.detail || result.error || "";
             if (result.status === "service_degraded") {
+              if (this.tryNextStreamCandidate({ streamCandidate, sourceAttemptToken })) return;
               if (!this.hasPresentedPlaybackFrame) {
                 this.showStartupError(fallbackError, {
                   streamCandidate,
@@ -124,7 +129,7 @@ export function createPlayerScreenMethods35() {
           const result = canUseEngineFs
             ? await WebOsEngineFsResolver.resolve(streamCandidate, resolveContext)
             : await TizenStreamingServerResolver.resolve(streamCandidate, resolveContext);
-          if (!this.isActiveMountToken(mountToken)) {
+          if (!isCurrentAttempt()) {
             stopPreResolveEngineFsKeepAlive();
             const resolvedEngineFs = result?.stream?.engineFs || null;
             if (resolvedEngineFs?.infoHash) {
@@ -168,9 +173,10 @@ export function createPlayerScreenMethods35() {
         }
 
         if (!targetUrl) {
-          if (!this.isActiveMountToken(mountToken)) {
+          if (!isCurrentAttempt()) {
             return;
           }
+          if (this.tryNextStreamCandidate({ streamCandidate, sourceAttemptToken })) return;
           const startupMessage =
             fallbackError ||
             (tizenP2pUnsupported
@@ -229,9 +235,18 @@ export function createPlayerScreenMethods35() {
       this.rememberSelectedStreamPreference(streamCandidate);
       await this.playStreamByUrl(targetUrl, {
         ...options,
+        preservePlaybackState: false,
+        preservePendingRestore: options.preservePendingRestore || options.preservePlaybackState,
+        sourceAttemptToken,
         mountToken,
         sourceCandidate: streamCandidate
       });
+      } catch (error) {
+        if (!isCurrentAttempt()) return;
+        this.showStartupError(t("player_error_playback_fallback", {}, "Playback error"), {
+          streamCandidate, sourceAttemptToken, detail: String(error?.message || error || ""), reason: "stream-resolve-error"
+        });
+      }
     },
     async switchStream(direction) {
       if (!this.streamCandidates.length) {

@@ -191,9 +191,15 @@ export function createPlayerScreenMethods17() {
         reason = "",
         resolverStatus = "",
         resolverDetail = "",
-        details = null
+        details = null,
+        sourceAttemptToken = null
       } = {}
     ) {
+      if (this.tryNextStreamCandidate?.({ streamCandidate, playbackUrl, sourceAttemptToken })) return;
+      if (this.sourceFallbackExhausted) {
+        message = t("player_error_no_working_sources", {}, "None of the remaining sources could be played.");
+        details = [];
+      }
       this.startupErrorMessage = String(message || "").trim() || t("player_error_playback_fallback", {}, "Playback error");
       this.startupErrorMediaCode = Number(mediaErrorCode || 0);
       this.startupErrorDetails = Array.isArray(details)

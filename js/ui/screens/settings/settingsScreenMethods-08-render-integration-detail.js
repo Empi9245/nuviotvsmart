@@ -2,6 +2,7 @@ import { renderDebridIntegrationDetail } from "./settingsIntegrationDetailDebrid
 import { renderTmdbIntegrationDetail } from "./settingsIntegrationDetailTmdb.js";
 import { renderMdblistIntegrationDetail } from "./settingsIntegrationDetailMdblist.js";
 import { renderAnimeskipIntegrationDetail } from "./settingsIntegrationDetailAnimeskip.js";
+import { renderTraktIntegrationDetail } from "./settingsIntegrationDetailTrakt.js";
 
 export function createSettingsScreenMethods08() {
   return {
@@ -12,6 +13,7 @@ export function createSettingsScreenMethods08() {
           debrid: "integration:hub:debrid",
           tmdb: "integration:hub:tmdb",
           mdblist: "integration:hub:mdblist",
+          trakt: "integration:hub:trakt",
           animeskip: "integration:hub:animeskip"
         };
         this.contentFocusKey = focusByIntegration[key] || "integration:hub:tmdb";
@@ -19,6 +21,7 @@ export function createSettingsScreenMethods08() {
       if (key === "debrid") return renderDebridIntegrationDetail.call(this, model);
       if (key === "tmdb") return renderTmdbIntegrationDetail.call(this, model);
       if (key === "mdblist") return renderMdblistIntegrationDetail.call(this, model);
+      if (key === "trakt") return renderTraktIntegrationDetail.call(this, model);
       return renderAnimeskipIntegrationDetail.call(this, model);
     }
   };

@@ -14,7 +14,7 @@ import { savedLibraryRepository } from "./savedLibraryRepository.js";
 
 import { metaRepository } from "./metaRepository.js";
 
-import { requestJson, TraktAuthService } from "./traktAuthService.js";
+import { requestJson, TraktAuthService, createTraktRequestContext, assertTraktRequestContext } from "./traktAuthService.js";
 
 import { TraktLibrarySourceMode, TraktSettingsStore } from "../local/traktSettingsStore.js";
 
@@ -73,6 +73,7 @@ export class LibraryRepository {
   }
 
   async getSourceMode() {
+    const requestContext = createTraktRequestContext();
     const selectedMode = TraktSettingsStore.get().librarySourceMode;
     if (selectedMode === TraktLibrarySourceMode.SIMKL) {
       return SimklAuthService.isAuthenticated() ? LibrarySourceMode.SIMKL : LibrarySourceMode.LOCAL;
@@ -80,7 +81,8 @@ export class LibraryRepository {
     if (selectedMode !== TraktLibrarySourceMode.TRAKT) {
       return LibrarySourceMode.LOCAL;
     }
-    const traktToken = await TraktAuthService.getValidAccessToken().catch(() => null);
+    const traktToken = await TraktAuthService.getValidAccessToken(requestContext.profileId).catch(() => null);
+    assertTraktRequestContext(requestContext);
     if (!traktToken) {
       return LibrarySourceMode.LOCAL;
     }
@@ -88,6 +90,7 @@ export class LibraryRepository {
   }
 
   async getListTabs({ sourceMode = null } = {}) {
+    const requestContext = createTraktRequestContext();
     const resolvedSourceMode = sourceMode || (await this.getSourceMode());
     if (resolvedSourceMode === LibrarySourceMode.LOCAL) {
       return [];
@@ -95,7 +98,9 @@ export class LibraryRepository {
     if (resolvedSourceMode === LibrarySourceMode.SIMKL) {
       return SimklSyncService.getLibraryTabs();
     }
+    assertTraktRequestContext(requestContext);
     await this.ensureFreshTraktState();
+    assertTraktRequestContext(requestContext);
     const personalTabs = await getRemotePersonalTabs();
     return [
       {
@@ -114,9 +119,12 @@ export class LibraryRepository {
   }
 
   async getItems({ hydrate = true, sourceMode = null } = {}) {
+    const requestContext = createTraktRequestContext();
     const resolvedSourceMode = sourceMode || (await this.getSourceMode());
     if (resolvedSourceMode === LibrarySourceMode.TRAKT) {
+      assertTraktRequestContext(requestContext);
       await this.ensureFreshTraktState();
+      assertTraktRequestContext(requestContext);
     }
     if (resolvedSourceMode === LibrarySourceMode.SIMKL) {
       const entries = await SimklSyncService.getLibraryEntries();
@@ -130,6 +138,7 @@ export class LibraryRepository {
   }
 
   async getMembershipSnapshot(item, { sourceMode = null } = {}) {
+    const requestContext = createTraktRequestContext();
     const resolvedSourceMode = sourceMode || (await this.getSourceMode());
     if (resolvedSourceMode === LibrarySourceMode.LOCAL) {
       const exists = await savedLibraryRepository.isSaved(item.itemId || item.id || "");
@@ -142,12 +151,16 @@ export class LibraryRepository {
       this.getItems({ sourceMode: resolvedSourceMode }),
       this.getListTabs({ sourceMode: resolvedSourceMode })
     ]);
+    assertTraktRequestContext(requestContext);
     return membershipMapFromEntries(entries, listTabs)(item);
   }
 
   async toggleDefault(item, options = {}) {
+    const requestContext = createTraktRequestContext();
     const sourceMode = await this.getSourceMode();
+    if (sourceMode === LibrarySourceMode.TRAKT) assertTraktRequestContext(requestContext);
     const snapshot = await this.getMembershipSnapshot(item, { sourceMode });
+    if (sourceMode === LibrarySourceMode.TRAKT) assertTraktRequestContext(requestContext);
     const currentMembership = snapshot?.listMembership || {};
     let desiredMembership;
 
@@ -169,7 +182,7 @@ export class LibraryRepository {
     }
 
     try {
-      await this.applyMembershipChanges(item, { desiredMembership }, { ...options, sourceMode });
+      await this.applyMembershipChanges(item, { desiredMembership }, { ...options, sourceMode, requestContext });
     } catch (error) {
       if (error?.code === "SIMKL_DESTRUCTIVE_REMOVAL_REQUIRED") {
         return {
@@ -191,6 +204,7 @@ export class LibraryRepository {
   }
 
   async applyMembershipChanges(item, changes, options = {}) {
+    const requestContext = options.requestContext || createTraktRequestContext();
     const sourceMode = options?.sourceMode || (await this.getSourceMode());
     if (sourceMode === LibrarySourceMode.LOCAL) {
       const shouldSave = Object.values(changes?.desiredMembership || {}).some(Boolean);
@@ -207,8 +221,11 @@ export class LibraryRepository {
     }
 
     const desiredMembership = changes?.desiredMembership || {};
+    assertTraktRequestContext(requestContext);
     const currentSnapshot = await this.getMembershipSnapshot(item, { sourceMode });
+    assertTraktRequestContext(requestContext);
     let remoteState = await readRemoteState();
+    assertTraktRequestContext(requestContext);
 
     for (const [listKey, desired] of Object.entries(desiredMembership)) {
       const before = currentSnapshot.listMembership?.[listKey] === true;
@@ -219,6 +236,7 @@ export class LibraryRepository {
       const body = buildTraktMutationBody(item);
       if (listKey === WATCHLIST_KEY) {
         await authorizedTraktRequest(after ? "/sync/watchlist" : "/sync/watchlist/remove", {
+          requestContext,
           method: "POST",
           body,
           errorMessage: after ? "Could not add item to Trakt watchlist" : "Could not remove item from Trakt watchlist"
@@ -245,6 +263,7 @@ export class LibraryRepository {
       }
       const listId = String(listKey).replace(PERSONAL_KEY_PREFIX, "");
       await authorizedTraktRequest(`/users/me/lists/${encodeURIComponent(listId)}/items${after ? "" : "/remove"}`, {
+        requestContext,
         method: "POST",
         body,
         errorMessage: after ? "Could not add item to Trakt list" : "Could not remove item from Trakt list"
@@ -252,11 +271,14 @@ export class LibraryRepository {
       remoteState = after ? upsertPersonalItem(remoteState, listKey, item) : removePersonalItem(remoteState, listKey, item);
     }
 
+    assertTraktRequestContext(requestContext);
     await writeRemoteState(remoteState);
   }
 
   async createPersonalList(name, description, privacy) {
+    const requestContext = createTraktRequestContext();
     const { payload } = await authorizedTraktRequest("/users/me/lists", {
+      requestContext,
       method: "POST",
       body: {
         name: String(name || "Untitled"),
@@ -270,6 +292,7 @@ export class LibraryRepository {
       throw new Error("Trakt returned an invalid list");
     }
     const state = await readRemoteState();
+    assertTraktRequestContext(requestContext);
     state.lists = [...state.lists.filter((list) => list.key !== created.key), created];
     state.listItems[created.key] = state.listItems[created.key] || [];
     await writeRemoteState(state);
@@ -277,7 +300,9 @@ export class LibraryRepository {
   }
 
   async updatePersonalList(listId, name, description, privacy) {
+    const requestContext = createTraktRequestContext();
     const { payload } = await authorizedTraktRequest(`/users/me/lists/${encodeURIComponent(String(listId))}`, {
+      requestContext,
       method: "PUT",
       body: {
         name: String(name || "Untitled"),
@@ -288,6 +313,7 @@ export class LibraryRepository {
     });
     const updated = toPersonalList(payload);
     const state = await readRemoteState();
+    assertTraktRequestContext(requestContext);
     state.lists = state.lists.map((list) => {
       if (String(list.traktListId || list.key).replace(PERSONAL_KEY_PREFIX, "") !== String(listId)) {
         return list;
@@ -305,11 +331,14 @@ export class LibraryRepository {
   }
 
   async deletePersonalList(listId) {
+    const requestContext = createTraktRequestContext();
     await authorizedTraktRequest(`/users/me/lists/${encodeURIComponent(String(listId))}`, {
+      requestContext,
       method: "DELETE",
       errorMessage: "Could not delete Trakt list"
     });
     const state = await readRemoteState();
+    assertTraktRequestContext(requestContext);
     const match = state.lists.find((list) => {
       return String(list.traktListId || list.key).replace(PERSONAL_KEY_PREFIX, "") === String(listId);
     });
@@ -322,16 +351,19 @@ export class LibraryRepository {
   }
 
   async reorderPersonalLists(orderedListIds = []) {
+    const requestContext = createTraktRequestContext();
     const rank = orderedListIds
       .map((id) => Number(String(id).replace(PERSONAL_KEY_PREFIX, "")))
       .filter((id) => Number.isFinite(id) && id > 0);
     if (!rank.length) return;
     await authorizedTraktRequest("/users/me/lists/reorder", {
+      requestContext,
       method: "POST",
       body: { rank },
       errorMessage: "Could not reorder Trakt lists"
     });
     const state = await readRemoteState();
+    assertTraktRequestContext(requestContext);
     const byId = new Map(state.lists.map((list) => [String(list.traktListId || list.key).replace(PERSONAL_KEY_PREFIX, ""), list]));
     const reordered = orderedListIds.map((id) => byId.get(String(id).replace(PERSONAL_KEY_PREFIX, ""))).filter(Boolean);
     const untouched = state.lists.filter((list) => !reordered.some((entry) => entry.key === list.key));
@@ -340,11 +372,14 @@ export class LibraryRepository {
   }
 
   async refreshNow() {
+    const requestContext = createTraktRequestContext();
     const sourceMode = await this.getSourceMode();
     if (sourceMode === LibrarySourceMode.TRAKT) {
+      assertTraktRequestContext(requestContext);
       if (!TraktAuthService.isAuthenticated()) return false;
       try {
         const [watchlistItems, personal] = await Promise.all([TraktAuthService.fetchWatchlist({ limit: 200 }), fetchTraktPersonalState()]);
+        assertTraktRequestContext(requestContext);
         const rawItems = watchlistItems.map(toSavedItemFromTraktWatchlist).filter(Boolean);
         const state = createEmptyRemoteState();
         state.syncedAt = Date.now();

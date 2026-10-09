@@ -943,6 +943,8 @@
     <string name="mdblist_dialog_placeholder">Enter MDBList API key</string>
     <string name="mdblist_not_set">Not set</string>
     <string name="mdblist_invalid_api_key">Invalid MDBList API key</string>
+    <string name="mdblist_connection_error">Could not connect to MDBList. Check your connection and try again.</string>
+    <string name="mdblist_rate_limit_error">MDBList request limit reached. Try again later.</string>
     <string name="debrid_title">Connected Services</string>
     <string name="debrid_subtitle">Connect accounts for links and library access</string>
     <string name="debrid_experimental_notice">These integrations are experimental and may be kept, changed, or removed later.</string>
@@ -1116,6 +1118,19 @@
     <string name="tmdb_subtitle">Choose which metadata fields should come from TMDB</string>
     <string name="tmdb_enable_title">Enable TMDB Enrichment</string>
     <string name="tmdb_enable_subtitle">Use TMDB as a metadata source to enhance addon data</string>
+    <string name="tmdb_api_key_title">TMDB API key</string>
+    <string name="tmdb_api_key_subtitle">Your key is saved on this device for this profile and overrides the optional default key.</string>
+    <string name="tmdb_api_key_placeholder">API key (v3 auth)</string>
+    <string name="tmdb_api_key_default">Default key</string>
+    <string name="tmdb_api_key_required">Add your TMDB API key to enable metadata enrichment.</string>
+    <string name="tmdb_api_key_validating">Checking TMDB key...</string>
+    <string name="tmdb_api_key_invalid">Invalid TMDB API key. Enter the API key (v3 auth) from your TMDB account.</string>
+    <string name="tmdb_api_key_rate_limit">TMDB request limit reached. Try again later.</string>
+    <string name="tmdb_api_key_connection_error">Could not connect to TMDB. Check your connection and try again.</string>
+    <string name="tmdb_api_key_reset_default">Use default key</string>
+    <string name="tmdb_api_key_reset_subtitle">Remove your personal key and use the default configured in the app.</string>
+    <string name="tmdb_api_key_remove">Remove API key</string>
+    <string name="tmdb_api_key_remove_subtitle">Remove the TMDB key saved for this profile.</string>
     <string name="tmdb_modern_home_title">Enable on Modern Home</string>
     <string name="tmdb_modern_home_subtitle">Also apply TMDB enrichment to Modern Home hero and focused cards</string>
     <string name="tmdb_enrich_continue_watching_title">Enrich Continue Watching</string>
@@ -1163,7 +1178,7 @@
     <string name="trakt_code_expires">Code expires in %1$s</string>
     <string name="trakt_token_refreshes">Trakt access token refreshes in %1$s</string>
     <string name="trakt_login_instruction">Press Login to start Trakt device authentication. A QR code will appear here.</string>
-    <string name="trakt_missing_credentials">Missing TRAKT_CLIENT_ID / TRAKT_CLIENT_SECRET in local.properties.</string>
+    <string name="trakt_missing_credentials">Set your Client ID and Client Secret in Integrations &gt; Trakt.</string>
     <string name="trakt_watch_progress_title">Watch Progress</string>
     <string name="trakt_watch_progress_subtitle">Choose which progress source powers resume and continue watching</string>
     <string name="trakt_watch_progress_dialog_title">Watch Progress</string>
@@ -3022,4 +3037,13 @@
     <string name="addon_shared_manifest_error">Could not load this add-on. Check its manifest URL.</string>
     <string name="addon_shared_already_installed">This add-on is already installed.</string>
     <string name="addon_shared_saved">Add-ons saved to your account.</string>
+    <string name="trakt_client_settings_title">Trakt app credentials</string>
+    <string name="trakt_client_settings_subtitle">Configure app credentials and connect your Trakt account</string>
+    <string name="trakt_client_id_title">Client ID</string>
+    <string name="trakt_client_secret_title">Client Secret</string>
+    <string name="trakt_client_credentials_local">Saved on this device for the current profile</string>
+    <string name="trakt_client_value_set">Configured</string>
+    <string name="trakt_client_value_default">App default</string>
+    <string name="trakt_login_instruction_short">Open tracking to connect your Trakt account</string>
+    <string name="settings_integration_back">Back to integrations</string>
 </resources>

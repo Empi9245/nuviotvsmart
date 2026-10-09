@@ -12,6 +12,12 @@ export function createPlayerScreenMethods73() {
         this.cancelSourceLoad();
         streamRepository.setLocalPluginSearchPaused(true);
         this.playerRouteActive = false;
+        this.clearSourceFallbackDeadline();
+        this.sourcePlaybackAttemptToken = Number(this.sourcePlaybackAttemptToken || 0) + 1;
+        this.playbackStartToken = Number(this.playbackStartToken || 0) + 1;
+        this.sourceFallbackPending = false;
+        this.sourcePlaybackStarting = false;
+        this.sourceFallbackStatus = "";
         this.playbackRecoveryActive = false;
         this.playbackRecoveryAttempts = 0;
         this.webOsAddonSubtitleRestoreRequestId = Number(this.webOsAddonSubtitleRestoreRequestId || 0) + 1;

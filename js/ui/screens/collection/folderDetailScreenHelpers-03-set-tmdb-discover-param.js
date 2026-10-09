@@ -1,4 +1,5 @@
 import { Router } from "../../navigation/routerState.js";
+import { getTraktClientCredentials } from "../../../data/local/traktClientSettingsStore.js";
 
 import { ScreenUtils } from "../../navigation/screen.js";
 
@@ -230,7 +231,7 @@ export async function fetchTmdbSourceItems(source = {}, page = 1) {
 }
 
 export function buildTraktHeaders() {
-  const clientId = String(TRAKT_CLIENT_ID || "").trim();
+  const clientId = getTraktClientCredentials().clientId;
   if (!clientId) {
     throw new Error("Trakt is not configured");
   }

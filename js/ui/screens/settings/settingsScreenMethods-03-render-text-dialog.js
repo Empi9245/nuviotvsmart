@@ -27,7 +27,7 @@ export function createSettingsScreenMethods03() {
         : `<input class="settings-text-dialog-field settings-text-dialog-input focusable"
                     data-zone="dialog"
                     data-text-dialog-role="field"
-                    type="text"
+                    type="${this.textDialog.inputType === "password" ? "password" : "text"}"
                     autocomplete="off"
                     autocapitalize="none"
                     spellcheck="false"

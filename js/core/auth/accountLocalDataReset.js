@@ -17,6 +17,8 @@ const ACCOUNT_LOCAL_STORAGE_KEYS = new Set([
   "continueWatchingPreferences",
   "libraryPreferences",
   "traktAuthState",
+  "traktClientSettings",
+  "tmdbApiKeys",
   "simklAuthState",
   "simklSyncState",
   "startupSyncState",

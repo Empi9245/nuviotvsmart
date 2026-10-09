@@ -1,4 +1,6 @@
 import * as internals from "./homeScreenContext.js";
+import { isTmdbConfigured } from "../../../core/tmdb/tmdbApiConfig.js";
+import { homeMetadataSettingsSignature } from "./homeMetadataSettings.js";
 
 export function createHomeScreenMethods26() {
   const {
@@ -8,7 +10,6 @@ export function createHomeScreenMethods26() {
     TmdbMetadataService,
     TmdbSettingsStore,
     LocalStore,
-    TMDB_API_KEY,
     shouldKeepNextUpForAiringSetting,
     CW_DISPLAY_SNAPSHOT_KEY,
     CW_MAX_NEXT_UP_CONCURRENCY,
@@ -19,7 +20,6 @@ export function createHomeScreenMethods26() {
     firstNonEmpty,
     prettyId,
     resolveImdbRating,
-    withTimeout,
     isSeriesTypeForContinueWatching,
     findEpisodeEntry,
     hasEpisodeAiredForContinueWatching,
@@ -30,6 +30,7 @@ export function createHomeScreenMethods26() {
 
   return {
     async buildNextUpItems({ allProgress = [], inProgressItems = [], nextUpProgressCandidates = [], watchedItems = [] } = {}) {
+      const enrichmentSignature = homeMetadataSettingsSignature();
       const resolvedCandidates =
         Array.isArray(nextUpProgressCandidates) && nextUpProgressCandidates.length
           ? nextUpProgressCandidates
@@ -126,6 +127,8 @@ export function createHomeScreenMethods26() {
             seedSeason: Number(progressEntry?.season || 0) || null,
             isNextUp: true,
             ...releaseState,
+            continueWatchingEnrichmentSignature: enrichmentSignature,
+            continueWatchingTmdbEnriched: meta.continueWatchingTmdbEnriched === true,
             title: meta.name || prettyId(contentId),
             landscapePoster: firstNonEmpty(
               meta.landscapePoster,
@@ -164,6 +167,7 @@ export function createHomeScreenMethods26() {
       // that, so this is the first point where the card's final release state is
       // known.
       const showUnairedNextUp = this.layoutPrefs?.showUnairedNextUp !== false;
+      if (homeMetadataSettingsSignature() !== enrichmentSignature) return [];
       return nextUpItems
         .filter((item) => shouldKeepNextUpForAiringSetting(item, showUnairedNextUp))
         .sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0));
@@ -187,38 +191,30 @@ export function createHomeScreenMethods26() {
     },
     async enrichContinueWatchingMetaWithTmdb(meta = {}, item = {}) {
       const settings = TmdbSettingsStore.get();
-      if (!settings.enabled || !settings.enrichContinueWatching || !TMDB_API_KEY || !meta) {
+      if (!settings.enabled || !settings.enrichContinueWatching || !isTmdbConfigured(settings) || !meta) {
         return meta;
       }
       const contentType = item.contentType || meta.type || "movie";
       try {
         const explicitTmdbId = Number(item.tmdbId || 0);
         const tmdbLookupId = explicitTmdbId > 0 ? `tmdb:${explicitTmdbId}` : firstNonEmpty(item.imdbId, item.contentId, meta.id);
-        const tmdbId = await withTimeout(TmdbService.ensureTmdbId(tmdbLookupId, contentType), 1800, null);
+        const tmdbId = await TmdbService.ensureTmdbId(tmdbLookupId, contentType);
         if (!tmdbId) {
           return meta;
         }
         const isSeries = isSeriesTypeForContinueWatching(contentType);
-        const enrichmentPromise = withTimeout(
-          TmdbMetadataService.fetchEnrichment({
+        const enrichmentPromise = TmdbMetadataService.fetchEnrichment({
             tmdbId,
             contentType,
             language: settings.language
-          }),
-          2200,
-          null
-        ).catch(() => null);
+          }).catch(() => null);
         const episodeMapPromise =
           isSeries && (settings.useEpisodes || settings.useReleaseDates) && item.season != null && Number(item.season) >= 0
-            ? withTimeout(
-                TmdbMetadataService.fetchEpisodeEnrichment({
+            ? TmdbMetadataService.fetchEpisodeEnrichment({
                   tmdbId,
                   seasonNumbers: [Number(item.season)],
                   language: settings.language
-                }),
-                1800,
-                new Map()
-              ).catch(() => new Map())
+                }).catch(() => new Map())
             : Promise.resolve(new Map());
         const [enrichment, episodeMap] = await Promise.all([enrichmentPromise, episodeMapPromise]);
         if (!enrichment && !episodeMap.size) {
@@ -251,6 +247,7 @@ export function createHomeScreenMethods26() {
         const currentEpisode = episodeMap.get(`${Number(item.season || 0)}:${Number(item.episode || 0)}`);
         return {
           ...meta,
+          continueWatchingTmdbEnriched: Boolean(enrichment),
           name: settings.useBasicInfo ? showEnrichment.localizedTitle || meta.name : meta.name,
           description: settings.useBasicInfo ? showEnrichment.description || meta.description : meta.description,
           background: settings.useArtwork ? showEnrichment.backdrop || meta.background : meta.background,

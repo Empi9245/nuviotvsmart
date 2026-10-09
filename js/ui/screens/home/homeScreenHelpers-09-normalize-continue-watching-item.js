@@ -48,6 +48,8 @@ import { TmdbMetadataService } from "../../../core/tmdb/tmdbMetadataService.js";
 import { supportsMembershipFor } from "../../../core/tracking/trackingLibraryMembership.js";
 
 import { TmdbSettingsStore } from "../../../data/local/tmdbSettingsStore.js";
+import { homeMetadataSettingsSignature } from "./homeMetadataSettings.js";
+import { isTmdbConfigured } from "../../../core/tmdb/tmdbApiConfig.js";
 
 import { metaRepository } from "../../../data/repository/metaRepository.js";
 
@@ -304,12 +306,17 @@ export function hasContinueWatchingHeroMetadata(item = {}) {
 }
 
 export function needsContinueWatchingMetadataRefresh(items = []) {
+  const settings = TmdbSettingsStore.get();
+  const needsTmdb = settings.enabled && settings.enrichContinueWatching && isTmdbConfigured(settings);
+  const signature = homeMetadataSettingsSignature();
   return (items || []).some((item) => {
     const normalized = normalizeContinueWatchingItem(item);
     return (
       normalized?.contentId &&
       (isRawContinueWatchingTitle(normalized) ||
         !hasContinueWatchingArtwork(normalized) ||
+        (!isCloudContinueWatchingItem(normalized) &&
+          (normalized.continueWatchingEnrichmentSignature !== signature || (needsTmdb && !normalized.continueWatchingTmdbEnriched))) ||
         (!normalized.continueWatchingMetaResolved && !hasContinueWatchingHeroMetadata(normalized)))
     );
   });
@@ -361,7 +368,7 @@ export function continueWatchingEnrichmentCacheKey(item = {}) {
   const contentId = String(item.contentId || item.id || "").trim();
   const season = item.season == null ? "" : String(Number(item.season || 0));
   const episode = item.episode == null ? "" : String(Number(item.episode || 0));
-  return contentId ? `${type}:${contentId}:${season}:${episode}` : "";
+  return contentId ? `${homeMetadataSettingsSignature()}:${type}:${contentId}:${season}:${episode}` : "";
 }
 
 export function readContinueWatchingEnrichmentCache() {

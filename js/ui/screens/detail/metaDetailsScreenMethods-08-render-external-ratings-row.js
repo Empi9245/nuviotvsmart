@@ -32,7 +32,8 @@ export function createMetaDetailsScreenMethods08() {
         ["letterboxd", "assets/icons/mdblist_letterboxd.svg", ratings.letterboxd],
         ["tomatoes", mdbListRatingIcon("tomatoes", ratings.tomatoes, ratings), ratings.tomatoes],
         ["audience", mdbListRatingIcon("audience", ratings.audience, ratings), ratings.audience],
-        ["metacritic", "assets/icons/mdblist_metacritic.png", ratings.metacritic]
+        ["metacritic", "assets/icons/mdblist_metacritic.png", ratings.metacritic],
+        ["mal", "assets/icons/mdblist_mal.svg", ratings.mal]
       ].filter(([, , value]) => value != null && String(value).trim() !== "");
       if (!items.length) {
         return "";

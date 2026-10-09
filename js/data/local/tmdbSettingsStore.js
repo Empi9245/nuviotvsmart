@@ -1,10 +1,14 @@
 import { createProfileScopedStore } from "./profileScopedStore.js";
+import { LocalStore } from "../../core/storage/localStore.js";
+import { ProfileManager } from "../../core/profile/profileManager.js";
 
 const KEY = "tmdbSettings";
+const API_KEYS_KEY = "tmdbApiKeys";
+let apiKeysMigrated = false;
 
 const DEFAULTS = {
   enabled: false,
-  modernHomeEnabled: false,
+  modernHomeEnabled: true,
   enrichContinueWatching: true,
   language: "en",
   useArtwork: true,
@@ -38,7 +42,7 @@ function normalizeTmdbSettings(value = {}) {
   const source = value && typeof value === "object" ? value : {};
   return {
     enabled: Boolean(source.enabled),
-    modernHomeEnabled: Boolean(source.modernHomeEnabled),
+    modernHomeEnabled: source.modernHomeEnabled === undefined ? DEFAULTS.modernHomeEnabled : Boolean(source.modernHomeEnabled),
     enrichContinueWatching: source.enrichContinueWatching !== false,
     language: normalizeTmdbLanguageCode(source.language),
     useArtwork: source.useArtwork !== false,
@@ -60,24 +64,77 @@ const store = createProfileScopedStore({
   normalize: normalizeTmdbSettings
 });
 
+function resolveProfileId(profileId) {
+  return String(profileId ?? ProfileManager.getActiveProfileId() ?? "1").trim() || "1";
+}
+
+function readApiKeys() {
+  const stored = LocalStore.get(API_KEYS_KEY, {});
+  return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+}
+
+function migrateApiKeys() {
+  if (apiKeysMigrated) return;
+  const raw = LocalStore.get(KEY, null);
+  const apiKeys = readApiKeys();
+  const profiles = raw?.__profileScoped === true && raw?.profiles && typeof raw.profiles === "object"
+    ? raw.profiles
+    : raw && typeof raw === "object" ? { "1": raw } : {};
+  let changed = false;
+  for (const [profileId, value] of Object.entries(profiles)) {
+    const apiKey = String(value?.apiKey || "").trim();
+    if (apiKey && !Object.prototype.hasOwnProperty.call(apiKeys, profileId)) {
+      apiKeys[profileId] = apiKey;
+      changed = true;
+    }
+  }
+  if (changed) LocalStore.set(API_KEYS_KEY, apiKeys);
+  apiKeysMigrated = true;
+}
+
+function saveApiKey(profileId, value) {
+  const apiKeys = readApiKeys();
+  const apiKey = String(value || "").trim();
+  if (apiKey) apiKeys[profileId] = apiKey;
+  else delete apiKeys[profileId];
+  LocalStore.set(API_KEYS_KEY, apiKeys);
+}
+
+function settingsWithoutApiKey(value) {
+  const settings = value && typeof value === "object" ? { ...value } : {};
+  delete settings.apiKey;
+  return settings;
+}
+
 export const TmdbSettingsStore = {
   getForProfile(profileId) {
-    return store.getForProfile(profileId);
+    migrateApiKeys();
+    const id = resolveProfileId(profileId);
+    return { ...store.getForProfile(id), apiKey: String(readApiKeys()[id] || "").trim() };
   },
 
   get() {
-    return store.get();
+    return this.getForProfile(resolveProfileId());
   },
 
   replaceForProfile(profileId, nextValue, options = {}) {
-    return store.replaceForProfile(profileId, nextValue, options);
+    migrateApiKeys();
+    const id = resolveProfileId(profileId);
+    if (nextValue && Object.prototype.hasOwnProperty.call(nextValue, "apiKey")) saveApiKey(id, nextValue.apiKey);
+    store.replaceForProfile(id, settingsWithoutApiKey(nextValue), options);
+    return this.getForProfile(id);
   },
 
   setForProfile(profileId, partial, options = {}) {
-    return store.setForProfile(profileId, partial, options);
+    migrateApiKeys();
+    const id = resolveProfileId(profileId);
+    if (partial && Object.prototype.hasOwnProperty.call(partial, "apiKey")) saveApiKey(id, partial.apiKey);
+    const preferences = settingsWithoutApiKey(partial);
+    if (Object.keys(preferences).length) store.setForProfile(id, preferences, options);
+    return this.getForProfile(id);
   },
 
   set(partial, options = {}) {
-    return store.set(partial, options);
+    return this.setForProfile(resolveProfileId(options.profileId), partial, options);
   }
 };

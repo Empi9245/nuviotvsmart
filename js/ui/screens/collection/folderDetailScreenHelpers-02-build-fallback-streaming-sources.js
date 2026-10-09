@@ -29,6 +29,8 @@ import { catalogSkipStep, catalogSupportsExtra } from "../../../core/addons/home
 import { toTraktImageUrl } from "../../../core/trakt/traktImageUrl.js";
 
 import { TMDB_API_KEY, TRAKT_API_URL, TRAKT_CLIENT_ID } from "../../../config.js";
+import { getTmdbApiKey as resolveTmdbApiKey } from "../../../core/tmdb/tmdbApiConfig.js";
+import { fetchTmdbJson } from "../../../core/tmdb/tmdbTransport.js";
 
 import {
   HomeScreen,
@@ -187,6 +189,10 @@ export function buildFolderSourceKey(source = {}, index = 0) {
 }
 
 export async function fetchJson(url, options = {}) {
+  if (String(url).startsWith("https://api.themoviedb.org/3/")) {
+    const payload = await fetchTmdbJson(url, { signal: options.signal, throwOnHttpError: true });
+    return { payload, response: null };
+  }
   const response = await fetch(url, options);
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
@@ -259,7 +265,7 @@ export async function fetchAddonSourceItems(source = {}, page = 1, skipOverride 
 
 export function getTmdbApiKey() {
   const settings = TmdbSettingsStore.get();
-  return settings.enabled ? String(TMDB_API_KEY || "").trim() : "";
+  return settings.enabled ? resolveTmdbApiKey(settings) : "";
 }
 
 export function getTmdbLanguage() {

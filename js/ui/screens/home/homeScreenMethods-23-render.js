@@ -506,7 +506,7 @@ export function createHomeScreenMethods23() {
         this.setupGridStickyHeader(showHeroSection);
       }
       this.startHeroRotation();
-      if (this.layoutMode === "modern" && heroItem && shouldEnrichModernHero(heroItem)) {
+      if (showHeroSection && heroItem && shouldEnrichModernHero(heroItem, this.layoutMode)) {
         void this.enrichCurrentHeroAsync(heroItem);
       }
       this.homeRouteEnterPending = false;

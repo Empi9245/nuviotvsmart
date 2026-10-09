@@ -80,7 +80,7 @@ export function createSettingsScreenMethods01() {
           </div>
         `;
     },
-    async mount(_params = {}, navigationContext = {}) {
+    async mount(params = {}, navigationContext = {}) {
       this.container = document.getElementById("settings");
       ScreenUtils.show(this.container);
       this.settingsMountToken = (this.settingsMountToken || 0) + 1;
@@ -110,6 +110,13 @@ export function createSettingsScreenMethods01() {
       this.appearanceThemeFocusKey = persistedUiState.appearanceThemeFocusKey || this.appearanceThemeFocusKey || null;
       this.pluginDraft = this.pluginDraft || "";
       this.integrationView = persistedUiState.integrationView || this.integrationView || "hub";
+      if (params.section === "integration" && ["trakt", "tmdb", "mdblist", "debrid", "animeskip"].includes(params.integration)) {
+        this.activeSection = "integration";
+        this.integrationView = params.integration;
+        this.navIndex = SECTION_META.findIndex((section) => section.id === "integration");
+        this.contentFocusKey = "integration:back";
+        this.focusZone = "content";
+      }
       this.expandedSections = normalizeExpandedSections(persistedUiState.expandedSections || this.expandedSections);
       this.streamBadgePreviewSourceUrl = null;
       this.advancedCacheCleared = false;

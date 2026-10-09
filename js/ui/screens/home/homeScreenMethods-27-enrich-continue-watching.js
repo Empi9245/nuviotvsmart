@@ -1,13 +1,10 @@
 import * as internals from "./homeScreenContext.js";
+import { homeMetadataSettingsSignature } from "./homeMetadataSettings.js";
 
 export function createHomeScreenMethods27() {
   const {
     Router,
     mapWithConcurrency,
-    TmdbService,
-    TmdbMetadataService,
-    TmdbSettingsStore,
-    TMDB_API_KEY,
     CW_MAX_ENRICHMENT_CONCURRENCY,
     CW_MAX_VISIBLE_ITEMS,
     firstNonEmpty,
@@ -17,7 +14,6 @@ export function createHomeScreenMethods27() {
     isCollectionFolderItem,
     normalizeCollectionFolderItem,
     normalizeHomeRowItem,
-    withTimeout,
     isSeriesTypeForContinueWatching,
     findEpisodeEntry,
     sortContinueWatchingItemsForDisplay,
@@ -30,6 +26,7 @@ export function createHomeScreenMethods27() {
 
   return {
     async enrichContinueWatching(items = [], options = {}) {
+      const enrichmentSignature = homeMetadataSettingsSignature();
       const [inProgressItems, nextUpItems] = await Promise.all([
         mapWithConcurrency(items || [], CW_MAX_ENRICHMENT_CONCURRENCY, async (item) => {
           if (isCloudContinueWatchingItem(item)) {
@@ -59,6 +56,7 @@ export function createHomeScreenMethods27() {
             }
             if (meta) {
               const enrichedMeta = await this.enrichContinueWatchingMetaWithTmdb(meta, item);
+              if (homeMetadataSettingsSignature() !== enrichmentSignature) return cachedItem;
               const episodeEntry = findEpisodeEntry(enrichedMeta.videos, item.season, item.episode);
               const runtimeMinutes = parseRuntimeMinutes(
                 episodeEntry?.runtimeMinutes ?? enrichedMeta.episodeRuntime ?? enrichedMeta.runtimeMinutes ?? enrichedMeta.runtime ?? 0
@@ -96,7 +94,9 @@ export function createHomeScreenMethods27() {
                   item.episodeDescription,
                   item.episode_description
                 ),
-                continueWatchingMetaResolved: true
+                continueWatchingMetaResolved: true,
+                continueWatchingTmdbEnriched: enrichedMeta.continueWatchingTmdbEnriched === true,
+                continueWatchingEnrichmentSignature: enrichmentSignature
               };
               saveContinueWatchingEnrichment(enriched);
               return enriched;
@@ -186,52 +186,8 @@ export function createHomeScreenMethods27() {
         return;
       }
 
-      const settings = TmdbSettingsStore.get();
-      const tmdbEnabledForCurrentLayout = settings.enabled && (this.layoutMode !== "modern" || settings.modernHomeEnabled);
-      if (!tmdbEnabledForCurrentLayout || !TMDB_API_KEY) {
-        this.heroItem = hero;
-        return;
-      }
-
-      try {
-        const tmdbId = await withTimeout(TmdbService.ensureTmdbId(hero.id, hero.type), 2200, null);
-        if (!tmdbId) {
-          this.heroItem = hero;
-          return;
-        }
-
-        const enriched = await withTimeout(
-          TmdbMetadataService.fetchEnrichment({
-            tmdbId,
-            contentType: hero.type,
-            language: settings.language
-          }),
-          2400,
-          null
-        );
-
-        if (!enriched) {
-          this.heroItem = hero;
-          return;
-        }
-
-        this.heroItem = normalizeCatalogItem(
-          {
-            ...hero,
-            name: settings.useBasicInfo ? enriched.localizedTitle || hero.name : hero.name,
-            description: settings.useBasicInfo ? enriched.description || hero.description : hero.description,
-            background: settings.useArtwork ? enriched.backdrop || hero.background : hero.background,
-            poster: settings.useArtwork ? enriched.poster || hero.poster : hero.poster,
-            logo: settings.useArtwork ? enriched.logo : hero.logo,
-            genres: settings.useBasicInfo ? enriched.genres || hero.genres : hero.genres,
-            releaseInfo: settings.useReleaseDates ? enriched.releaseInfo || hero.releaseInfo : hero.releaseInfo
-          },
-          hero.type || "movie"
-        );
-      } catch (error) {
-        console.warn("Hero TMDB enrichment failed", error);
-        this.heroItem = hero;
-      }
+      this.heroItem = hero;
+      await this.enrichCurrentHeroAsync(hero);
     },
     openDetailFromNode(node) {
       if (this.resolveCollectionFolderTargetFromNode(node)) {

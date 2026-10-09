@@ -27,6 +27,8 @@ import { watchProgressRepository } from "../../../data/repository/watchProgressR
 import { isWatchProgressCompleted } from "../../../domain/model/watchProgress.js";
 import {
   requestJson as traktRequestJson,
+  createTraktRequestContext,
+  assertTraktRequestContext,
   TraktAuthService
 } from "../../../data/repository/traktAuthService.js";
 import { moviePostPlayTriggerSeconds } from "../../../core/player/skipIntervalRules.js";
@@ -1425,7 +1427,9 @@ export class PostPlayRecommendationController {
   }
 
   async loadTraktRelated(currentMeta = {}, type = "movie") {
-    const token = await TraktAuthService.getValidAccessToken();
+    const requestContext = createTraktRequestContext();
+    const token = await TraktAuthService.getValidAccessToken(requestContext.profileId);
+    assertTraktRequestContext(requestContext);
     if (!token) {
       return [];
     }
@@ -1440,7 +1444,8 @@ export class PostPlayRecommendationController {
         : "";
       if (searchPath) {
         const searchResult = await traktRequestJson(searchPath, {
-          authorization: `Bearer ${token}`
+          authorization: `Bearer ${token}`,
+          requestContext
         });
         const entries = Array.isArray(searchResult?.payload) ? searchResult.payload : [];
         const resolved = entries
@@ -1459,7 +1464,7 @@ export class PostPlayRecommendationController {
     }
     const related = await traktRequestJson(
       `/${target}/${encodeURIComponent(pathId)}/related?extended=full%2Cimages&page=1&limit=20`,
-      { authorization: `Bearer ${token}` }
+      { authorization: `Bearer ${token}`, requestContext }
     );
     if (!related?.response?.ok) {
       return [];

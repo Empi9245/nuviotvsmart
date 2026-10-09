@@ -1,6 +1,7 @@
 import * as internals from "./homeScreenContext.js";
 import { getTvRuntimePerformanceProfile } from "../../../platform/tvRuntimePerformance.js";
 import { startHomeContinueWatchingLoad } from "./homeContinueWatchingLoad.js";
+import { homeMetadataSettingsSignature } from "./homeMetadataSettings.js";
 
 function catalogItemIdentity(item = {}) {
   const id = String(item?.id || item?.videoId || item?.contentId || "").trim();
@@ -108,6 +109,7 @@ export function createHomeScreenMethods04() {
     homePerfNow,
     preloadHeroAssets,
     buildHeroIdentity,
+    shouldEnrichModernHero,
     I18n
   } = internals;
 
@@ -562,6 +564,7 @@ export function createHomeScreenMethods04() {
           LayoutPreferences.get() || {},
           String(watchProgressRepository.getContinueWatchingSourceKey() || ""),
           String(I18n.getLocale() || ""),
+          homeMetadataSettingsSignature(),
           profileSettingsSignature
         ]);
       } catch (_) {
@@ -726,6 +729,9 @@ export function createHomeScreenMethods04() {
           await preloadHeroAssets(pendingHero, this.layoutMode);
           if ((await this.waitForVidaaHomeLoadingIdle(isCurrentScene)) && isCurrentScene()) {
             this.applyHeroToDom();
+            if (shouldEnrichModernHero(pendingHero, this.layoutMode)) {
+              void this.enrichCurrentHeroAsync(pendingHero);
+            }
           }
         });
         return;
@@ -735,6 +741,9 @@ export function createHomeScreenMethods04() {
           return;
         }
         this.applyHeroToDom();
+        if (shouldEnrichModernHero(pendingHero, this.layoutMode)) {
+          void this.enrichCurrentHeroAsync(pendingHero);
+        }
       });
     }
   };

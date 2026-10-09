@@ -71,6 +71,7 @@ import { createPlayerScreenMethods70 } from "./playerScreenMethods-70-on-pointer
 import { createPlayerScreenMethods71 } from "./playerScreenMethods-71-on-key-down.js";
 import { createPlayerScreenMethods72 } from "./playerScreenMethods-72-on-key-up.js";
 import { createPlayerScreenMethods73 } from "./playerScreenMethods-73-cleanup.js";
+import { createPlayerSourceFallbackMethods } from "./playerSourceFallback.js";
 
 export * from "./playerScreenContext.js";
 export const PlayerScreen = {
@@ -146,5 +147,6 @@ export const PlayerScreen = {
   ...createPlayerScreenMethods70(),
   ...createPlayerScreenMethods71(),
   ...createPlayerScreenMethods72(),
-  ...createPlayerScreenMethods73()
+  ...createPlayerScreenMethods73(),
+  ...createPlayerSourceFallbackMethods()
 };

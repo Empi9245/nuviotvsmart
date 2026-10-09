@@ -5,6 +5,7 @@ import { TMDB_API_KEY } from "../../config.js";
 import { tmdbShowReleaseInfo, tmdbYearPart } from "../util/tmdbReleaseRange.js";
 
 import { sortCollectionPartsByReleaseDate } from "./tmdbCollectionOrdering.js";
+import { fetchTmdbJson } from "./tmdbTransport.js";
 
 import { TMDB_BASE_URL, TMDB_TRAILER_FALLBACK_LANGUAGE } from "./tmdbMetadataServiceHelpers-01-tmdb-base-url.js";
 import {
@@ -17,39 +18,47 @@ import {
 export async function fetchTmdbImages({ type, tmdbId, apiKey, includeImageLanguage }) {
   const url = `${TMDB_BASE_URL}/${type}/${encodeURIComponent(String(tmdbId))}/images?api_key=${encodeURIComponent(apiKey)}&include_image_language=${encodeURIComponent(includeImageLanguage)}`;
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      return null;
-    }
-    return await response.json();
+    return await fetchTmdbJson(url);
   } catch (_error) {
     return null;
   }
 }
 
-export async function resolveTrailerCandidates({ type, tmdbId, apiKey, language, initialResults = [] }) {
+export async function resolveTrailerCandidates({ type, tmdbId, apiKey, language, initialResults = null, signal = null }) {
   const preferredLanguage = normalizeTmdbTrailerLanguage(language);
-  const preferred = rankTmdbVideoCandidates(initialResults, preferredLanguage);
+  let preferredResults = initialResults;
+  if (!Array.isArray(preferredResults)) {
+    try {
+      preferredResults = await fetchTmdbVideos({ type, tmdbId, apiKey, language: preferredLanguage, signal });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      preferredResults = [];
+    }
+  }
+  const preferred = rankTmdbVideoCandidates(preferredResults, preferredLanguage);
   if (preferred.length || preferredLanguage === TMDB_TRAILER_FALLBACK_LANGUAGE) {
     return preferred;
   }
-  const fallback = await fetchTmdbVideos({
-    type,
-    tmdbId,
-    apiKey,
-    language: TMDB_TRAILER_FALLBACK_LANGUAGE
-  });
-  return rankTmdbVideoCandidates(fallback, TMDB_TRAILER_FALLBACK_LANGUAGE);
+  try {
+    const fallback = await fetchTmdbVideos({
+      type,
+      tmdbId,
+      apiKey,
+      language: TMDB_TRAILER_FALLBACK_LANGUAGE,
+      signal
+    });
+    return rankTmdbVideoCandidates(fallback, TMDB_TRAILER_FALLBACK_LANGUAGE);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    // A failed optional trailer request must not discard translated metadata.
+    return [];
+  }
 }
 
 export async function fetchTmdbShowDetails({ tmdbId, apiKey, language }) {
   const url = `${TMDB_BASE_URL}/tv/${encodeURIComponent(String(tmdbId))}?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(language)}`;
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      return null;
-    }
-    return await response.json();
+    return await fetchTmdbJson(url);
   } catch (_error) {
     return null;
   }

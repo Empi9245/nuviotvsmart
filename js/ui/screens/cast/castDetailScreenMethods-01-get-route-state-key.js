@@ -1,5 +1,7 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./castDetailScreen.js";
+import { getTmdbApiKey } from "../../../core/tmdb/tmdbApiConfig.js";
+import { fetchTmdbJson } from "../../../core/tmdb/tmdbTransport.js";
 
 export function createCastDetailScreenMethods01() {
   const {
@@ -104,17 +106,16 @@ export function createCastDetailScreenMethods01() {
     },
     async getPersonIdFromName(name) {
       const settings = TmdbSettingsStore.get();
-      const apiKey = String(TMDB_API_KEY || "").trim();
+      const apiKey = getTmdbApiKey(settings);
       if (!apiKey || !name) {
         return null;
       }
       const language = settings.language || "en-US";
       const url = `${TMDB_BASE_URL}/search/person?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(language)}&query=${encodeURIComponent(name)}`;
-      const response = await fetch(url);
-      if (!response.ok) {
+      const data = await fetchTmdbJson(url);
+      if (!data) {
         return null;
       }
-      const data = await response.json();
       const first = Array.isArray(data?.results) ? data.results[0] : null;
       return first?.id ? String(first.id) : null;
     },
@@ -122,7 +123,7 @@ export function createCastDetailScreenMethods01() {
       const token = this.loadToken;
       try {
         const settings = TmdbSettingsStore.get();
-        const apiKey = String(TMDB_API_KEY || "").trim();
+        const apiKey = getTmdbApiKey(settings);
         if (!apiKey) {
           if (token !== this.loadToken || Router.getCurrent() !== "castDetail") {
             return;
@@ -144,15 +145,14 @@ export function createCastDetailScreenMethods01() {
 
         const language = normalizeTmdbLanguageCode(settings.language || "en-US");
         const url = `${TMDB_BASE_URL}/person/${encodeURIComponent(personId)}?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(language)}&append_to_response=combined_credits,images`;
-        const response = await fetch(url);
+        const person = await fetchTmdbJson(url);
         if (token !== this.loadToken || Router.getCurrent() !== "castDetail") {
           return;
         }
-        if (!response.ok) {
+        if (!person) {
           this.renderError("Failed to load cast details.");
           return;
         }
-        const person = await response.json();
         if (token !== this.loadToken) {
           return;
         }
@@ -167,10 +167,7 @@ export function createCastDetailScreenMethods01() {
         if (shouldFetchEnglishPerson) {
           try {
             const englishUrl = `${TMDB_BASE_URL}/person/${encodeURIComponent(personId)}?api_key=${encodeURIComponent(apiKey)}&language=en&append_to_response=combined_credits,images`;
-            const englishResponse = await fetch(englishUrl);
-            if (englishResponse.ok) {
-              englishPerson = await englishResponse.json();
-            }
+            englishPerson = await fetchTmdbJson(englishUrl);
           } catch (error) {
             console.warn("Cast English name fallback failed", error);
           }

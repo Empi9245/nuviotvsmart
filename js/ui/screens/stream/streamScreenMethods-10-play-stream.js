@@ -24,7 +24,6 @@ export function createStreamScreenMethods10() {
         return;
       }
       streamRepository.setLocalPluginSearchPaused(true);
-      const playerStreamCandidates = this.getFilteredStreams();
       const itemType = normalizeType(this.params?.itemType);
       const playerEpisodes =
         itemType === "series" || itemType === "tv" ? (Array.isArray(this.params?.episodes) ? this.params.episodes : null) : [];
@@ -81,7 +80,7 @@ export function createStreamScreenMethods10() {
         season: this.params?.season == null ? null : Number(this.params.season),
         episode: this.params?.episode == null ? null : Number(this.params.episode),
         episodes: playerEpisodes,
-        streamCandidates: playerStreamCandidates,
+        streamCandidates: this.getFilteredStreams("all"),
         preferredStreamId: selected.id,
         playbackSourceContext: selected.streamOrigin || {
           addonId: selected.addonId || "",

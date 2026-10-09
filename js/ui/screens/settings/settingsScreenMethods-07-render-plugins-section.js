@@ -86,6 +86,10 @@ export function createSettingsScreenMethods07() {
         this.integrationView = "mdblist";
         this.contentFocusKey = "integration:back";
       });
+      this.actionMap.set("integration:hub:trakt", () => {
+        this.integrationView = "trakt";
+        this.contentFocusKey = "integration:back";
+      });
       this.actionMap.set("integration:hub:animeskip", () => {
         this.integrationView = "animeskip";
         this.contentFocusKey = "integration:back";
@@ -114,6 +118,11 @@ export function createSettingsScreenMethods07() {
                   focusKey: "integration:hub:animeskip",
                   title: t("settings.integration.animeskip.label"),
                   subtitle: t("settings.integration.animeskip.subtitle")
+                })}
+                ${this.renderActionRow({
+                  focusKey: "integration:hub:trakt",
+                  title: "Trakt",
+                  subtitle: t("trakt_client_settings_subtitle", {}, "Configure app credentials and connect your Trakt account")
                 })}
               </div>
             </div>

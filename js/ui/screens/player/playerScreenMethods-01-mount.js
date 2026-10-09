@@ -190,6 +190,7 @@ export function createPlayerScreenMethods01() {
 
       if (initialStreamUrl && !this.isExternalFrameMode()) {
         const sourceCandidate = this.getStreamCandidateByUrl(initialStreamUrl) || this.getCurrentStreamCandidate();
+        this.beginSourcePlaybackAttempt(sourceCandidate);
         this.activePlaybackUrl = initialStreamUrl;
         this.currentEngineFsStream = this.getEngineFsStateForStream(sourceCandidate);
         const prioritizeWebOsRemoteMkvPlayback =
@@ -232,12 +233,7 @@ export function createPlayerScreenMethods01() {
         this.schedulePlaybackStallGuard();
       } else if (!this.isExternalFrameMode()) {
         const sourceCandidate = initialStreamCandidate || this.getCurrentStreamCandidate();
-        if (
-          sourceCandidate &&
-          (DirectDebridResolver.canResolveStream(sourceCandidate) ||
-            WebOsEngineFsResolver.canResolveStream(sourceCandidate) ||
-            TizenStreamingServerResolver.canResolveStream(sourceCandidate))
-        ) {
+        if (sourceCandidate) {
           void this.playStreamCandidate(sourceCandidate, {
             preservePendingRestore: true,
             mountToken

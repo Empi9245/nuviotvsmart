@@ -14,7 +14,12 @@ export function createPlayerScreenMethods18() {
   } = internals;
 
   return {
-    startPlayerControllerPlayback(url, context = {}, { mountToken = null, sourceCandidate = null } = {}) {
+    startPlayerControllerPlayback(url, context = {}, {
+      mountToken = null, sourceCandidate = null,
+      sourceAttemptToken = this.sourcePlaybackAttemptToken,
+      playbackStartToken = this.playbackStartToken
+    } = {}) {
+      if (!this.isCurrentSourcePlaybackAttempt(sourceAttemptToken)) return Promise.resolve();
       const playbackUrl = String(url || "").trim();
       if (!playbackUrl) {
         this.showStartupError(t("player_error_no_stream_url", {}, "No stream URL provided"), {
@@ -50,8 +55,14 @@ export function createPlayerScreenMethods18() {
         return Promise.resolve();
       }
       PlayerController.setStartupPresentationAudioMuted?.(true);
-      return Promise.resolve(PlayerController.play(playbackUrl, playbackContext)).catch((error) => {
-        if (!this.isActiveMountToken(mountToken) || this.isExternalFrameMode()) {
+      this.sourcePlaybackStarting = false;
+      this.armSourceFallbackDeadline(sourceCandidate);
+      return Promise.resolve().then(() => {
+        if (!this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) || this.playbackStartToken !== playbackStartToken) return;
+        return PlayerController.play(playbackUrl, playbackContext);
+      }).catch((error) => {
+        if (!this.isActiveMountToken(mountToken) || this.isExternalFrameMode() ||
+          !this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) || this.playbackStartToken !== playbackStartToken) {
           return;
         }
         if (playbackUrl !== String(this.activePlaybackUrl || "").trim()) {
@@ -64,6 +75,7 @@ export function createPlayerScreenMethods18() {
           typeof PlayerController.getLastPlaybackErrorCode === "function" ? Number(PlayerController.getLastPlaybackErrorCode() || 0) : 0;
         const detail = String(error?.message || error?.name || error || "").trim();
         const candidate = sourceCandidate || this.getStreamCandidateByUrl(playbackUrl) || this.getCurrentStreamCandidate();
+        if (this.tryNextStreamCandidate({ streamCandidate: candidate, playbackUrl, sourceAttemptToken })) return;
         this.markPlaybackSourceFailed(playbackUrl);
         if (!this.hasPresentedPlaybackFrame) {
           this.showStartupError(this.getStartupErrorMessage(mediaErrorCode, detail, candidate), {

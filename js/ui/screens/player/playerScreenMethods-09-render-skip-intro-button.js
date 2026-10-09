@@ -246,7 +246,7 @@ export function createPlayerScreenMethods09() {
         return null;
       }
       const current = this.streamCandidates[this.currentStreamIndex] || null;
-      if (current?.url) {
+      if (current) {
         return current;
       }
       return this.streamCandidates.find((entry) => Boolean(entry?.url)) || null;

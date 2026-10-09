@@ -1,4 +1,4 @@
-import { TMDB_API_KEY } from "../../config.js";
+import { getTmdbApiKey } from "../tmdb/tmdbApiConfig.js";
 import { PluginServiceClient } from "../../platform/pluginServiceClient.js";
 import { PLUGIN_QUOTAS } from "./pluginPolicy.js";
 import { PluginStore } from "../../data/local/pluginStore.js";
@@ -338,7 +338,7 @@ export const PluginRuntime = {
           settings: settings && typeof settings === "object" ? settings : {},
           profileId: String(profileId || ""),
           repositoryId: String(repositoryId || ""),
-          tmdbApiKey: TMDB_API_KEY,
+          tmdbApiKey: getTmdbApiKey(),
           args: defaultArgs(args),
           quota,
           timeoutMs,

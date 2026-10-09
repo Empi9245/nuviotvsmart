@@ -24,10 +24,15 @@ export function createPlayerScreenMethods34() {
         preserveTizenAvPlayConnectionRetryState = false,
         forceEngine = null,
         sourceCandidate: explicitSourceCandidate = null,
+        sourceAttemptToken = this.sourcePlaybackAttemptToken,
         mountToken = null
       } = {}
     ) {
-      if (!this.isActiveMountToken(mountToken)) {
+      const playbackStartToken = Number(this.playbackStartToken || 0) + 1;
+      this.playbackStartToken = playbackStartToken;
+      const isCurrentAttempt = () => this.isActiveMountToken(mountToken) &&
+        this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) && this.playbackStartToken === playbackStartToken;
+      if (!isCurrentAttempt()) {
         return;
       }
       const webOsAddonSubtitleRestoreRequestId = Number(this.webOsAddonSubtitleRestoreRequestId || 0) + 1;
@@ -109,7 +114,7 @@ export function createPlayerScreenMethods34() {
         await this.releaseCurrentEngineFsStream("source-change", {
           removeTorrent: removePreviousTorrent
         });
-        if (!this.isActiveMountToken(mountToken)) {
+        if (!isCurrentAttempt()) {
           return;
         }
       }
@@ -263,9 +268,11 @@ export function createPlayerScreenMethods34() {
         // same URL. Some providers rate-limit simultaneous Range requests.
         await startPlayback(this.activePlaybackUrl, playbackContext, {
           mountToken,
-          sourceCandidate
+          sourceCandidate,
+          sourceAttemptToken,
+          playbackStartToken
         });
-        if (!this.isActiveMountToken(mountToken)) {
+        if (!isCurrentAttempt()) {
           return;
         }
       }
@@ -285,7 +292,7 @@ export function createPlayerScreenMethods34() {
           }
         });
         await this.waitForInitialEmbeddedTrackBootstrap();
-        if (!this.isActiveMountToken(mountToken)) {
+        if (!isCurrentAttempt()) {
           return;
         }
       }
@@ -296,7 +303,9 @@ export function createPlayerScreenMethods34() {
       if (!prioritizeWebOsRemoteMkvPlayback) {
         startPlayback(this.activePlaybackUrl, playbackContext, {
           mountToken,
-          sourceCandidate
+          sourceCandidate,
+          sourceAttemptToken,
+          playbackStartToken
         });
       }
       this.paused = false;

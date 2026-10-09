@@ -104,6 +104,7 @@ export function createPlayerScreenMethods37() {
         }
         if (recreateLocalEngineFs) {
           void this.playStreamCandidate(sourceCandidate, {
+            sourceRecovery: true,
             preservePanel: true,
             resetSilentAudioState: false,
             preservePendingRestore: Boolean(this.pendingPlaybackRestore),

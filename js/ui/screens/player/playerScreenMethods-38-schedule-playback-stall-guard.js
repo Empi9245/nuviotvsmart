@@ -21,11 +21,16 @@ export function createPlayerScreenMethods38() {
         return;
       }
       const startup = !this.hasPresentedPlaybackFrame;
+      const sourceAttemptToken = this.sourcePlaybackAttemptToken;
+      const playbackStartToken = this.playbackStartToken;
+      const mountToken = this.playerMountToken;
       const timeoutMs =
         Number.isFinite(Number(timeoutOverrideMs)) && Number(timeoutOverrideMs) > 0
           ? Number(timeoutOverrideMs)
           : this.getPlaybackStallTimeoutMs({ startup });
       this.playbackStallTimer = setTimeout(async () => {
+        if (!this.isActiveMountToken(mountToken) || !this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) ||
+          this.playbackStartToken !== playbackStartToken || this.sourceFallbackPending) return;
         this.playbackStallTimer = null;
         if (this.isExternalFrameMode() || !this.loadingVisible || !this.activePlaybackUrl) {
           return;
@@ -56,6 +61,8 @@ export function createPlayerScreenMethods38() {
 
         if (startup && this.currentEngineFsStream) {
           const stats = await this.fetchCurrentEngineFsStats();
+          if (!this.isActiveMountToken(mountToken) || !this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) ||
+            this.playbackStartToken !== playbackStartToken || this.sourceFallbackPending) return;
           if (!stats && Environment.isWebOS() && this.scheduleEngineFsStartupRetry({ mediaErrorCode: 0, stats: null })) {
             return;
           }
@@ -259,6 +266,7 @@ export function createPlayerScreenMethods38() {
           return;
         }
 
+        if (this.tryNextStreamCandidate({ sourceAttemptToken, playbackUrl: this.activePlaybackUrl })) return;
         this.loadingVisible = false;
         this.paused = true;
         this.dismissPauseOverlay();

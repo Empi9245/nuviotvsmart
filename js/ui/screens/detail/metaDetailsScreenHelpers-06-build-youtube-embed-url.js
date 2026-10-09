@@ -55,6 +55,7 @@ import { Platform } from "../../../platform/index.js";
 import { getTvRuntimePerformanceProfile } from "../../../platform/tvRuntimePerformance.js";
 
 import { TMDB_API_KEY, TRAKT_API_URL, TRAKT_CLIENT_ID, YOUTUBE_PROXY_URL } from "../../../config.js";
+import { isTmdbConfigured } from "../../../core/tmdb/tmdbApiConfig.js";
 
 import { I18n } from "../../../i18n/index.js";
 
@@ -227,7 +228,7 @@ export function resolveTrailerSource(meta = {}) {
 export async function resolveTmdbTrailerSource(meta = {}, itemType = "movie") {
   const fallbackSource = resolveTrailerSource(meta);
   const settings = TmdbSettingsStore.get();
-  if (!settings.enabled || !settings.useTrailers || !TMDB_API_KEY || !meta?.id) {
+  if (!settings.enabled || !settings.useTrailers || !isTmdbConfigured(settings) || !meta?.id) {
     return fallbackSource;
   }
   try {

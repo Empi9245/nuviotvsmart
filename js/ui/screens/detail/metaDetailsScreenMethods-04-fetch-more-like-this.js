@@ -1,4 +1,6 @@
 /* eslint-disable no-unused-vars */
+import { getTraktClientCredentials } from "../../../data/local/traktClientSettingsStore.js";
+import { createTraktRequestContext, assertTraktRequestContext } from "../../../data/repository/traktAuthService.js";
 import * as internals from "./metaDetailsScreenContext.js";
 
 export function createMetaDetailsScreenMethods04() {
@@ -12,7 +14,6 @@ export function createMetaDetailsScreenMethods04() {
     traktRequestJson,
     TraktAuthService,
     TRAKT_API_URL,
-    TRAKT_CLIENT_ID,
     TRAKT_COMMENTS_LIMIT,
     t,
     isDetailProgressCompleted,
@@ -74,12 +75,14 @@ export function createMetaDetailsScreenMethods04() {
       }
     },
     async fetchTraktRelated(meta) {
+      const requestContext = createTraktRequestContext();
       const routeType = String(this.params?.itemType || meta?.type || meta?.apiType || "")
         .trim()
         .toLowerCase();
       const type = ["series", "tv", "show", "tvshow"].includes(routeType) ? "series" : "movie";
       const apiType = type === "series" ? "show" : "movie";
-      const token = await TraktAuthService.getValidAccessToken();
+      const token = await TraktAuthService.getValidAccessToken(requestContext.profileId);
+      assertTraktRequestContext(requestContext);
       if (!token) return [];
 
       const rawIds = [meta?.id, this.params?.itemId].map((value) => String(value || "").trim());
@@ -90,7 +93,8 @@ export function createMetaDetailsScreenMethods04() {
         const tmdbId = meta?.tmdbId || rawIds.map((value) => value.match(/^tmdb:(\d+)$/i)?.[1] || null).find(Boolean);
         if (tmdbId) {
           const search = await traktRequestJson(`/search/tmdb/${encodeURIComponent(String(tmdbId))}?type=${apiType}`, {
-            authorization: `Bearer ${token}`
+            authorization: `Bearer ${token}`,
+            requestContext
           });
           if (search.response.ok) {
             const result = (Array.isArray(search.payload) ? search.payload : []).find(
@@ -106,7 +110,7 @@ export function createMetaDetailsScreenMethods04() {
       const target = type === "series" ? "shows" : "movies";
       const result = await traktRequestJson(
         `/${target}/${encodeURIComponent(String(pathId))}/related?extended=full%2Cimages&page=1&limit=20`,
-        { authorization: `Bearer ${token}` }
+        { authorization: `Bearer ${token}`, requestContext }
       );
       if (result.response.status === 404) return [];
       if (!result.response.ok) {
@@ -161,24 +165,22 @@ export function createMetaDetailsScreenMethods04() {
       };
     },
     async fetchTraktCommentsPage(page = 1, { target = this.resolveTraktCommentsTarget(this.meta), signal = null } = {}) {
-      if (!target || !TRAKT_CLIENT_ID) {
+      const requestContext = createTraktRequestContext();
+      if (!target || !getTraktClientCredentials().clientId) {
         return { items: [], page: 0, pageCount: 0 };
       }
-      const token = await TraktAuthService.getValidAccessToken().catch(() => null);
+      const token = await TraktAuthService.getValidAccessToken(requestContext.profileId).catch(() => null);
+      assertTraktRequestContext(requestContext);
       if (!token || signal?.aborted) {
         return { items: [], page: 0, pageCount: 0 };
       }
       const url = new URL(`${String(TRAKT_API_URL || "https://api.trakt.tv").replace(/\/+$/, "")}${target.path}`);
       url.searchParams.set("page", String(page));
       url.searchParams.set("limit", String(TRAKT_COMMENTS_LIMIT));
-      const response = await fetch(url.toString(), {
-        ...(signal ? { signal } : {}),
-        headers: {
-          "Content-Type": "application/json",
-          "trakt-api-version": "2",
-          "trakt-api-key": TRAKT_CLIENT_ID,
-          Authorization: `Bearer ${token}`
-        }
+      const { response, payload } = await traktRequestJson(`${url.pathname}${url.search}`, {
+        signal,
+        authorization: `Bearer ${token}`,
+        requestContext
       });
       if (response.status === 404) {
         return { items: [], page, pageCount: 0 };
@@ -186,7 +188,6 @@ export function createMetaDetailsScreenMethods04() {
       if (!response.ok) {
         throw new Error(`Trakt comments failed (${response.status})`);
       }
-      const payload = await response.json();
       const items = (Array.isArray(payload) ? payload : [])
         .filter((entry) => String(entry?.comment || "").trim())
         .map((entry) => ({

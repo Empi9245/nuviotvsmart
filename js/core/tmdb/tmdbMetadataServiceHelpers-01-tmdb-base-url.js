@@ -5,6 +5,7 @@ import { TMDB_API_KEY } from "../../config.js";
 import { tmdbShowReleaseInfo, tmdbYearPart } from "../util/tmdbReleaseRange.js";
 
 import { sortCollectionPartsByReleaseDate } from "./tmdbCollectionOrdering.js";
+import { fetchTmdbJson } from "./tmdbTransport.js";
 
 export const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
@@ -84,7 +85,7 @@ export const moreLikeThisCache = new Map();
 
 export function resolveType(contentType) {
   const normalized = String(contentType || "").toLowerCase();
-  if (normalized === "series" || normalized === "tv" || normalized === "show") {
+  if (["series", "tv", "show", "tvshow"].includes(normalized.trim())) {
     return "tv";
   }
   return "movie";
@@ -201,7 +202,7 @@ export function addEnglishPersonNames(target, people = []) {
   });
 }
 
-export async function fetchEnglishPersonNames({ type, tmdbId, apiKey, data, language } = {}) {
+export async function fetchEnglishPersonNames({ type, tmdbId, apiKey, data, language, signal = null } = {}) {
   if (!needsEnglishPersonNameFallback(data, language)) {
     return new Map();
   }
@@ -209,35 +210,35 @@ export async function fetchEnglishPersonNames({ type, tmdbId, apiKey, data, lang
   try {
     const params = `api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(TMDB_ENGLISH_CREDIT_LANGUAGE)}&append_to_response=credits`;
     const url = `${TMDB_BASE_URL}/${type}/${encodeURIComponent(String(tmdbId))}?${params}`;
-    const response = await fetch(url);
-    if (!response.ok) {
+    const englishData = await fetchTmdbJson(url, { signal });
+    if (!englishData) {
       return new Map();
     }
-    const englishData = await response.json();
     const names = new Map();
     addEnglishPersonNames(names, englishData?.credits?.cast);
     addEnglishPersonNames(names, englishData?.credits?.crew);
     addEnglishPersonNames(names, englishData?.created_by);
     return names;
   } catch (error) {
+    if (signal?.aborted) throw error;
     console.warn("TMDB English person-name fallback failed", error);
     return new Map();
   }
 }
 
-export async function fetchEnglishTitle({ type, tmdbId, apiKey } = {}) {
+export async function fetchEnglishTitle({ type, tmdbId, apiKey, signal = null } = {}) {
   const params = `api_key=${encodeURIComponent(apiKey)}&language=en`;
   const url = `${TMDB_BASE_URL}/${type}/${encodeURIComponent(String(tmdbId))}?${params}`;
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
+    const data = await fetchTmdbJson(url, { signal });
+    if (!data) {
       return "";
     }
-    const data = await response.json();
     return String(data?.title || data?.name || "")
       .trim()
       .replace(/\s+/g, " ");
   } catch (error) {
+    if (signal?.aborted) throw error;
     console.warn("TMDB English title fallback failed", error);
     return "";
   }

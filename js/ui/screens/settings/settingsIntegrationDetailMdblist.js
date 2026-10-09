@@ -15,6 +15,7 @@ export function renderMdblistIntegrationDetail(model) {
       title: t("settings.integration.mdblist.dialog.title"),
       value: MdbListSettingsStore.get().apiKey || "",
       placeholder: t("settings.integration.mdblist.dialog.placeholder"),
+      inputType: "password",
       returnFocusKey: "integration:mdblist:key",
       clearLabel: t("common.clear", {}, t("action_clear", {}, "Clear")),
       onClear: () => {
@@ -29,7 +30,18 @@ export function renderMdblistIntegrationDetail(model) {
             this.textDialog.statusKind = "info";
             await this.render({ refreshModel: false });
           }
-          const valid = await mdbListRepository.validateApiKey(trimmed);
+          let valid;
+          try {
+            valid = await mdbListRepository.validateApiKey(trimmed);
+          } catch (error) {
+            if (this.textDialog) {
+              this.textDialog.statusMessage = Number(error?.status) === 429
+                ? t("mdblist_rate_limit_error", {}, "MDBList request limit reached. Try again later.")
+                : t("mdblist_connection_error", {}, "Could not connect to MDBList. Check your connection and try again.");
+              this.textDialog.statusKind = "error";
+            }
+            return false;
+          }
           if (!valid) {
             if (this.textDialog) {
               this.textDialog.statusMessage = t("settings.integration.mdblist.invalidApiKey");

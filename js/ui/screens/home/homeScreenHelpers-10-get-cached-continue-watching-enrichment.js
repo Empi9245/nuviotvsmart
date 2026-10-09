@@ -48,6 +48,7 @@ import { TmdbMetadataService } from "../../../core/tmdb/tmdbMetadataService.js";
 import { supportsMembershipFor } from "../../../core/tracking/trackingLibraryMembership.js";
 
 import { TmdbSettingsStore } from "../../../data/local/tmdbSettingsStore.js";
+import { homeMetadataSettingsSignature } from "./homeMetadataSettings.js";
 
 import { metaRepository } from "../../../data/repository/metaRepository.js";
 
@@ -242,6 +243,9 @@ export function saveContinueWatchingEnrichment(item = {}) {
   if (!normalized?.contentId || isRawContinueWatchingTitle(normalized) || !hasContinueWatchingArtwork(normalized)) {
     return;
   }
+  if (normalized.continueWatchingEnrichmentSignature && normalized.continueWatchingEnrichmentSignature !== homeMetadataSettingsSignature()) {
+    return;
+  }
   const key = continueWatchingEnrichmentCacheKey(normalized);
   if (!key) {
     return;
@@ -269,6 +273,8 @@ export function saveContinueWatchingEnrichment(item = {}) {
     country: normalized.country,
     episodeTitle: normalized.episodeTitle,
     episodeDescription: normalized.episodeDescription,
+    continueWatchingEnrichmentSignature: homeMetadataSettingsSignature(),
+    continueWatchingTmdbEnriched: normalized.continueWatchingTmdbEnriched === true,
     continueWatchingMetaResolved: true
   };
   const enrichmentCacheLimit = getTvRuntimePerformanceProfile().isPerformanceConstrained ? 50 : 200;
@@ -286,6 +292,9 @@ export function readContinueWatchingDisplaySnapshot(scopeKey) {
   const store = LocalStore.get(CW_DISPLAY_SNAPSHOT_KEY, {});
   const entry = store && typeof store === "object" ? store[key] : null;
   if (!entry || !Array.isArray(entry.items)) {
+    return [];
+  }
+  if (entry.settingsSignature !== homeMetadataSettingsSignature()) {
     return [];
   }
   if (Date.now() - Number(entry.savedAt || 0) > CW_DISPLAY_SNAPSHOT_MAX_AGE_MS) {
@@ -310,7 +319,7 @@ export function writeContinueWatchingDisplaySnapshot(scopeKey, items = []) {
   }
   const store = LocalStore.get(CW_DISPLAY_SNAPSHOT_KEY, {});
   const next = store && typeof store === "object" ? { ...store } : {};
-  next[key] = { savedAt: Date.now(), items: items.slice(0, CW_DISPLAY_SNAPSHOT_MAX_ITEMS) };
+  next[key] = { savedAt: Date.now(), settingsSignature: homeMetadataSettingsSignature(), items: items.slice(0, CW_DISPLAY_SNAPSHOT_MAX_ITEMS) };
   const entries = Object.entries(next)
     .sort(([, left], [, right]) => Number(right?.savedAt || 0) - Number(left?.savedAt || 0))
     .slice(0, CW_DISPLAY_SNAPSHOT_MAX_SCOPES);

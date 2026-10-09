@@ -1,5 +1,7 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./metaDetailsScreenContext.js";
+import { getTmdbApiKey, isTmdbConfigured } from "../../../core/tmdb/tmdbApiConfig.js";
+import { fetchTmdbJson } from "../../../core/tmdb/tmdbTransport.js";
 
 export function createMetaDetailsScreenMethods06() {
   const {
@@ -21,7 +23,7 @@ export function createMetaDetailsScreenMethods06() {
   return {
     async enrichMeta(meta) {
       const settings = TmdbSettingsStore.get();
-      if (!settings.enabled || !TMDB_API_KEY || !meta?.id) {
+      if (!settings.enabled || !isTmdbConfigured(settings) || !meta?.id) {
         return meta;
       }
 
@@ -147,7 +149,7 @@ export function createMetaDetailsScreenMethods06() {
     },
     async searchTmdbIdByTitle(meta = {}, contentType = "movie") {
       const settings = TmdbSettingsStore.get();
-      const apiKey = String(TMDB_API_KEY || "").trim();
+      const apiKey = getTmdbApiKey(settings);
       if (!settings.enabled || !apiKey) {
         return null;
       }
@@ -163,11 +165,10 @@ export function createMetaDetailsScreenMethods06() {
           : `&year=${encodeURIComponent(releaseYear)}`
         : "";
       const url = `${TMDB_BASE_URL}/search/${type}?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(settings.language || "en")}&query=${encodeURIComponent(name)}${yearParam}`;
-      const response = await fetch(url);
-      if (!response.ok) {
+      const data = await fetchTmdbJson(url);
+      if (!data) {
         return null;
       }
-      const data = await response.json();
       const first = Array.isArray(data?.results) ? data.results[0] : null;
       return first?.id ? String(first.id) : null;
     },
@@ -222,7 +223,7 @@ export function createMetaDetailsScreenMethods06() {
       }
       const settings = TmdbSettingsStore.get();
       const fallbackSource = resolveTrailerSource(meta);
-      if (!settings.enabled || !settings.useTrailers || !TMDB_API_KEY) {
+      if (!settings.enabled || !settings.useTrailers || !isTmdbConfigured(settings)) {
         return fallbackSource;
       }
       const itemType = String(meta?.type || this.params?.itemType || "movie");

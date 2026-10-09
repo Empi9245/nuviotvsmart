@@ -1,9 +1,11 @@
 import * as internals from "./homeScreenContext.js";
+import { homeMetadataSettingsSignature, isHomeTmdbEnabled } from "./homeMetadataSettings.js";
 
 export function createHomeScreenMethods11() {
   const {
     Router,
     Platform,
+    LayoutPreferences,
     TmdbSettingsStore,
     metaRepository,
     mdbListRepository,
@@ -13,7 +15,6 @@ export function createHomeScreenMethods11() {
     preloadImageSource,
     parseRuntimeMinutes,
     normalizeCollectionFolderItem,
-    withTimeout,
     fetchModernHeroTmdbEnrichment,
     buildHeroIdentity,
     buildModernHeroPresentation
@@ -27,27 +28,36 @@ export function createHomeScreenMethods11() {
       const itemId = String(hero.id);
       const itemType = String(hero.type || hero.apiType || "movie");
       const heroIdentity = buildHeroIdentity(hero);
+      const settingsSignature = homeMetadataSettingsSignature();
+      const pendingKey = JSON.stringify([heroIdentity, settingsSignature, focusToken]);
+      if (this.pendingHeroEnrichmentKey === pendingKey) {
+        return;
+      }
+      this.pendingHeroEnrichmentKey = pendingKey;
       const deferCommit = Boolean(options?.deferCommit);
       const isVidaa = Platform.isVidaa();
       const token = (this.heroEnrichmentToken = Number(this.heroEnrichmentToken || 0) + 1);
       const canCommitHero = () => {
+        if (Router.getCurrent() !== String(options?.routeName || "home")) {
+          return false;
+        }
         if (Number(this.heroEnrichmentToken) !== token) {
           return false;
         }
         if (Number(this.heroFocusToken || 0) !== Number(focusToken || 0)) {
           return false;
         }
-        if (isVidaa) {
-          if (Router.getCurrent() !== String(options?.routeName || "home")) {
-            return false;
-          }
+        if (homeMetadataSettingsSignature() !== settingsSignature) {
+          return false;
+        }
+        if (isVidaa && (this.layoutMode === "modern" || deferCommit)) {
           const focusedHero = this.getNodeHeroSource(this.getCurrentFocusedNode());
           if (buildHeroIdentity(focusedHero) !== heroIdentity) {
             return false;
           }
         }
         if (!deferCommit) {
-          return String(this.heroItem?.id || "") === itemId;
+          return buildHeroIdentity(this.heroItem) === heroIdentity;
         }
         if (Router.getCurrent() !== String(options?.routeName || "home")) {
           return false;
@@ -55,7 +65,8 @@ export function createHomeScreenMethods11() {
         const focusedHero = this.getNodeHeroSource(this.getCurrentFocusedNode());
         return buildHeroIdentity(focusedHero) === heroIdentity;
       };
-      const commitHero = async (resolvedHero, { merge = false } = {}) => {
+      let resultRevision = 0;
+      const commitHero = async (resolvedHero, revision) => {
         if (isVidaa && !(await this.waitForVidaaHomeLoadingIdle(canCommitHero))) {
           return false;
         }
@@ -66,7 +77,7 @@ export function createHomeScreenMethods11() {
         if (isVidaa && !(await this.waitForVidaaHomeLoadingIdle(canCommitHero))) {
           return false;
         }
-        if (!canCommitHero()) {
+        if (!canCommitHero() || revision !== resultRevision) {
           return false;
         }
         this.heroItem = resolvedHero;
@@ -74,49 +85,29 @@ export function createHomeScreenMethods11() {
         if (matchedIndex >= 0) {
           this.heroIndex = matchedIndex;
         }
-        if (merge) {
-          this.mergeHeroIntoCatalogState(itemId, resolvedHero);
-        }
+        this.mergeHeroIntoCatalogState(itemId, resolvedHero);
         this.applyHeroToDom();
         return true;
       };
       if (isVidaa && (!(await this.waitForVidaaHomeLoadingIdle(canCommitHero)) || !canCommitHero())) {
+        if (this.pendingHeroEnrichmentKey === pendingKey) this.pendingHeroEnrichmentKey = "";
         return;
       }
-      const mdbImdbRatingPromise = withTimeout(mdbListRepository.getImdbRatingForItem(itemId, itemType), 3500, null).catch(() => null);
-      let metadataPromise = null;
       let latestMetadataResult = null;
       let latestTmdbEnrichment = null;
-      const commitFallbackHero = async () => {
+      let mdbImdbRating = null;
+      let sourcesSettled = false;
+      const publishLatestResults = async () => {
+        const revision = ++resultRevision;
+        const meta = latestMetadataResult?.status === "success" ? latestMetadataResult.data : null;
+        const tmdbEnrichment = latestTmdbEnrichment;
         if (!canCommitHero()) {
-          return false;
-        }
-        const mdbImdbRating = await mdbImdbRatingPromise;
-        if (!canCommitHero()) {
-          return false;
-        }
-        const fallbackHero = {
-          ...(deferCommit ? hero : this.heroItem),
-          heroMetaEnriched: false,
-          heroMetaEnriching: false,
-          ...(mdbImdbRating != null ? { imdbRating: Number(mdbImdbRating) } : {})
-        };
-        await commitHero(fallbackHero, { merge: mdbImdbRating != null });
-        return true;
-      };
-      const commitMetadataResult = async (result, { late = false, tmdbEnrichment = null } = {}) => {
-        const meta = result?.status === "success" && result.data ? result.data : null;
-        if ((!meta && !tmdbEnrichment) || !canCommitHero()) {
           return false;
         }
         const enrichedImdb = meta ? resolveImdbRating(meta) : null;
-        const mdbImdbRating = await mdbImdbRatingPromise;
-        if (!canCommitHero()) {
-          return false;
-        }
         const settings = TmdbSettingsStore.get();
         const sourceHero =
-          (late || tmdbEnrichment) && String(this.heroItem?.id || "") === itemId ? this.heroItem : deferCommit ? hero : this.heroItem;
+          buildHeroIdentity(this.heroItem) === heroIdentity ? this.heroItem : hero;
         const enrichedRuntime = parseRuntimeMinutes(meta?.runtimeMinutes ?? meta?.runtime);
         const runtimePatch = {
           ...(enrichedRuntime > 0 ? { runtimeMinutes: enrichedRuntime } : {}),
@@ -131,6 +122,7 @@ export function createHomeScreenMethods11() {
                 ? { genres: tmdbEnrichment.genres }
                 : {}),
               ...(settings.useArtwork && tmdbEnrichment.backdrop ? { background: tmdbEnrichment.backdrop } : {}),
+              ...(settings.useArtwork && tmdbEnrichment.poster ? { poster: tmdbEnrichment.poster } : {}),
               ...(settings.useArtwork && tmdbEnrichment.logo ? { logo: tmdbEnrichment.logo } : {}),
               ...(settings.useDetails && tmdbRuntime > 0 ? { runtimeMinutes: tmdbRuntime } : {}),
               ...(settings.useDetails && tmdbEnrichment.ageRating ? { ageRating: tmdbEnrichment.ageRating } : {}),
@@ -140,7 +132,9 @@ export function createHomeScreenMethods11() {
           : {};
         const mergedHero = {
           ...sourceHero,
-          heroMetaEnriched: Boolean(meta || tmdbEnrichment),
+          heroMetaEnriched: sourcesSettled && Boolean(meta || tmdbEnrichment || mdbImdbRating != null) &&
+            (!isHomeTmdbEnabled(this.layoutMode || "modern") || Boolean(tmdbEnrichment)),
+          heroEnrichmentSignature: sourcesSettled ? settingsSignature : "",
           heroMetaEnriching: false,
           ...(mdbImdbRating != null ? { imdbRating: Number(mdbImdbRating) } : enrichedImdb != null ? { imdbRating: enrichedImdb } : {}),
           ...(meta ? runtimePatch : {}),
@@ -152,50 +146,35 @@ export function createHomeScreenMethods11() {
           ...(meta?.background ? { background: meta.background } : {}),
           ...tmdbPatch
         };
-        return commitHero(mergedHero, { merge: true });
+        return commitHero(mergedHero, revision);
       };
-      const tmdbPromise = fetchModernHeroTmdbEnrichment(hero, itemType).catch(() => null);
-      void tmdbPromise
-        .then((enrichment) => {
-          latestTmdbEnrichment = enrichment;
-          if (enrichment) {
-            return commitMetadataResult(latestMetadataResult, {
-              late: true,
-              tmdbEnrichment: enrichment
-            });
-          }
-          return null;
-        })
-        .catch(() => {});
       try {
-        // Promise.race does not cancel the repository request. Keep it available
-        // so a slow but successful metadata response can still update this hero.
-        metadataPromise = metaRepository.getMetaFromAllAddons(itemType, itemId);
-        const result = await Promise.race([
-          metadataPromise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error("hero-enrich-timeout")), 4000))
-        ]);
-        if (!canCommitHero()) {
-          return;
-        }
-        latestMetadataResult = result;
-        if (result?.status !== "success" || !result.data) {
-          await commitFallbackHero();
-          return;
-        }
-        await commitMetadataResult(result, { tmdbEnrichment: latestTmdbEnrichment });
-      } catch (error) {
-        await commitFallbackHero();
-        if (error?.message === "hero-enrich-timeout" && metadataPromise) {
-          void metadataPromise
-            .then((result) => {
+        // Each provider publishes independently. Keep successful localized data
+        // when an addon fails or finishes later, and accept slow TV responses.
+        await Promise.allSettled([
+          mdbListRepository.getImdbRatingForItem(hero.imdbId || itemId, itemType)
+            .then(async (rating) => {
+              mdbImdbRating = rating;
+              if (rating != null) await publishLatestResults();
+            }),
+          fetchModernHeroTmdbEnrichment(hero, itemType, this.layoutMode || "modern")
+            .then(async (enrichment) => {
+              latestTmdbEnrichment = enrichment;
+              if (enrichment) await publishLatestResults();
+            }),
+          (LayoutPreferences.get()?.preferExternalMetaAddonDetail !== false
+            ? metaRepository.getMetaFromAllAddons(itemType, itemId)
+            : Promise.resolve(null))
+            .then(async (result) => {
               latestMetadataResult = result;
-              return commitMetadataResult(result, {
-                late: true,
-                tmdbEnrichment: latestTmdbEnrichment
-              });
+              if (result?.status === "success") await publishLatestResults();
             })
-            .catch(() => {});
+        ]);
+        sourcesSettled = true;
+        await publishLatestResults();
+      } finally {
+        if (this.pendingHeroEnrichmentKey === pendingKey) {
+          this.pendingHeroEnrichmentKey = "";
         }
       }
     },

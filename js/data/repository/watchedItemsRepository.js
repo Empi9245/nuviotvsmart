@@ -3,7 +3,7 @@ import { ProfileManager } from "../../core/profile/profileManager.js";
 import { TraktSettingsStore, WatchProgressSource } from "../local/traktSettingsStore.js";
 import { SimklAuthStore } from "../local/simklAuthStore.js";
 import { SimklSyncService } from "./simklSyncService.js";
-import { TraktAuthService, requestJson as traktRequestJson } from "./traktAuthService.js";
+import { TraktAuthService, requestJson as traktRequestJson, createTraktRequestContext, assertTraktRequestContext } from "./traktAuthService.js";
 import { watchedItemIdentityValues, watchedItemsShareIdentity } from "./watchedIdentity.js";
 import { getSyncBackoffRemainingMs } from "../../core/sync/syncBackoffPolicy.js";
 import { registerSessionTeardownHandler } from "../../core/auth/sessionLifecycle.js";
@@ -133,6 +133,7 @@ function mergeTraktHistoryBodies(bodies = []) {
 }
 
 async function writeTraktHistoryBatch(items = [], remove = false) {
+  const requestContext = createTraktRequestContext();
   const bodies = [];
   (Array.isArray(items) ? items : []).forEach((item) => {
     try {
@@ -145,14 +146,16 @@ async function writeTraktHistoryBatch(items = [], remove = false) {
   if (!body.movies.length && !body.shows.length) {
     return;
   }
-  const token = await TraktAuthService.getValidAccessToken();
+  const token = await TraktAuthService.getValidAccessToken(requestContext.profileId);
+  assertTraktRequestContext(requestContext);
   if (!token) throw new Error("Trakt is not connected");
   const { response, payload } = await traktRequestJson(
     remove ? "/sync/history/remove" : "/sync/history",
     {
       method: "POST",
       body,
-      authorization: `Bearer ${token}`
+      authorization: `Bearer ${token}`,
+      requestContext
     }
   );
   if (!response.ok) {

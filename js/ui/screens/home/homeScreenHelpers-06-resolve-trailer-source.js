@@ -189,6 +189,8 @@ import {
 
 import { resolveYoutubeId, buildYoutubeEmbedUrl } from "./homeScreenHelpers-05-normalize-collection-folder-item.js";
 import { parseRuntimeMinutes } from "./homeScreenHelpers-04-animate-hero-logo-swap.js";
+import { isHomeTmdbEnabled } from "./homeMetadataSettings.js";
+import { isTmdbConfigured } from "../../../core/tmdb/tmdbApiConfig.js";
 
 export function resolveTrailerSource(meta = {}) {
   const trailerCandidates = [...(Array.isArray(meta?.trailers) ? meta.trailers : []), ...(Array.isArray(meta?.videos) ? meta.videos : [])];
@@ -260,25 +262,22 @@ export function withTimeout(promise, ms, fallbackValue) {
   });
 }
 
-export async function fetchModernHeroTmdbEnrichment(hero = {}, itemType = "movie") {
+export async function fetchModernHeroTmdbEnrichment(hero = {}, itemType = "movie", layoutMode = "modern") {
   const settings = TmdbSettingsStore.get();
-  if (!settings.enabled || !settings.modernHomeEnabled || !TMDB_API_KEY || !hero?.id) {
+  if (!isHomeTmdbEnabled(layoutMode, settings) || !hero?.id) {
     return null;
   }
   try {
-    const tmdbId = await withTimeout(TmdbService.ensureTmdbId(hero.id, itemType), 1800, null);
+    const lookupId = Number(hero.tmdbId || 0) > 0 ? `tmdb:${Number(hero.tmdbId)}` : hero.imdbId || hero.id;
+    const tmdbId = await TmdbService.ensureTmdbId(lookupId, itemType);
     if (!tmdbId) {
       return null;
     }
-    return await withTimeout(
-      TmdbMetadataService.fetchEnrichment({
+    return await TmdbMetadataService.fetchEnrichment({
         tmdbId,
         contentType: itemType,
         language: settings.language
-      }),
-      2200,
-      null
-    );
+      });
   } catch (_) {
     return null;
   }
@@ -287,7 +286,7 @@ export async function fetchModernHeroTmdbEnrichment(hero = {}, itemType = "movie
 export async function resolveTrailerMetaWithTmdbFallback(meta = {}, itemType = "movie") {
   const fallbackSource = resolveTrailerSource(meta);
   const settings = TmdbSettingsStore.get();
-  if (!settings.enabled || !settings.useTrailers || !TMDB_API_KEY) {
+  if (!settings.enabled || !settings.useTrailers || !isTmdbConfigured(settings)) {
     return fallbackSource;
   }
   try {

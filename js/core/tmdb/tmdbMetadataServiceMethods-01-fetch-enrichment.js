@@ -1,5 +1,7 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./tmdbMetadataService.js";
+import { fetchTmdbJson } from "./tmdbTransport.js";
+import { getTmdbApiKey } from "./tmdbApiConfig.js";
 
 export function createTmdbMetadataServiceMethods01() {
   const {
@@ -25,6 +27,7 @@ export function createTmdbMetadataServiceMethods01() {
     resolveCredits,
     toImageUrl,
     buildTmdbImageLanguageFilter,
+    selectBestLocalizedImagePath,
     selectBestLocalizedLogoPath,
     resolveTrailerCandidates,
     mapTrailerCandidates,
@@ -40,9 +43,9 @@ export function createTmdbMetadataServiceMethods01() {
   } = internals;
 
   return {
-    async fetchEnrichment({ tmdbId, contentType, language = null } = {}) {
+    async fetchEnrichment({ tmdbId, contentType, language = null, signal = null } = {}) {
       const settings = TmdbSettingsStore.get();
-      const apiKey = String(TMDB_API_KEY || "").trim();
+      const apiKey = getTmdbApiKey(settings);
       if (!settings.enabled || !apiKey || !tmdbId) {
         return null;
       }
@@ -53,18 +56,17 @@ export function createTmdbMetadataServiceMethods01() {
       const params = `api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(lang)}&append_to_response=images,credits,release_dates,content_ratings,videos,external_ids&include_image_language=${encodeURIComponent(imageLanguages)}`;
       const url = `${TMDB_BASE_URL}/${type}/${encodeURIComponent(String(tmdbId))}?${params}`;
 
-      const response = await fetch(url);
-      if (!response.ok) {
+      const data = await fetchTmdbJson(url, { signal });
+      if (!data) {
         return null;
       }
-
-      const data = await response.json();
       const englishPersonNames = await fetchEnglishPersonNames({
         type,
         tmdbId,
         apiKey,
         data,
-        language: lang
+        language: lang,
+        signal
       });
       const resolvedCredits = resolveCredits(data?.credits, englishPersonNames, lang);
       const logoPath = selectBestLocalizedLogoPath(data?.images?.logos, lang);
@@ -98,7 +100,7 @@ export function createTmdbMetadataServiceMethods01() {
       let localizedTitle = droppedUntranslatedTitle ? "" : rawLocalizedTitle;
       const isCjkLanguage = ["ja", "ko", "zh"].includes(languageBase(lang));
       if (lang !== "en" && !isCjkLanguage && containsCjkOrHangul(localizedTitle || originalTitle)) {
-        const englishTitle = await fetchEnglishTitle({ type, tmdbId, apiKey });
+        const englishTitle = await fetchEnglishTitle({ type, tmdbId, apiKey, signal });
         localizedTitle =
           resolveDisplayLabel({
             localized: rawLocalizedTitle,
@@ -114,15 +116,16 @@ export function createTmdbMetadataServiceMethods01() {
         tmdbId,
         apiKey,
         language: lang,
-        initialResults: Array.isArray(data?.videos?.results) ? data.videos.results : []
+        initialResults: Array.isArray(data?.videos?.results) ? data.videos.results : [],
+        signal
       });
       const trailers = mapTrailerCandidates(trailerCandidates);
 
       return {
         localizedTitle: localizedTitle || null,
         description: data.overview || null,
-        backdrop: toImageUrl(data.backdrop_path, "backdrop"),
-        poster: toImageUrl(data.poster_path, "poster"),
+        backdrop: toImageUrl(selectBestLocalizedImagePath(data?.images?.backdrops, lang) || data.backdrop_path, "backdrop"),
+        poster: toImageUrl(selectBestLocalizedImagePath(data?.images?.posters, lang) || data.poster_path, "poster"),
         logo: toImageUrl(logoPath, "logo"),
         genres: Array.isArray(data.genres) ? data.genres.map((genre) => genre.name).filter(Boolean) : [],
         rating: typeof data.vote_average === "number" ? data.vote_average : null,
@@ -146,7 +149,7 @@ export function createTmdbMetadataServiceMethods01() {
       };
     },
     async fetchTrailerCandidates({ tmdbId, contentType, language = null } = {}) {
-      const apiKey = String(TMDB_API_KEY || "").trim();
+      const apiKey = getTmdbApiKey();
       const numericId = String(tmdbId || "").trim();
       if (!apiKey || !/^\d+$/.test(numericId)) {
         return [];
@@ -168,7 +171,7 @@ export function createTmdbMetadataServiceMethods01() {
       }
     },
     async fetchEntityBrowse({ entityKind, entityId, sourceType, fallbackName = "", language = null } = {}) {
-      const apiKey = String(TMDB_API_KEY || "").trim();
+      const apiKey = getTmdbApiKey();
       const normalizedId = normalizeEntityId(entityId);
       if (!apiKey || !normalizedId) {
         return null;
@@ -178,11 +181,8 @@ export function createTmdbMetadataServiceMethods01() {
       const source = normalizeEntitySourceType(sourceType);
       const settings = TmdbSettingsStore.get();
       const lang = normalizeTmdbLanguageCode(language || settings.language);
-      const cacheKey = `${kind}:${normalizedId}:${source}:${lang}`;
-      if (entityBrowseCache.has(cacheKey)) {
-        return entityBrowseCache.get(cacheKey);
-      }
-
+      // Header and populated rails cache their successful requests separately.
+      // Rebuild the aggregate so a failed or empty rail can recover on a revisit.
       const header = await this.fetchEntityHeader({
         entityKind: kind,
         entityId: normalizedId,
@@ -224,7 +224,6 @@ export function createTmdbMetadataServiceMethods01() {
         header: header || fallbackEntityHeader(kind, normalizedId, fallbackName),
         rails
       };
-      entityBrowseCache.set(cacheKey, data);
       return data;
     },
     async fetchEntityHeader({ entityKind, entityId, fallbackName = "", apiKey } = {}) {
@@ -237,10 +236,9 @@ export function createTmdbMetadataServiceMethods01() {
 
       const fallback = String(fallbackName || "").trim();
       try {
-        const url = `${TMDB_BASE_URL}/${kind}/${encodeURIComponent(normalizedId)}?api_key=${encodeURIComponent(apiKey || TMDB_API_KEY)}`;
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
+        const url = `${TMDB_BASE_URL}/${kind}/${encodeURIComponent(normalizedId)}?api_key=${encodeURIComponent(apiKey || getTmdbApiKey())}`;
+        const data = await fetchTmdbJson(url);
+        if (data) {
           const originCountry = Array.isArray(data?.origin_country)
             ? data.origin_country.filter(Boolean).join(", ")
             : String(data?.origin_country || "").trim();
@@ -262,7 +260,6 @@ export function createTmdbMetadataServiceMethods01() {
 
       if (fallback) {
         const fallbackHeader = fallbackEntityHeader(kind, normalizedId, fallback);
-        entityHeaderCache.set(key, fallbackHeader);
         return fallbackHeader;
       }
       return null;
@@ -285,7 +282,7 @@ export function createTmdbMetadataServiceMethods01() {
       }
 
       const params = new URLSearchParams({
-        api_key: String(apiKey || TMDB_API_KEY || ""),
+        api_key: String(apiKey || getTmdbApiKey()),
         language: lang,
         page: String(normalizedPage),
         sort_by: entitySortBy(normalizedMediaType, normalizedRailType)
@@ -310,11 +307,10 @@ export function createTmdbMetadataServiceMethods01() {
 
       const result = { items: [], hasMore: false };
       try {
-        const response = await fetch(`${TMDB_BASE_URL}/discover/${normalizedMediaType}?${params}`);
-        if (!response.ok) {
+        const data = await fetchTmdbJson(`${TMDB_BASE_URL}/discover/${normalizedMediaType}?${params}`);
+        if (!data) {
           return result;
         }
-        const data = await response.json();
         const items = (Array.isArray(data?.results) ? data.results : [])
           .map((item) => mapEntityDiscoverResult(item, normalizedMediaType))
           .filter(Boolean)
@@ -331,18 +327,17 @@ export function createTmdbMetadataServiceMethods01() {
     },
     async fetchSeasonRatings({ tmdbId, seasonNumber, language = null } = {}) {
       const settings = TmdbSettingsStore.get();
-      const apiKey = String(TMDB_API_KEY || "").trim();
+      const apiKey = getTmdbApiKey(settings);
       if (!settings.enabled || !apiKey || !tmdbId || !Number.isFinite(Number(seasonNumber))) {
         return [];
       }
 
       const lang = normalizeTmdbLanguageCode(language || settings.language);
       const url = `${TMDB_BASE_URL}/tv/${encodeURIComponent(String(tmdbId))}/season/${encodeURIComponent(String(seasonNumber))}?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(lang)}`;
-      const response = await fetch(url);
-      if (!response.ok) {
+      const data = await fetchTmdbJson(url);
+      if (!data) {
         return [];
       }
-      const data = await response.json();
       const episodes = Array.isArray(data?.episodes) ? data.episodes : [];
       return episodes
         .map((episode) => ({

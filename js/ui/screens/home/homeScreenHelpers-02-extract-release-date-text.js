@@ -189,6 +189,8 @@ import {
 
 import { extractYear } from "./homeScreenHelpers-01-modern-sidebar-pill-auto-collapse-ms.js";
 import { buildModernHeroPresentation, buildHeroDisplayModel } from "./homeScreenHelpers-11-build-hero-display-model.js";
+import { MdbListSettingsStore } from "../../../data/local/mdbListSettingsStore.js";
+import { homeMetadataSettingsSignature, isHomeTmdbEnabled } from "./homeMetadataSettings.js";
 
 export function extractReleaseDateText(item) {
   const type = String(item?.type || item?.apiType || "").toLowerCase();
@@ -200,7 +202,7 @@ export function extractReleaseDateText(item) {
       if (isoMatch) {
         const date = new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
         if (!Number.isNaN(date.getTime())) {
-          return date.toLocaleDateString("en-US", {
+          return date.toLocaleDateString(I18n.getLocale() || "en-US", {
             year: "numeric",
             month: "long",
             day: "numeric"
@@ -216,17 +218,20 @@ export function formatRuntimeText(item) {
   return formatHomeRuntimeText(item);
 }
 
-export function shouldEnrichModernHero(hero) {
-  if (!hero || hero.heroSource === "continueWatching" || hero.heroSource === "collection" || hero.heroMetaEnriched) {
+export function shouldEnrichModernHero(hero, layoutMode = "modern") {
+  if (!hero || hero.heroSource === "continueWatching" || hero.heroSource === "collection") {
     return false;
   }
-  const settings = TmdbSettingsStore.get();
-  const tmdbEnabledForCurrentLayout = settings.enabled && settings.modernHomeEnabled;
+  if (hero.heroMetaEnriched && hero.heroEnrichmentSignature === homeMetadataSettingsSignature()) {
+    return false;
+  }
+  const tmdbEnabledForCurrentLayout = isHomeTmdbEnabled(layoutMode);
   const externalMetaEnabled = LayoutPreferences.get()?.preferExternalMetaAddonDetail !== false;
   // Keep the two enrichment sources independent, as in Android's focused
   // pipeline: TMDB is optional, while external addon metadata is enabled by
   // default and supplies the Home hero's runtime/rating fields.
-  return Boolean(tmdbEnabledForCurrentLayout || externalMetaEnabled);
+  const mdb = MdbListSettingsStore.get();
+  return Boolean(tmdbEnabledForCurrentLayout || externalMetaEnabled || (mdb.enabled && mdb.apiKey && mdb.showImdb !== false));
 }
 
 export const HERO_IMAGE_PRELOAD_CACHE_LIMIT = 32;

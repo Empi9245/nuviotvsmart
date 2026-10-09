@@ -39,10 +39,12 @@ export function createSettingsScreenMethods11() {
       }
     },
     startTraktPolling(force = false) {
-      if (this.traktPollTimer && !force) {
+      if ((this.traktPollTimer || this.traktPollingActive) && !force) {
         return;
       }
       this.stopTraktPolling();
+      this.traktPollingActive = true;
+      const generation = this.traktPollingGeneration;
       const poll = async () => {
         const state = TraktAuthService.getCurrentAuthState();
         if (!state.deviceCode || Router.getCurrent() !== "settings" || this.activeSection !== "trakt") {
@@ -53,6 +55,11 @@ export function createSettingsScreenMethods11() {
           type: "failed",
           message: String(error?.message || error || "Network error, will retry")
         }));
+        if (generation !== this.traktPollingGeneration || !this.traktPollingActive) return;
+        if (result.type === "cancelled") {
+          this.stopTraktPolling();
+          return;
+        }
         if (result.type === "approved") {
           this.stopTraktPolling();
           this.traktStatusMessage = `Connected as ${result.username || "Trakt user"}`;
@@ -85,7 +92,7 @@ export function createSettingsScreenMethods11() {
         }
         await this.render();
         const nextState = TraktAuthService.getCurrentAuthState();
-        if (nextState.deviceCode && !this.traktPollTimer) {
+        if (nextState.deviceCode && this.traktPollingActive && generation === this.traktPollingGeneration && !this.traktPollTimer) {
           this.traktPollTimer = setTimeout(
             () => {
               this.traktPollTimer = null;
@@ -95,9 +102,15 @@ export function createSettingsScreenMethods11() {
           );
         }
       };
-      void poll();
+      const state = TraktAuthService.getCurrentAuthState();
+      this.traktPollTimer = setTimeout(() => {
+        this.traktPollTimer = null;
+        void poll();
+      }, Math.max(1, Number(state.pollInterval || 5)) * 1000);
     },
     stopTraktPolling() {
+      this.traktPollingActive = false;
+      this.traktPollingGeneration = Number(this.traktPollingGeneration || 0) + 1;
       if (this.traktPollTimer) {
         clearTimeout(this.traktPollTimer);
         this.traktPollTimer = null;
@@ -110,6 +123,7 @@ export function createSettingsScreenMethods11() {
         return;
       }
       this.traktStatsLoading = true;
+      this.traktStatsAttemptAt = Date.now();
       try {
         this.traktStats = await TraktAuthService.fetchStats(forceRefresh);
       } catch (error) {
@@ -158,7 +172,7 @@ export function createSettingsScreenMethods11() {
           this.startTraktPolling();
         }
       }
-      if (isConnected && !this.traktStats && !this.traktStatsLoading) {
+      if (isConnected && !this.traktStats && !this.traktStatsLoading && (!this.traktStatsAttemptAt || Date.now() - this.traktStatsAttemptAt >= 60000)) {
         if (!this.deferTraktAutoWork?.("stats")) {
           void this.loadTraktStats(false).then(() => {
             if (this.container && this.activeSection === "trakt") {
@@ -297,11 +311,12 @@ export function createSettingsScreenMethods11() {
                   ${this.registerAction("trakt:login", !trakt.credentialsConfigured || trakt.isLoading ? () => {} : this.actionMap.get("trakt:login"))}>
             ${escapeHtml(t("trakt_login", {}, "Login"))}
           </button>
-          ${!trakt.credentialsConfigured ? `<p class="settings-trakt-warning">${escapeHtml(t("trakt_missing_credentials", {}, "Missing TRAKT_CLIENT_ID / TRAKT_CLIENT_SECRET in local.properties."))}</p>` : ""}
+          ${!trakt.credentialsConfigured ? `<p class="settings-trakt-warning">${escapeHtml(t("trakt_missing_credentials", {}, "Set your Client ID and Client Secret in Integrations > Trakt"))}</p>` : ""}
         `;
     },
     renderTraktConnected(auth, tokenRemainingMs, trakt) {
       return `
+          ${!TraktAuthService.hasRequiredCredentials() ? `<p class="settings-trakt-warning">${escapeHtml(t("trakt_missing_credentials", {}, "Missing Trakt client credentials in app configuration"))}</p>` : ""}
           ${tokenRemainingMs ? `<p class="settings-trakt-meta-copy">${renderTraktCountdownText("trakt_token_refreshes", tokenRemainingMs, "Trakt access token refreshes in", "data-trakt-token-countdown")}</p>` : ""}
           <button class="settings-trakt-button settings-content-focusable focusable" data-zone="content" ${this.registerAction("trakt:disconnect", this.actionMap.get("trakt:disconnect"))}>${escapeHtml(t("trakt_disconnect", {}, "Disconnect"))}</button>
           ${this.renderTraktStatsStrip(trakt.stats, trakt.isStatsLoading)}

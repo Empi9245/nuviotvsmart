@@ -164,7 +164,7 @@ export function createPlayerScreenMethods16() {
       const loadingStatus = this.uiRefs?.loadingStatus;
       const bufferingStatus = this.uiRefs?.bufferingStatus;
       const subtitle = this.uiRefs?.loadingSubtitle;
-      const statusText = String(this.loadingTorrentStatus || "").trim();
+      const statusText = String(this.sourceFallbackStatus || this.loadingTorrentStatus || "").trim();
       const hasStatus = Boolean(statusText) && PlayerSettingsStore.get().showPlayerLoadingStatus !== false;
       const hasSubtitle = Boolean(subtitle?.textContent?.trim());
       if (loadingStatus) {
@@ -242,6 +242,7 @@ export function createPlayerScreenMethods16() {
       const normalizedUrl = String(playbackUrl || "").trim();
       const sourceCandidate = explicitSourceCandidate || this.getStreamCandidateByUrl(normalizedUrl) || this.getCurrentStreamCandidate();
       const message = t("player_error_stream_expired", {}, "The stream link has expired. Try a different source.");
+      if (this.tryNextStreamCandidate?.({ streamCandidate: sourceCandidate, playbackUrl: normalizedUrl })) return;
       this.markPlaybackSourceFailed(normalizedUrl, sourceCandidate);
       const currentPlaybackUrl = String(this.activePlaybackUrl || "").trim();
       const hasDifferentActivePlayback = this.hasPresentedPlaybackFrame && normalizedUrl && currentPlaybackUrl !== normalizedUrl;

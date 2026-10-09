@@ -1,14 +1,79 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./settingsScreenContext.js";
+import { hasDefaultTmdbApiKey, isTmdbConfigured } from "../../../core/tmdb/tmdbApiConfig.js";
+import { validateTmdbApiKey } from "../../../core/tmdb/tmdbApiKeyValidation.js";
+import { ProfileManager } from "../../../core/profile/profileManager.js";
+import { TmdbService } from "../../../core/tmdb/tmdbService.js";
 
 export function renderTmdbIntegrationDetail(model) {
-  const { TmdbSettingsStore, TMDB_LANGUAGE_OPTIONS, t, labelForTmdbLanguage, normalizeTmdbLanguageCode } = internals;
+  const { TmdbSettingsStore, TMDB_LANGUAGE_OPTIONS, t, labelForTmdbLanguage, normalizeTmdbLanguageCode, maskValue } = internals;
+  const hasDefaultKey = hasDefaultTmdbApiKey();
+  const configured = isTmdbConfigured(model.tmdb);
+  const renderedProfileId = ProfileManager.getActiveProfileId();
 
   const toggleTmdbSetting = (field) => {
     TmdbSettingsStore.set({ [field]: !TmdbSettingsStore.get()[field] });
   };
   this.actionMap.set("integration:tmdb:enabled", () => {
     TmdbSettingsStore.set({ enabled: !TmdbSettingsStore.get().enabled });
+  });
+  this.actionMap.set("integration:tmdb:key", () => {
+    const profileId = ProfileManager.getActiveProfileId();
+    const isCurrentProfile = () => String(ProfileManager.getActiveProfileId()) === String(profileId);
+    this.openTextDialog({
+      title: t("tmdb_api_key_title", {}, "TMDB API key"),
+      value: TmdbSettingsStore.getForProfile(profileId).apiKey,
+      inputType: "password",
+      placeholder: t("tmdb_api_key_placeholder", {}, "API key (v3 auth)"),
+      returnFocusKey: "integration:tmdb:key",
+      clearLabel: hasDefaultKey ? t("tmdb_api_key_reset_default", {}, "Use default key") : t("common.clear", {}, "Clear"),
+      onClear: () => {
+        if (!isCurrentProfile()) return false;
+        TmdbSettingsStore.setForProfile(profileId, { apiKey: "" }, { silentSync: true });
+        TmdbService.clearCache();
+        return true;
+      },
+      onSubmit: async (value) => {
+        if (!isCurrentProfile()) return false;
+        const apiKey = String(value || "").trim();
+        const dialog = this.textDialog;
+        if (apiKey) {
+          if (dialog) {
+            dialog.statusMessage = t("tmdb_api_key_validating", {}, "Checking TMDB key...");
+            dialog.statusKind = "info";
+            await this.render({ refreshModel: false });
+          }
+          try {
+            const valid = await validateTmdbApiKey(apiKey);
+            if (this.textDialog !== dialog || !isCurrentProfile()) return false;
+            if (!valid) {
+              if (dialog) {
+                dialog.statusMessage = t("tmdb_api_key_invalid", {}, "Invalid TMDB API key. Enter the API key (v3 auth) from your TMDB account.");
+                dialog.statusKind = "error";
+              }
+              return false;
+            }
+          } catch (error) {
+            if (this.textDialog === dialog && isCurrentProfile() && dialog) {
+              dialog.statusMessage = Number(error?.status) === 429
+                ? t("tmdb_api_key_rate_limit", {}, "TMDB request limit reached. Try again later.")
+                : t("tmdb_api_key_connection_error", {}, "Could not connect to TMDB. Check your connection and try again.");
+              dialog.statusKind = "error";
+            }
+            return false;
+          }
+        }
+        if (!isCurrentProfile()) return false;
+        TmdbSettingsStore.setForProfile(profileId, { apiKey, ...(apiKey ? { enabled: true } : {}) });
+        TmdbService.clearCache();
+        return true;
+      }
+    });
+  });
+  this.actionMap.set("integration:tmdb:resetKey", () => {
+    if (String(ProfileManager.getActiveProfileId()) !== String(renderedProfileId)) return;
+    TmdbSettingsStore.set({ apiKey: "" }, { silentSync: true });
+    TmdbService.clearCache();
   });
   this.actionMap.set("integration:tmdb:modernHome", () => {
     toggleTmdbSetting("modernHomeEnabled");
@@ -73,9 +138,20 @@ export function renderTmdbIntegrationDetail(model) {
             ${this.renderToggleRow({
               focusKey: "integration:tmdb:enabled",
               title: t("settings.integration.tmdb.enable.title"),
-              subtitle: t("settings.integration.tmdb.enable.subtitle"),
+              subtitle: configured ? t("settings.integration.tmdb.enable.subtitle") : t("tmdb_api_key_required", {}, "Add your TMDB API key to enable metadata enrichment."),
               checked: Boolean(model.tmdb.enabled)
             })}
+            ${this.renderActionRow({
+              focusKey: "integration:tmdb:key",
+              title: t("tmdb_api_key_title", {}, "TMDB API key"),
+              subtitle: t("tmdb_api_key_subtitle", {}, "Your key is saved on this device for this profile and overrides the optional default key."),
+              value: model.tmdb.apiKey ? maskValue(model.tmdb.apiKey, t("common.notSet")) : hasDefaultKey ? t("tmdb_api_key_default", {}, "Default key") : t("common.notSet")
+            })}
+            ${model.tmdb.apiKey ? this.renderActionRow({
+              focusKey: "integration:tmdb:resetKey",
+              title: hasDefaultKey ? t("tmdb_api_key_reset_default", {}, "Use default key") : t("tmdb_api_key_remove", {}, "Remove API key"),
+              subtitle: hasDefaultKey ? t("tmdb_api_key_reset_subtitle", {}, "Remove your personal key and use the default configured in the app.") : t("tmdb_api_key_remove_subtitle", {}, "Remove the TMDB key saved for this profile.")
+            }) : ""}
             ${this.renderToggleRow({
               focusKey: "integration:tmdb:modernHome",
               title: t("tmdb_modern_home_title", {}, "Enable on Modern Home"),

@@ -83,6 +83,16 @@ For local development, run `npm run serve:vidaa`.
 
 ## Build from source
 
+Configure metadata and tracking in **Settings → Integrations**. TMDB accepts a
+personal API key and a preferred metadata language; MDBList accepts your API key.
+Trakt accepts a Client ID and Client Secret, then connects your account through
+the device sign-in screen. Personal TMDB and Trakt app credentials are saved on
+this device for the current profile.
+
+Builds can supply optional TMDB and Trakt app defaults through `local.properties`.
+Personal credentials override those defaults; clearing them restores the defaults
+when available. The public source does not include shared API credentials.
+
 ```bash
 git clone https://github.com/derpwinnie/NuvioTVSmart.git NuvioTVSmart
 cd NuvioTVSmart

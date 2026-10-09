@@ -6,7 +6,12 @@ import {
 } from "../../config.js";
 import { AuthManager } from "../../core/auth/authManager.js";
 import { trackSessionRequest } from "../../core/auth/sessionLifecycle.js";
+import { ProfileManager } from "../../core/profile/profileManager.js";
+import { withRequestTimeout } from "../../core/network/requestTimeout.js";
+import { Platform } from "../../platform/index.js";
+import { PluginServiceClient } from "../../platform/pluginServiceClient.js";
 import { TraktAuthStore } from "../local/traktAuthStore.js";
+import { getTraktClientCredentials } from "../local/traktClientSettingsStore.js";
 import { detailWatchedEnrichmentService } from "./detailWatchedEnrichmentService.js";
 
 import { createTraktAuthServiceMethods01 } from "./traktAuthServiceMethods-01-get-current-auth-state.js";
@@ -17,6 +22,8 @@ export {
   TRAKT_CLIENT_SECRET,
   TRAKT_REDIRECT_URI,
   AuthManager,
+  ProfileManager,
+  getTraktClientCredentials,
   trackSessionRequest,
   TraktAuthStore,
   detailWatchedEnrichmentService,
@@ -50,13 +57,15 @@ const WATCHED_MAX_PAGES = 1000;
 const WATCHED_MOVIES_PAGE_LIMIT = 250;
 // Trakt caps /sync/watched/shows?extended=progress at 100 items per page.
 const WATCHED_SHOWS_PAGE_LIMIT = 100;
+const REQUEST_TIMEOUT_MS = 20000;
 
 function apiBaseUrl() {
   return String(TRAKT_API_URL || DEFAULT_API_URL).replace(/\/+$/, "");
 }
 
-function hasRequiredCredentials() {
-  return Boolean(TRAKT_CLIENT_ID && TRAKT_CLIENT_SECRET);
+function hasRequiredCredentials(profileId = null) {
+  const credentials = getTraktClientCredentials(profileId);
+  return Boolean(credentials.clientId && credentials.clientSecret);
 }
 
 function normalizeAuthErrorMessage(payload, fallback) {
@@ -74,6 +83,18 @@ function createAbortError() {
 
 function throwIfAborted(signal) {
   if (signal?.aborted) throw createAbortError();
+}
+
+export function createTraktRequestContext(profileId = null) {
+  const id = String(profileId ?? ProfileManager.getActiveProfileId() ?? "1");
+  return { profileId: id, clientId: getTraktClientCredentials(id).clientId };
+}
+
+export function assertTraktRequestContext(context, { allowInactiveProfile = false } = {}) {
+  if (
+    (!allowInactiveProfile && String(ProfileManager.getActiveProfileId() || "1") !== context.profileId) ||
+    getTraktClientCredentials(context.profileId).clientId !== context.clientId
+  ) throw createAbortError();
 }
 
 function sleep(ms, signal = null) {
@@ -99,7 +120,7 @@ function sleep(ms, signal = null) {
   });
 }
 
-async function fetchWatchedPages({ token, path, pageLimit, normalize, label }) {
+async function fetchWatchedPages({ token, requestContext, path, pageLimit, normalize, label }) {
   const items = [];
   let page = 1;
 
@@ -107,7 +128,7 @@ async function fetchWatchedPages({ token, path, pageLimit, normalize, label }) {
     const separator = path.includes("?") ? "&" : "?";
     const { response, payload } = await requestJson(
       `${path}${separator}page=${page}&limit=${pageLimit}`,
-      { authorization: `Bearer ${token}` }
+      { authorization: `Bearer ${token}`, requestContext }
     );
     if (!response.ok || !Array.isArray(payload)) {
       const error = new Error(`Trakt ${label} lookup failed (${response.status})`);
@@ -148,39 +169,105 @@ async function readResponseBody(response) {
   }
 }
 
+async function fetchTraktResponse(url, options, requestContext) {
+  try {
+    return await fetch(url, options);
+  } catch (error) {
+    throwIfAborted(options.signal);
+    assertTraktRequestContext(requestContext);
+    if (!Platform.isTizen() && !Platform.isWebOS()) throw error;
+    const result = await PluginServiceClient.fetch({
+      url,
+      method: options.method,
+      headers: options.headers,
+      body: options.body || "",
+      signal: options.signal,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+      maxResponseBytes: 5 * 1024 * 1024
+    });
+    throwIfAborted(options.signal);
+    if (!result.status || result.returnValue === false || result.truncated) {
+      throw new Error("Trakt network request failed");
+    }
+    const headerEntries = Object.entries(result.headers || {});
+    return {
+      status: result.status,
+      ok: result.status >= 200 && result.status < 300,
+      headers: {
+        get(name) {
+          return headerEntries.find(([key]) => key.toLowerCase() === name.toLowerCase())?.[1] ?? null;
+        }
+      },
+      text: async () => result.body || ""
+    };
+  }
+}
+
 export function requestJson(
   path,
   {
     method = "GET",
     body = null,
     authorization = null,
-    clientId = TRAKT_CLIENT_ID,
+    clientId = null,
+    requestContext = null,
     signal = null
   } = {}
 ) {
   const requestSignal = signal || AuthManager.getSessionSignal?.() || null;
+  const context = requestContext || createTraktRequestContext();
+  const profileId = context.profileId;
+  const requestClientId = clientId ?? context.clientId;
   return trackSessionRequest(
     (async () => {
       throwIfAborted(requestSignal);
+      assertTraktRequestContext(context);
+      if (!String(requestClientId || "").trim()) {
+        throw new Error("Configure Trakt Client ID in Settings > Integrations > Trakt");
+      }
       const headers = {
         "Content-Type": "application/json",
         "trakt-api-version": API_VERSION,
-        "trakt-api-key": clientId
+        "trakt-api-key": requestClientId
       };
       if (authorization) {
         headers.Authorization = authorization;
       }
 
-      const response = await fetch(`${apiBaseUrl()}${path}`, {
-        method,
-        headers,
-        body: body == null ? undefined : JSON.stringify(body),
-        ...(requestSignal ? { signal: requestSignal } : {})
-      });
-      throwIfAborted(requestSignal);
-      const payload = await readResponseBody(response);
-      throwIfAborted(requestSignal);
-      return { response, payload };
+      const send = () => withRequestTimeout(async (networkSignal) => {
+        assertTraktRequestContext(context);
+        const response = await fetchTraktResponse(`${apiBaseUrl()}${path}`, {
+          method,
+          headers,
+          body: body == null ? undefined : JSON.stringify(body),
+          ...(networkSignal ? { signal: networkSignal } : {})
+        }, context);
+        throwIfAborted(networkSignal);
+        const payload = await readResponseBody(response);
+        throwIfAborted(networkSignal);
+        assertTraktRequestContext(context, { allowInactiveProfile: path.startsWith("/oauth/") });
+        return { response, payload };
+      }, REQUEST_TIMEOUT_MS, requestSignal);
+      const result = await send();
+      // Stored lifetime can differ from server expiry. Retry an authenticated
+      // request once, sharing the token refresh with all other requests.
+      if (result.response.status === 401 && authorization && !path.startsWith("/oauth/")) {
+        throwIfAborted(requestSignal);
+        if (String(ProfileManager.getActiveProfileId() || "1") !== profileId) throw createAbortError();
+        let state = TraktAuthStore.get(profileId);
+        if (authorization === `Bearer ${state.accessToken}`) {
+          const refreshed = await TraktAuthService.refreshTokenIfNeeded(true, profileId);
+          if (!refreshed) return result;
+          state = TraktAuthStore.get(profileId);
+        }
+        throwIfAborted(requestSignal);
+        if (String(ProfileManager.getActiveProfileId() || "1") !== profileId) throw createAbortError();
+        if (state.accessToken && authorization !== `Bearer ${state.accessToken}`) {
+          headers.Authorization = `Bearer ${state.accessToken}`;
+          return send();
+        }
+      }
+      return result;
     })()
   );
 }
@@ -196,12 +283,16 @@ function isTokenExpiredOrExpiring(state) {
 }
 
 async function fetchUserSettings() {
-  const token = await TraktAuthService.getValidAccessToken();
+  const requestContext = createTraktRequestContext();
+  const profileId = requestContext.profileId;
+  const token = await TraktAuthService.getValidAccessToken(profileId);
+  assertTraktRequestContext(requestContext);
   if (!token) {
     return null;
   }
   const { response, payload } = await requestJson("/users/settings", {
-    authorization: `Bearer ${token}`
+    authorization: `Bearer ${token}`,
+    requestContext
   });
   if (!response.ok) {
     return null;
@@ -209,7 +300,10 @@ async function fetchUserSettings() {
   const user = payload?.user || {};
   const username = user.username || null;
   const userSlug = user.ids?.slug || null;
-  TraktAuthStore.saveUser({ username, userSlug });
+  if (String(ProfileManager.getActiveProfileId() || "1") !== profileId || TraktAuthStore.get(profileId).accessToken !== token) {
+    return null;
+  }
+  TraktAuthStore.saveUser({ username, userSlug }, profileId);
   return username;
 }
 

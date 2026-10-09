@@ -77,7 +77,10 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
   };
 
   const onError = async (event) => {
-    if (this.isStartupErrorVisible()) {
+    const sourceAttemptToken = this.sourcePlaybackAttemptToken;
+    const playbackStartToken = this.playbackStartToken;
+    const mountToken = this.playerMountToken;
+    if (this.sourcePlaybackStarting || this.sourceFallbackPending || !this.isActiveMountToken(mountToken) || this.isStartupErrorVisible()) {
       return;
     }
     this.seekLoading = false;
@@ -168,6 +171,8 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
     if (!this.hasPresentedPlaybackFrame && (mediaErrorCode === 2 || mediaErrorCode === 3 || mediaErrorCode === 4)) {
       if (currentEngineFsState) {
         const stats = await this.fetchCurrentEngineFsStats({ timeoutMs: 2500 });
+        if (!this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) || this.playbackStartToken !== playbackStartToken ||
+          !this.isActiveMountToken(mountToken) || this.sourceFallbackPending) return;
         if (this.shouldRetryEngineFsStartupError(stats)) {
           this.scheduleEngineFsStartupRetry({ mediaErrorCode, stats });
           return;
@@ -253,6 +258,8 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
     }
 
     this.markPlaybackSourceFailed(this.activePlaybackUrl);
+
+    if (this.tryNextStreamCandidate({ streamCandidate: currentSourceCandidate, playbackUrl: this.activePlaybackUrl, sourceAttemptToken })) return;
 
     this.clearPlaybackStallGuard();
     this.releaseStartupAudioGate({ resume: false });

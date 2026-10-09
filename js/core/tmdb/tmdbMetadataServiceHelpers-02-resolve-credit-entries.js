@@ -5,6 +5,7 @@ import { TMDB_API_KEY } from "../../config.js";
 import { tmdbShowReleaseInfo, tmdbYearPart } from "../util/tmdbReleaseRange.js";
 
 import { sortCollectionPartsByReleaseDate } from "./tmdbCollectionOrdering.js";
+import { fetchTmdbJson } from "./tmdbTransport.js";
 
 import {
   resolvePersonName,
@@ -56,7 +57,7 @@ export function normalizeTmdbArtworkLanguage(language = "") {
   const normalized = normalizeTmdbLanguageCode(language);
   const [rawLanguage = "en", rawRegion = ""] = normalized.split("-", 2);
   const languageCode = rawLanguage.toLowerCase() || "en";
-  const regionCode = rawRegion.length === 2 ? rawRegion.toUpperCase() : languageCode === "pt" ? "PT" : languageCode === "es" ? "ES" : "";
+  const regionCode = rawRegion.length === 2 ? rawRegion.toUpperCase() : TMDB_LANGUAGE_DEFAULT_REGIONS[languageCode] || "";
   return {
     locale: regionCode ? `${languageCode}-${regionCode}` : languageCode,
     languageCode,
@@ -105,6 +106,7 @@ export function selectBestLocalizedImagePath(images = [], normalizedLanguage = "
                     : 0;
         return { image, index, priority };
       })
+      .filter((entry) => entry.priority > 0 && entry.image?.file_path)
       .sort((left, right) => right.priority - left.priority || left.index - right.index)[0]?.image?.file_path || null
   );
 }
@@ -221,12 +223,11 @@ export function rankTmdbVideoCandidates(results = [], preferredLanguageCode = TM
   });
 }
 
-export async function fetchTmdbVideos({ type, tmdbId, apiKey, language }) {
+export async function fetchTmdbVideos({ type, tmdbId, apiKey, language, signal = null }) {
   const url = `${TMDB_BASE_URL}/${type}/${encodeURIComponent(String(tmdbId))}/videos?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(language)}`;
-  const response = await fetch(url);
-  if (!response.ok) {
+  const data = await fetchTmdbJson(url, { signal });
+  if (!data) {
     return [];
   }
-  const data = await response.json();
   return Array.isArray(data?.results) ? data.results : [];
 }

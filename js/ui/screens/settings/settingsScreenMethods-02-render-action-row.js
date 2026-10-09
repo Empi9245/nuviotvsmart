@@ -207,6 +207,7 @@ export function createSettingsScreenMethods02() {
     openTextDialog({
       title,
       value = "",
+      inputType = "text",
       multiline = false,
       placeholder = "",
       returnFocusKey,
@@ -221,6 +222,7 @@ export function createSettingsScreenMethods02() {
         title,
         value: String(value ?? ""),
         draft: String(value ?? ""),
+        inputType: inputType === "password" ? "password" : "text",
         multiline: Boolean(multiline),
         placeholder,
         returnFocusKey,

@@ -1,4 +1,5 @@
 import { Router } from "../../navigation/routerState.js";
+import { requestJson as traktRequestJson } from "../../../data/repository/traktAuthService.js";
 
 import { ScreenUtils } from "../../navigation/screen.js";
 
@@ -87,8 +88,7 @@ export async function fetchTraktSourceItems(source = {}, page = 1) {
   url.searchParams.set("limit", String(TRAKT_PAGE_SIZE));
   url.searchParams.set("sort_by", String(source.sortBy || "rank"));
   url.searchParams.set("sort_how", String(source.sortHow || "asc"));
-  const response = await fetch(url.toString(), { headers: buildTraktHeaders() });
-  const payload = await response.json().catch(() => []);
+  const { response, payload } = await traktRequestJson(`${url.pathname}${url.search}`);
   if (!response.ok) {
     throw new Error(String(payload?.message || payload?.error || response.statusText || "Could not load Trakt list"));
   }

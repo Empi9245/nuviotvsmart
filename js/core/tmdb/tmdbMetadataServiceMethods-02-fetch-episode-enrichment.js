@@ -1,5 +1,7 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./tmdbMetadataService.js";
+import { fetchTmdbJson } from "./tmdbTransport.js";
+import { getTmdbApiKey } from "./tmdbApiConfig.js";
 
 export function createTmdbMetadataServiceMethods02() {
   const {
@@ -22,7 +24,7 @@ export function createTmdbMetadataServiceMethods02() {
   return {
     async fetchEpisodeEnrichment({ tmdbId, seasonNumbers = [], language = null } = {}) {
       const settings = TmdbSettingsStore.get();
-      const apiKey = String(TMDB_API_KEY || "").trim();
+      const apiKey = getTmdbApiKey(settings);
       if (!settings.enabled || (!settings.useEpisodes && !settings.useReleaseDates) || !apiKey || !tmdbId) {
         return new Map();
       }
@@ -42,11 +44,10 @@ export function createTmdbMetadataServiceMethods02() {
       const entries = await Promise.all(
         seasons.map(async (seasonNumber) => {
           const url = `${TMDB_BASE_URL}/tv/${encodeURIComponent(String(tmdbId))}/season/${encodeURIComponent(String(seasonNumber))}?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(lang)}`;
-          const response = await fetch(url);
-          if (!response.ok) {
+          const data = await fetchTmdbJson(url);
+          if (!data) {
             return [];
           }
-          const data = await response.json();
           return (Array.isArray(data?.episodes) ? data.episodes : [])
             .map((episode) => ({
               key: `${seasonNumber}:${Number(episode?.episode_number || 0)}`,
@@ -68,18 +69,17 @@ export function createTmdbMetadataServiceMethods02() {
     },
     async fetchMovieCollection({ collectionId, language = null } = {}) {
       const settings = TmdbSettingsStore.get();
-      const apiKey = String(TMDB_API_KEY || "").trim();
+      const apiKey = getTmdbApiKey(settings);
       if (!settings.enabled || !apiKey || !collectionId) {
         return [];
       }
 
       const lang = normalizeTmdbLanguageCode(language || settings.language);
       const url = `${TMDB_BASE_URL}/collection/${encodeURIComponent(String(collectionId))}?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(lang)}`;
-      const response = await fetch(url);
-      if (!response.ok) {
+      const data = await fetchTmdbJson(url);
+      if (!data) {
         return [];
       }
-      const data = await response.json();
       return sortCollectionPartsByReleaseDate(data?.parts)
         .map((item) => ({
           id: item?.id ? `tmdb:${String(item.id)}` : "",
@@ -94,7 +94,7 @@ export function createTmdbMetadataServiceMethods02() {
     },
     async fetchMoreLikeThis({ tmdbId, contentType, language = null, maxItems = TMDB_RECOMMENDATION_MAX_ITEMS } = {}) {
       const settings = TmdbSettingsStore.get();
-      const apiKey = String(TMDB_API_KEY || "").trim();
+      const apiKey = getTmdbApiKey(settings);
       const numericId = String(tmdbId || "").trim();
       if (!settings.enabled || !settings.useMoreLikeThis || !apiKey || !/^\d+$/.test(numericId)) {
         return [];
@@ -112,11 +112,10 @@ export function createTmdbMetadataServiceMethods02() {
       const url = `${TMDB_BASE_URL}/${type}/${encodeURIComponent(numericId)}/recommendations?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(normalizedLanguage)}&page=1`;
 
       try {
-        const response = await fetch(url);
-        if (!response.ok) {
+        const data = await fetchTmdbJson(url);
+        if (!data) {
           return [];
         }
-        const data = await response.json();
         const rawResults = (Array.isArray(data?.results) ? data.results : []).filter((item) => Number(item?.id) > 0);
         const preferredLanguage = languageBase(normalizedLanguage);
         const isLocalized = (item) =>
@@ -206,7 +205,7 @@ export function createTmdbMetadataServiceMethods02() {
     },
     async fetchRecommendations({ tmdbId, contentType, language = null } = {}) {
       const settings = TmdbSettingsStore.get();
-      const apiKey = String(TMDB_API_KEY || "").trim();
+      const apiKey = getTmdbApiKey(settings);
       if (!settings.enabled || !settings.useMoreLikeThis || !apiKey || !tmdbId) {
         return [];
       }
@@ -214,11 +213,10 @@ export function createTmdbMetadataServiceMethods02() {
       const type = resolveType(contentType);
       const lang = normalizeTmdbLanguageCode(language || settings.language);
       const url = `${TMDB_BASE_URL}/${type}/${encodeURIComponent(String(tmdbId))}/recommendations?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(lang)}&page=1`;
-      const response = await fetch(url);
-      if (!response.ok) {
+      const data = await fetchTmdbJson(url);
+      if (!data) {
         return [];
       }
-      const data = await response.json();
       const recommendationResults = (Array.isArray(data?.results) ? data.results : [])
         .filter((item) => Number(item?.id) > 0)
         .slice(0, TMDB_RECOMMENDATION_MAX_ITEMS);

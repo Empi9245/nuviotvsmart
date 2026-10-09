@@ -89,6 +89,9 @@ export const TraktScreen = Object.assign(Object.create(SettingsScreen), {
     }
     await this.render();
     this.deferTraktAutoWork("clock");
+    if (TraktAuthService.getCurrentAuthState().deviceCode) {
+      this.deferTraktAutoWork("polling");
+    }
     if (TraktAuthService.isAuthenticated()) {
       this.deferTraktAutoWork("stats");
     }
@@ -252,6 +255,7 @@ export const TraktScreen = Object.assign(Object.create(SettingsScreen), {
       await this.startTraktDeviceAuth();
       this.expandedProvider = "trakt";
     });
+    this.actionMap.set("tracking:traktConfigure", () => Router.navigate("settings", { section: "integration", integration: "trakt" }));
     this.actionMap.set("tracking:simklConnect", async () => {
       this.simklErrorMessage = null;
       try {
@@ -491,14 +495,19 @@ export const TraktScreen = Object.assign(Object.create(SettingsScreen), {
   },
 
   renderTrackingTraktAccount(auth, connected, waiting) {
+    const configureRow = this.renderActionRow({
+      focusKey: "tracking:traktConfigure",
+      title: t("trakt_client_settings_title", {}, "Trakt app credentials"),
+      subtitle: t("trakt_client_settings_subtitle", {}, "Configure app credentials and connect your Trakt account")
+    });
     if (connected) {
       const tokenRemainingMs =
         auth.createdAt && auth.expiresIn
           ? Math.max(0, (Number(auth.createdAt) + Number(auth.expiresIn)) * 1000 - Date.now())
           : 0;
-      return `<div class="settings-trakt-card settings-tracking-account-card"><h3 class="settings-trakt-card-title">${escapeHtml(t("trakt_account_login", {}, "Trakt account"))}</h3><p class="settings-trakt-body-copy">${escapeHtml(t("trakt_connected_as", [auth.username || "Trakt user"], `Connected as ${auth.username || "Trakt user"}`))}</p>${tokenRemainingMs ? `<p class="settings-trakt-meta-copy">${escapeHtml(t("trakt_token_refreshes", [formatCountdown(tokenRemainingMs)], `Token refreshes in ${formatCountdown(tokenRemainingMs)}`))}</p>` : ""}${this.renderTraktStatsStrip(this.traktStats, this.traktStatsLoading)}${this.renderActionRow({ focusKey: "tracking:traktDisconnect", title: t("trakt_disconnect", {}, "Disconnect Trakt"), subtitle: t("trakt_disconnect_subtitle", {}, "Remove this profile's Trakt connection") })}</div>`;
+      return `<div class="settings-trakt-card settings-tracking-account-card"><h3 class="settings-trakt-card-title">${escapeHtml(t("trakt_account_login", {}, "Trakt account"))}</h3><p class="settings-trakt-body-copy">${escapeHtml(t("trakt_connected_as", [auth.username || "Trakt user"], `Connected as ${auth.username || "Trakt user"}`))}</p>${tokenRemainingMs ? `<p class="settings-trakt-meta-copy">${escapeHtml(t("trakt_token_refreshes", [formatCountdown(tokenRemainingMs)], `Token refreshes in ${formatCountdown(tokenRemainingMs)}`))}</p>` : ""}${!TraktAuthService.hasRequiredCredentials() ? `<p class="settings-trakt-warning">${escapeHtml(t("trakt_missing_credentials", {}, "Set your Client ID and Client Secret in Integrations > Trakt"))}</p>` : ""}${this.renderTraktStatsStrip(this.traktStats, this.traktStatsLoading)}${configureRow}${this.renderActionRow({ focusKey: "tracking:traktDisconnect", title: t("trakt_disconnect", {}, "Disconnect Trakt"), subtitle: t("trakt_disconnect_subtitle", {}, "Remove this profile's Trakt connection") })}</div>`;
     }
-    return `<div class="settings-trakt-card settings-tracking-account-card"><h3 class="settings-trakt-card-title">${escapeHtml(t("trakt_connect", {}, "Connect Trakt"))}</h3>${waiting ? `<p class="settings-trakt-body-copy">${escapeHtml(t("trakt_awaiting_instruction", {}, "Open the Trakt activation page on another device and enter this code."))}</p><strong>${escapeHtml(auth.verificationUrl || "https://trakt.tv/activate")}</strong><div class="settings-trakt-code">${escapeHtml(auth.userCode || "-")}</div><p class="settings-trakt-meta-copy">${escapeHtml(t("trakt_code_expires", [formatCountdown(Number(auth.expiresAt) - Date.now())], `Code expires in ${formatCountdown(Number(auth.expiresAt) - Date.now())}`))}</p>` : `<p class="settings-trakt-body-copy">${escapeHtml(t("trakt_manual_code_description", {}, "A manual activation code will be shown here. No QR code is required."))}</p>${this.renderActionRow({ focusKey: "tracking:traktConnect", title: t("trakt_connect", {}, "Connect Trakt"), subtitle: TraktAuthService.hasRequiredCredentials() ? t("trakt_generate_code", {}, "Generate activation code") : t("trakt_missing_credentials", {}, "Missing Trakt client credentials") })}`}${this.traktStatusMessage ? `<p class="settings-trakt-message">${escapeHtml(this.traktStatusMessage)}</p>` : ""}${this.traktErrorMessage ? `<p class="settings-trakt-error">${escapeHtml(this.traktErrorMessage)}</p>` : ""}</div>`;
+    return `<div class="settings-trakt-card settings-tracking-account-card"><h3 class="settings-trakt-card-title">${escapeHtml(t("trakt_connect", {}, "Connect Trakt"))}</h3>${configureRow}${waiting ? `<p class="settings-trakt-body-copy">${escapeHtml(t("trakt_awaiting_instruction", {}, "Open the Trakt activation page on another device and enter this code."))}</p><strong>${escapeHtml(auth.verificationUrl || "https://trakt.tv/activate")}</strong><div class="settings-trakt-code">${escapeHtml(auth.userCode || "-")}</div><p class="settings-trakt-meta-copy">${escapeHtml(t("trakt_code_expires", [formatCountdown(Number(auth.expiresAt) - Date.now())], `Code expires in ${formatCountdown(Number(auth.expiresAt) - Date.now())}`))}</p>` : `<p class="settings-trakt-body-copy">${escapeHtml(t("trakt_manual_code_description", {}, "A manual activation code will be shown here. No QR code is required."))}</p>${this.renderActionRow({ focusKey: "tracking:traktConnect", title: t("trakt_connect", {}, "Connect Trakt"), subtitle: TraktAuthService.hasRequiredCredentials() ? t("trakt_generate_code", {}, "Generate activation code") : t("trakt_missing_credentials", {}, "Set your Client ID and Client Secret in Integrations > Trakt"), disabled: !TraktAuthService.hasRequiredCredentials() })}`}${this.traktStatusMessage ? `<p class="settings-trakt-message">${escapeHtml(this.traktStatusMessage)}</p>` : ""}${this.traktErrorMessage ? `<p class="settings-trakt-error">${escapeHtml(this.traktErrorMessage)}</p>` : ""}</div>`;
   },
 
   renderTrackingSimklAccount(auth, connected, waiting) {
@@ -735,10 +744,12 @@ export const TraktScreen = Object.assign(Object.create(SettingsScreen), {
   },
 
   startTraktPolling(force = false) {
-    if (this.traktPollTimer && !force) {
+    if ((this.traktPollTimer || this.traktPollingActive) && !force) {
       return;
     }
     this.stopTraktPolling();
+    this.traktPollingActive = true;
+    const generation = this.traktPollingGeneration;
     const poll = async () => {
       const state = TraktAuthService.getCurrentAuthState();
       if (!state.deviceCode || Router.getCurrent() !== "trakt") {
@@ -753,6 +764,11 @@ export const TraktScreen = Object.assign(Object.create(SettingsScreen), {
             t("trakt_error_network_will_retry", {}, "Network error, will retry")
         )
       }));
+      if (generation !== this.traktPollingGeneration || !this.traktPollingActive) return;
+      if (result.type === "cancelled") {
+        this.stopTraktPolling();
+        return;
+      }
       if (result.type === "approved") {
         this.stopTraktPolling();
         this.traktStatusMessage = t(
@@ -802,7 +818,7 @@ export const TraktScreen = Object.assign(Object.create(SettingsScreen), {
       }
       await this.render();
       const nextState = TraktAuthService.getCurrentAuthState();
-      if (nextState.deviceCode && !this.traktPollTimer) {
+      if (nextState.deviceCode && this.traktPollingActive && generation === this.traktPollingGeneration && !this.traktPollTimer) {
         this.traktPollTimer = setTimeout(
           () => {
             this.traktPollTimer = null;
@@ -812,7 +828,11 @@ export const TraktScreen = Object.assign(Object.create(SettingsScreen), {
         );
       }
     };
-    void poll();
+    const state = TraktAuthService.getCurrentAuthState();
+    this.traktPollTimer = setTimeout(() => {
+      this.traktPollTimer = null;
+      void poll();
+    }, Math.max(1, Number(state.pollInterval || 5)) * 1000);
   },
 
   consumeBackRequest() {
