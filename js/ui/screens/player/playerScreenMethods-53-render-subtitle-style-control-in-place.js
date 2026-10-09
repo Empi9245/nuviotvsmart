@@ -166,7 +166,7 @@ export function createPlayerScreenMethods53() {
     },
     getActiveSubtitleSelectionKey() {
       if (this.selectedAddonSubtitleId) {
-        return `addon:${String(this.selectedAddonSubtitleId)}`;
+        return `addon:${String(this.selectedAddonSubtitleIdentity || this.selectedAddonSubtitleId)}`;
       }
       if (this.selectedManifestSubtitleTrackId) {
         return `manifest:${String(this.selectedManifestSubtitleTrackId)}`;

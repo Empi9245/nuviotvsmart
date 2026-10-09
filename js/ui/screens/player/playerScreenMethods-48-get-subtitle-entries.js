@@ -1,11 +1,32 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import { getAddonSubtitleId, getAddonSubtitleIdentity } from "../../../core/player/subtitleSelectionIdentity.js";
 
 export function createPlayerScreenMethods48() {
   const { PlayerController, t, getEmbeddedSubtitleSupportState, isForcedSubtitleTrack, isForcedAddonSubtitle, formatSubtitleTrackDisplay } =
     internals;
 
   return {
+    getAddonSubtitleIdentity(subtitle, index = 0) {
+      return getAddonSubtitleIdentity(subtitle, index);
+    },
+    setSelectedAddonSubtitle(subtitle, index = 0) {
+      this.selectedAddonSubtitleId = subtitle ? getAddonSubtitleId(subtitle, index) : null;
+      this.selectedAddonSubtitleIdentity = getAddonSubtitleIdentity(subtitle, index) || null;
+    },
+    getSelectedAddonSubtitleIndex(subtitles = this.getSubtitleDialogSubtitles()) {
+      if (!this.selectedAddonSubtitleId) return -1;
+      if (this.selectedAddonSubtitleIdentity) {
+        return subtitles.findIndex((subtitle, index) => getAddonSubtitleIdentity(subtitle, index) === this.selectedAddonSubtitleIdentity);
+      }
+      // Older restored state contains only the addon id. It is safe to resolve
+      // that state only when the id names exactly one subtitle.
+      const matchingIndexes = [];
+      subtitles.forEach((subtitle, index) => {
+        if (getAddonSubtitleId(subtitle, index) === String(this.selectedAddonSubtitleId).trim()) matchingIndexes.push(index);
+      });
+      return matchingIndexes.length === 1 ? matchingIndexes[0] : -1;
+    },
     getSubtitleEntries(tab = this.subtitleDialogTab) {
       const textTracks = this.getTextTracks();
       const builtInBoundary = this.resolveBuiltInSubtitleBoundary(textTracks);
@@ -22,6 +43,9 @@ export function createPlayerScreenMethods48() {
       const selectedHlsSubtitleTrack =
         typeof PlayerController.getSelectedHlsSubtitleTrackIndex === "function" ? PlayerController.getSelectedHlsSubtitleTrackIndex() : -1;
       const embeddedSubtitleTracks = this.shouldUseEmbeddedSubtitleTracks() ? this.embeddedSubtitleTracks : [];
+      const hasSelectedAddonSubtitle = Boolean(this.selectedAddonSubtitleId);
+      const hasSelectedManifestSubtitle = Boolean(this.selectedManifestSubtitleTrackId);
+      const nativeSubtitleSelected = !hasSelectedAddonSubtitle && !hasSelectedManifestSubtitle;
 
       const builtInTracks = this.dedupeBuiltInSubtitleTracks(
         textTracks.filter((_, index) => index < builtInBoundary),
@@ -59,7 +83,7 @@ export function createPlayerScreenMethods48() {
                 languageLabel: display.languageLabel,
                 track: mergedTrack,
                 isForced: isForcedSubtitleTrack(mergedTrack),
-                selected: normalizedTrackIndex === selectedAvPlaySubtitleTrack,
+                selected: nativeSubtitleSelected && normalizedTrackIndex === selectedAvPlaySubtitleTrack,
                 disabled: dashTextSwitchingUnsupported || mergedTrack.supported === false,
                 unsupportedReason: dashTextSwitchingUnsupported ? "tizen-dash-text" : unsupportedReason,
                 trackIndex: null,
@@ -90,7 +114,7 @@ export function createPlayerScreenMethods48() {
                 languageLabel: display.languageLabel,
                 track,
                 isForced: isForcedSubtitleTrack(track),
-                selected: index === selectedDashSubtitleTrack,
+                selected: nativeSubtitleSelected && index === selectedDashSubtitleTrack,
                 trackIndex: null,
                 dashSubtitleTrackIndex: index
               };
@@ -119,7 +143,7 @@ export function createPlayerScreenMethods48() {
                 languageLabel: display.languageLabel,
                 track,
                 isForced: isForcedSubtitleTrack(track),
-                selected: index === selectedHlsSubtitleTrack,
+                selected: nativeSubtitleSelected && index === selectedHlsSubtitleTrack,
                 trackIndex: null,
                 hlsSubtitleTrackIndex: index
               };
@@ -147,7 +171,7 @@ export function createPlayerScreenMethods48() {
               languageLabel: display.languageLabel,
               track,
               isForced: isForcedSubtitleTrack(track),
-              selected: track.embeddedTrackIndex === this.selectedEmbeddedSubtitleTrackIndex,
+              selected: nativeSubtitleSelected && track.embeddedTrackIndex === this.selectedEmbeddedSubtitleTrackIndex,
               disabled: support.supported === false,
               unsupportedReason: support.unsupportedReason,
               trackIndex: null,
@@ -166,7 +190,7 @@ export function createPlayerScreenMethods48() {
               languageLabel: display.languageLabel,
               track,
               isForced: isForcedSubtitleTrack(track),
-              selected: this.selectedEmbeddedSubtitleTrackIndex < 0 && index === this.selectedSubtitleTrackIndex,
+              selected: nativeSubtitleSelected && this.selectedEmbeddedSubtitleTrackIndex < 0 && index === this.selectedSubtitleTrackIndex,
               disabled: support.supported === false,
               unsupportedReason: support.unsupportedReason,
               trackIndex: index
@@ -183,7 +207,7 @@ export function createPlayerScreenMethods48() {
               languageLabel: display.languageLabel,
               track,
               isForced: isForcedSubtitleTrack(track),
-              selected: this.selectedManifestSubtitleTrackId === track.id,
+              selected: !hasSelectedAddonSubtitle && this.selectedManifestSubtitleTrackId === track.id,
               trackIndex: null,
               manifestSubtitleTrackId: track.id
             };
@@ -210,25 +234,32 @@ export function createPlayerScreenMethods48() {
       if (tab === "addons") {
         const subtitleSource = this.getSubtitleDialogSubtitles();
         if (subtitleSource.length) {
-          return subtitleSource.map((subtitle, index) => {
-            const subtitleId = subtitle.id || subtitle.url || `subtitle-${index}`;
-            const display = formatSubtitleTrackDisplay(subtitle, index);
-            return {
-              id: `subtitle-addon-fallback-${subtitleId}`,
-              label: display.label,
-              language: display.language,
-              secondary: subtitle.addonName || t("nav_addons", {}, "Addon"),
-              languageKey: display.languageKey,
-              languageLabel: display.languageLabel,
-              track: subtitle,
-              isForced: isForcedAddonSubtitle(subtitle),
-              selected: this.selectedAddonSubtitleId === subtitleId,
-              trackIndex: null,
-              subtitleIndex: index,
-              subtitleId,
-              fallbackAddonSubtitle: true
-            };
-          });
+          const selectedSubtitleIndex = this.getSelectedAddonSubtitleIndex(subtitleSource);
+          const seenIdentities = new Set();
+          return subtitleSource
+            .map((subtitle, index) => {
+              const subtitleId = getAddonSubtitleId(subtitle, index);
+              const subtitleIdentity = getAddonSubtitleIdentity(subtitle, index);
+              if (seenIdentities.has(subtitleIdentity)) return null;
+              seenIdentities.add(subtitleIdentity);
+              const display = formatSubtitleTrackDisplay(subtitle, index);
+              return {
+                id: `subtitle-addon-fallback-${subtitleIdentity}`,
+                label: display.label,
+                language: display.language,
+                secondary: subtitle.addonName || t("nav_addons", {}, "Addon"),
+                languageKey: display.languageKey,
+                languageLabel: display.languageLabel,
+                track: subtitle,
+                isForced: isForcedAddonSubtitle(subtitle),
+                selected: index === selectedSubtitleIndex,
+                trackIndex: null,
+                subtitleIndex: index,
+                subtitleId,
+                fallbackAddonSubtitle: true
+              };
+            })
+            .filter(Boolean);
         }
         if (addonTracks.length) {
           return addonTracks.map((track, relativeIndex) => {
@@ -243,7 +274,7 @@ export function createPlayerScreenMethods48() {
               languageLabel: display.languageLabel,
               track,
               isForced: isForcedAddonSubtitle(track),
-              selected: absoluteIndex === this.selectedSubtitleTrackIndex,
+              selected: !hasSelectedAddonSubtitle && absoluteIndex === this.selectedSubtitleTrackIndex,
               trackIndex: absoluteIndex
             };
           });

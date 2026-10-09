@@ -52,6 +52,9 @@ export function createPlayerScreenMethods54() {
       }
 
       const subtitleIndex = this.subtitles.findIndex((subtitle, index) => {
+        if (pendingRestore.subtitleIdentity) {
+          return this.getAddonSubtitleIdentity(subtitle, index) === pendingRestore.subtitleIdentity;
+        }
         const subtitleId = String(subtitle?.id || subtitle?.url || `subtitle-${index}`).trim();
         return subtitleId === pendingRestore.subtitleId;
       });

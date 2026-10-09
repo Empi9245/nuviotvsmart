@@ -74,6 +74,7 @@ export function createPlayerScreenMethods34() {
         this.pendingWebOsAddonSubtitleRestore = {
           requestId: webOsAddonSubtitleRestoreRequestId,
           subtitleId: selectedAddonSubtitleId,
+          subtitleIdentity: this.selectedAddonSubtitleIdentity || null,
           subtitleSelectionToken: Number(this.subtitleSelectionToken || 0),
           playbackUrl: normalizedStreamUrl,
           mountToken,

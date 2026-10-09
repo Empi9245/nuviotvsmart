@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 globalThis.__NUVIO_PLATFORM__ = "vidaa";
 globalThis.location = { search: "" };
-const originalFetch = globalThis.fetch;
 globalThis.fetch = async () => {
   throw new Error("Unexpected network request");
 };
@@ -63,7 +62,7 @@ async function advance(ms = 2000) {
   await drain();
 }
 async function settle(result) {
-  await advance();
+  await advance(3000);
   return await result;
 }
 
@@ -632,7 +631,7 @@ test("ASS library loading is real, delay uses seconds, and VTT to ASS to OFF is 
   ui.syncTrackState();
   assert.equal(ui.selectedSubtitleTrackIndex, -1);
 });
-test("unavailable ASS renderer preserves conversion to VTT and Blob cleanup", async () => {
+test("unavailable ASS renderer preserves conversion to clocked HTML VTT and OFF cleanup", async () => {
   useVideo(video([], [{ mode: "showing" }]));
   const ui = screen();
   ui.uiRefs.assSubtitles = {
@@ -653,14 +652,13 @@ test("unavailable ASS renderer preserves conversion to VTT and Blob cleanup", as
     true
   );
   assert.equal(ui.isAssAddonSubtitleActive(), false);
-  const url = ui.externalSubtitleObjectUrls[0];
-  assert.ok(url.startsWith("blob:"));
-  const body = await controllerMethodsFetchBlob(url);
-  assert.ok(body.includes("00:00:01.250 --> 00:00:03.500"));
-  assert.ok(body.includes("Ciao, mondo"));
-  await settle(ui.applySubtitleEntry({ trackIndex: -1 }));
   assert.equal(ui.externalSubtitleObjectUrls.length, 0);
-  await assert.rejects(controllerMethodsFetchBlob(url));
+  assert.equal(ui.htmlSubtitleCues[0].start, 1.25);
+  assert.equal(ui.htmlSubtitleCues[0].end, 3.5);
+  assert.ok(ui.htmlSubtitleCues[0].text.includes("Ciao, mondo"));
+  await settle(ui.applySubtitleEntry({ trackIndex: -1 }));
+  assert.equal(ui.htmlSubtitleCues.length, 0);
+  assert.equal(ui.externalSubtitleObjectUrls.length, 0);
 });
 test("ASS cannot activate while native OFF is readonly", async () => {
   useVideo(video([], [flags("mode", "showing", "noop")]));
@@ -947,13 +945,10 @@ test("VIDAA explicit HTML VTT/SRT owns the overlay, renders cues with delay, and
     assert.equal(ui.selectedAddonSubtitleId, null);
   }
 });
-test("VIDAA native renderer preference keeps successful external native rendering", async () => {
+test("VIDAA default native preference uses the shared overlay for fetched external text", async () => {
   useVideo(video([], [{ mode: "showing" }]));
   const ui = screen();
   ui.subtitleRenderMode = "native";
-  ui.applyTvHtmlAddonSubtitle = () => {
-    throw new Error("Native preference must not enter HTML");
-  };
   ui.fetchSubtitleRawBody = async () => ({
     body: "WEBVTT\n\n00:00:01.000 --> 00:00:04.000\nHello",
     contentType: "text/vtt"
@@ -962,9 +957,9 @@ test("VIDAA native renderer preference keeps successful external native renderin
     await settle(ui.applyFallbackAddonSubtitle(0, 0, { id: "native", url: "fixture.vtt" })),
     true
   );
-  assert.ok(ui.htmlSubtitleSelectedId == null);
-  assert.equal(ui.externalTrackNodes.length, 1);
-  assert.equal(ui.externalTrackNodes[0].track.mode, "showing");
+  assert.equal(ui.htmlSubtitleSelectedId, "native");
+  assert.equal(ui.htmlSubtitleCues[0].text, "Hello");
+  assert.equal(ui.externalTrackNodes.length, 0);
   assert.equal(ui.getTextTracks()[0].mode, "disabled");
 });
 test("VIDAA HTML fetch failure preserves the successful direct native fallback", async () => {
@@ -1021,12 +1016,6 @@ test("a native result later than the confirmation window is reconciled by the ex
   assert.equal(ui.selectedSubtitleTrackIndex, 1);
   assert.equal(timers.size, 0);
 });
-
-// Node's original fetch is used only for process-local Blob URLs, never a URL
-// served by a network service.
-async function controllerMethodsFetchBlob(url) {
-  return (await originalFetch(url)).text();
-}
 
 let failed = 0;
 for (const { name, run } of tests) {

@@ -217,7 +217,7 @@ export function createPlayerScreenMethods46() {
             isCurrent: isCurrentSelection
           });
           if (assResult.applied && isCurrentSelection()) {
-            this.selectedAddonSubtitleId = subtitleId;
+            this.setSelectedAddonSubtitle(subtitle, subtitleIndex);
             this.selectedSubtitleTrackIndex = -1;
             this.selectedEmbeddedSubtitleTrackIndex = -1;
             this.selectedManifestSubtitleTrackId = null;
@@ -234,7 +234,7 @@ export function createPlayerScreenMethods46() {
             this.destroyAssSubtitleRenderer();
             this.htmlSubtitleCues = fallbackCues;
             this.htmlSubtitleSelectedId = subtitleId;
-            this.selectedAddonSubtitleId = subtitleId;
+            this.setSelectedAddonSubtitle(subtitle, subtitleIndex);
             this.selectedSubtitleTrackIndex = -1;
             this.selectedEmbeddedSubtitleTrackIndex = -1;
             this.selectedManifestSubtitleTrackId = null;
@@ -265,7 +265,7 @@ export function createPlayerScreenMethods46() {
           this.destroyAssSubtitleRenderer();
           this.htmlSubtitleCues = cues;
           this.htmlSubtitleSelectedId = subtitleId;
-          this.selectedAddonSubtitleId = subtitleId;
+          this.setSelectedAddonSubtitle(subtitle, subtitleIndex);
           this.selectedSubtitleTrackIndex = -1;
           this.selectedEmbeddedSubtitleTrackIndex = -1;
           this.selectedManifestSubtitleTrackId = null;
@@ -312,7 +312,7 @@ export function createPlayerScreenMethods46() {
       this.destroyAssSubtitleRenderer();
       this.htmlSubtitleCues = cues;
       this.htmlSubtitleSelectedId = subtitleId;
-      this.selectedAddonSubtitleId = subtitleId;
+      this.setSelectedAddonSubtitle(subtitle, subtitleIndex);
       this.selectedSubtitleTrackIndex = -1;
       this.selectedEmbeddedSubtitleTrackIndex = -1;
       this.selectedManifestSubtitleTrackId = null;

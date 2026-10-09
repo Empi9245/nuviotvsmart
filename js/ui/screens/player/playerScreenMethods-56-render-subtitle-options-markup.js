@@ -244,22 +244,15 @@ export function createPlayerScreenMethods56() {
       SubtitleDelayPreferencesStore.set(videoId, this.subtitleDelayMs);
     },
     getSelectedAddonSubtitle() {
-      const selectedId = String(this.selectedAddonSubtitleId || "").trim();
-      if (!selectedId) {
-        return null;
-      }
-      return (
-        this.getSubtitleDialogSubtitles().find((subtitle, index) => {
-          const subtitleId = String(subtitle?.id || subtitle?.url || `subtitle-${index}`).trim();
-          return subtitleId === selectedId;
-        }) || null
-      );
+      const subtitles = this.getSubtitleDialogSubtitles();
+      const index = this.getSelectedAddonSubtitleIndex(subtitles);
+      return index >= 0 ? subtitles[index] : null;
     },
     getSubtitleAutoSyncTrackKey(subtitle = null) {
       if (!subtitle) {
         return "";
       }
-      return `${String(subtitle.id || "").trim()}|${String(subtitle.url || "").trim()}`;
+      return this.getAddonSubtitleIdentity(subtitle);
     },
     getSubtitleAutoSyncVisibleCues(anchorTimeMs = null) {
       const anchor =

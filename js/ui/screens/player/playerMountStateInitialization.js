@@ -53,6 +53,7 @@ export function initializePlayerMountState(params, initialStreamUrl) {
   this.selectedSubtitleTrackIndex = -1;
   this.selectedEmbeddedSubtitleTrackIndex = -1;
   this.selectedAddonSubtitleId = null;
+  this.selectedAddonSubtitleIdentity = null;
   this.webOsAddonSubtitleRestoreRequestId = 0;
   this.pendingWebOsAddonSubtitleRestore = null;
   this.startupSubtitlePreferenceApplied = false;

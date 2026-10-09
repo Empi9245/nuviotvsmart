@@ -56,7 +56,7 @@ export function createPlayerScreenMethods47() {
         this.selectedSubtitleTrackIndex = -1;
       } else {
         this.selectedEmbeddedSubtitleTrackIndex = -1;
-        this.selectedSubtitleTrackIndex = textTracks.findIndex((track) => track?.mode && track.mode !== "disabled");
+        this.selectedSubtitleTrackIndex = textTracks.findIndex((track) => track?.mode === "showing");
       }
 
       if (avplayAudioTracks.length) {

@@ -38,8 +38,11 @@ export function createPlayerScreenMethods55() {
       if (
         (usingAvPlay && Environment.isTizen()) ||
         Environment.isWebOS() ||
-        (Environment.isVidaa() && this.subtitleRenderMode === "html")
+        Environment.isVidaa()
       ) {
+        // VIDAA can accept a native mode change without painting external
+        // cues. Use the shared clocked overlay for readable VTT/SRT/ASS;
+        // a blocked fetch still falls through to the direct native URL path.
         try {
           if (await this.applyTvHtmlAddonSubtitle(subtitle, subtitleIndex, selectionToken)) {
             return true;
@@ -82,7 +85,7 @@ export function createPlayerScreenMethods55() {
             : false;
         if (applied || fallbackApplied) {
           this.clearHtmlSubtitleOverlay();
-          this.selectedAddonSubtitleId = subtitleId;
+          this.setSelectedAddonSubtitle(subtitle, subtitleIndex);
           this.selectedSubtitleTrackIndex = -1;
           this.selectedEmbeddedSubtitleTrackIndex = -1;
           this.selectedManifestSubtitleTrackId = null;
@@ -132,7 +135,7 @@ export function createPlayerScreenMethods55() {
             isCurrent: isCurrentSelection
           });
           if (assResult.applied && isCurrentSelection()) {
-            this.selectedAddonSubtitleId = subtitleId;
+            this.setSelectedAddonSubtitle(subtitle, subtitleIndex);
             this.selectedSubtitleTrackIndex = -1;
             this.selectedEmbeddedSubtitleTrackIndex = -1;
             this.selectedManifestSubtitleTrackId = null;
@@ -213,7 +216,7 @@ export function createPlayerScreenMethods55() {
           if (!applied) track.removeEventListener("error", onError);
           if (isCurrentSelection()) {
             if (applied) {
-              this.selectedAddonSubtitleId = subtitleId;
+              this.setSelectedAddonSubtitle(subtitle, subtitleIndex);
               this.selectedEmbeddedSubtitleTrackIndex = -1;
               this.selectedManifestSubtitleTrackId = null;
               this.invalidateTrackDialogCaches();

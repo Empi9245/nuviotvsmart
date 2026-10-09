@@ -189,6 +189,10 @@ export function createPlayerScreenMethods26() {
         this.embeddedSubtitleCueRefreshTimers.add(timerId);
         return;
       }
+      const selectionToken = this.subtitleSelectionToken;
+      const video = PlayerController.video;
+      const playRequestToken = PlayerController.playRequestToken;
+      const mountToken = this.playerMountToken;
       const restoreTrackMode = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (callback) => setTimeout(callback, 16);
       this.getSubtitleCueTrackList().forEach((track) => {
         if (!track || track.mode !== "showing") {
@@ -200,6 +204,20 @@ export function createPlayerScreenMethods26() {
           return;
         }
         restoreTrackMode(() => {
+          // A timing/style refresh must not revive a track retired by OFF,
+          // another selection, or a new stream while the frame was queued.
+          if (
+            this.subtitleSelectionToken !== selectionToken ||
+            this.playerMountToken !== mountToken ||
+            PlayerController.video !== video ||
+            PlayerController.playRequestToken !== playRequestToken ||
+            track.mode !== "hidden" ||
+            this.htmlSubtitleSelectedId ||
+            this.isAssAddonSubtitleActive() ||
+            !this.getSubtitleCueTrackList().includes(track)
+          ) {
+            return;
+          }
           try {
             track.mode = "showing";
           } catch (_) {

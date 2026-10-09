@@ -9,29 +9,14 @@ export function createPlayerScreenMethods25() {
     getSubtitleAssAlignment,
     getSubtitleAssAlignmentSettings,
     splitSubtitleVerticalOffset,
+    trackListToArray,
     clamp,
     hasExplicitSubtitleVerticalPosition
   } = internals;
 
   return {
     getSubtitleCueTrackList() {
-      const trackList = this.getVideoTextTrackList();
-      if (!trackList) {
-        return [];
-      }
-      try {
-        return Array.from(trackList).filter(Boolean);
-      } catch (_) {
-        const tracks = [];
-        const length = Number(trackList.length || 0);
-        for (let index = 0; index < length; index += 1) {
-          const track = trackList[index] || trackList.item?.(index) || null;
-          if (track) {
-            tracks.push(track);
-          }
-        }
-        return tracks;
-      }
+      return trackListToArray(this.getVideoTextTrackList());
     },
     getSelectedWebOsEmbeddedTextTrack() {
       if (!Environment.isWebOS() || this.selectedEmbeddedSubtitleTrackIndex < 0) {
