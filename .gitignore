@@ -8,10 +8,22 @@ local.example.properties
 node_modules/
 tests/*
 !tests/test-vidaa-home-patching.html
-!tests/test-vidaa-home-window.html
-!tests/test-vidaa-navigation-stress.html
-!tests/test-vidaa-route-return.html
 !tests/test-vidaa-*.mjs
+
+# Local research notes and one-off diagnostic tools are not app source.
+docs/vidaa-*.md
+docs/fixtures/
+scripts/vidaa-*-probe.*
+scripts/vidaa-plugin-context-runtime.js
+scripts/vidaa-native-artifact-inspect.py
+scripts/create-vidaa-embedded-text-fixture.mjs
+lDUMMY/
+
+# Standalone manual tests kept locally; CI suites remain tracked in tests/.
+js/domain/model/watchProgress.test.mjs
+js/ui/screens/home/nextUpAiringVisibility.test.mjs
+js/ui/screens/player/playerScreenHelpers-05-finnish-audio-label.test.mjs
+js/ui/screens/plugin/pluginScreen-refresh.test.mjs
 *.ipk
 *.wgt
 dist/
