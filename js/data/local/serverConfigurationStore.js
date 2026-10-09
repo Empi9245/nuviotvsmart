@@ -49,9 +49,14 @@ function officialConfiguration() {
       avatarBase = new URL("assets/avatars", globalThis.location.href).href;
     }
     return configuration
-      ? Object.freeze({ ...configuration, isCustom: false, isShared: true,
+      ? Object.freeze({
+          ...configuration,
+          isCustom: false,
+          isShared: true,
           avatarPublicBaseUrl: avatarBase,
-          tvLoginWebBaseUrl: "", deviceLoginWebBaseUrl: "" })
+          tvLoginWebBaseUrl: "",
+          deviceLoginWebBaseUrl: ""
+        })
       : createLocalServerConfiguration();
   }
   return createServerConfiguration({

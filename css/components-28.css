@@ -462,7 +462,6 @@
   gap: 16px;
 }
 
-
 /* Shared-backend Addons uses the same TV surfaces as the upstream Addons and
    Plugins routes. Keep the custom backend as a data layer, not a visual fork. */
 .addons-shared-main {

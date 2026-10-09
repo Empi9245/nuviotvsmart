@@ -1,106 +1,133 @@
-<!doctype html><meta charset="utf-8"><title>VIDAA Home regression test</title>
+<!doctype html><meta charset="utf-8" /><title>VIDAA Home regression test</title>
 <style>
-.home-main { height: 180px; width: 300px; overflow: auto; }
-.home-row { min-height: 650px; }
-.home-track { display: flex; width: 220px; overflow-x: auto; }
-.home-poster-card { flex: 0 0 400px; }
-</style><div id="home"></div><pre id="result">Testing...</pre><script type="module">
-import {patchHomeMarkup,forgetHomeMarkup} from "../js/ui/screens/home/patchHomeMarkup.js";
-try {
-const assert = { equal(a,b,message) { if(a !== b) throw new Error(message || String(a)+" !== "+String(b)); }, notEqual(a,b,message) { if(a === b) throw new Error(message || "Unexpected equality"); } };
+  .home-main {
+    height: 180px;
+    width: 300px;
+    overflow: auto;
+  }
+  .home-row {
+    min-height: 650px;
+  }
+  .home-track {
+    display: flex;
+    width: 220px;
+    overflow-x: auto;
+  }
+  .home-poster-card {
+    flex: 0 0 400px;
+  }
+</style>
+<div id="home"></div>
+<pre id="result">Testing...</pre>
+<script type="module">
+  import { patchHomeMarkup, forgetHomeMarkup } from "../js/ui/screens/home/patchHomeMarkup.js";
+  try {
+    const assert = {
+      equal(a, b, message) {
+        if (a !== b) throw new Error(message || String(a) + " !== " + String(b));
+      },
+      notEqual(a, b, message) {
+        if (a === b) throw new Error(message || "Unexpected equality");
+      }
+    };
 
+    const container = document.getElementById("home");
+    function card(id, { title = id, image = `${id}.jpg`, episode = "" } = {}) {
+      return `<article tabindex="0" class="home-poster-card focusable" data-item-id="${id}" data-item-type="movie" data-episode="${episode}" data-action="openDetail"><div class="frame"><img class="content-poster" data-src="${image}"><span>${title}</span></div></article>`;
+    }
+    function row(id, cards, title = id) {
+      return `<section class="home-row" data-row-key="${id}"><h2>${title}</h2><div class="home-track">${cards.join("")}</div></section>`;
+    }
+    function home(rows, sizing = "--width: 100px") {
+      return `<div class="home-shell" style="${sizing}"><aside class="home-sidebar"><button data-action="home">Home</button></aside><main class="home-main">${rows.join("")}</main></div>`;
+    }
+    const first = home([row("movies", [card("a"), card("b")]), row("series", [card("c")])]);
+    patchHomeMarkup(container, first);
+    const shell = container.querySelector(".home-shell");
+    const main = container.querySelector("main");
+    const movies = container.querySelector('[data-row-key="movies"]');
+    const a = container.querySelector('[data-item-id="a"]');
+    const b = container.querySelector('[data-item-id="b"]');
+    const image = a.querySelector("img");
+    a.focus();
+    main.scrollTop = 640;
+    movies.querySelector(".home-track").scrollLeft = 330;
+    a.classList.add("focused");
+    image.setAttribute("src", "a.jpg");
+    image.removeAttribute("data-src");
+    shell.style.setProperty("--measured-width", "160px");
+    const onClick = () => {};
+    a.onclick = onClick;
 
-const container = document.getElementById("home");
-function card(id, { title = id, image = `${id}.jpg`, episode = "" } = {}) {
-  return `<article tabindex="0" class="home-poster-card focusable" data-item-id="${id}" data-item-type="movie" data-episode="${episode}" data-action="openDetail"><div class="frame"><img class="content-poster" data-src="${image}"><span>${title}</span></div></article>`;
-}
-function row(id, cards, title = id) {
-  return `<section class="home-row" data-row-key="${id}"><h2>${title}</h2><div class="home-track">${cards.join("")}</div></section>`;
-}
-function home(rows, sizing = "--width: 100px") {
-  return `<div class="home-shell" style="${sizing}"><aside class="home-sidebar"><button data-action="home">Home</button></aside><main class="home-main">${rows.join("")}</main></div>`;
-}
-const first = home([row("movies", [card("a"), card("b")]), row("series", [card("c")])]);
-patchHomeMarkup(container, first);
-const shell = container.querySelector(".home-shell");
-const main = container.querySelector("main");
-const movies = container.querySelector('[data-row-key="movies"]');
-const a = container.querySelector('[data-item-id="a"]');
-const b = container.querySelector('[data-item-id="b"]');
-const image = a.querySelector("img");
-a.focus();
-main.scrollTop = 640;
-movies.querySelector(".home-track").scrollLeft = 330;
-a.classList.add("focused");
-image.setAttribute("src", "a.jpg");
-image.removeAttribute("data-src");
-shell.style.setProperty("--measured-width", "160px");
-const onClick = () => {};
-a.onclick = onClick;
+    // An unrelated row arriving must leave live image/focus/scroll state intact.
+    patchHomeMarkup(
+      container,
+      home([row("movies", [card("a"), card("b")]), row("series", [card("c"), card("d")])])
+    );
+    assert.equal(container.querySelector('[data-item-id="a"]'), a);
+    assert.equal(a.querySelector("img"), image);
+    assert.equal(image.getAttribute("src"), "a.jpg");
+    assert.equal(image.hasAttribute("data-src"), false);
+    assert.equal(a.classList.contains("focused"), true);
+    assert.equal(a.onclick, onClick);
+    assert.equal(document.activeElement, a);
+    assert.equal(main.scrollTop, 640);
+    assert.equal(movies.querySelector(".home-track").scrollLeft, 330);
 
-// An unrelated row arriving must leave live image/focus/scroll state intact.
-patchHomeMarkup(
-  container,
-  home([row("movies", [card("a"), card("b")]), row("series", [card("c"), card("d")])])
-);
-assert.equal(container.querySelector('[data-item-id="a"]'), a);
-assert.equal(a.querySelector("img"), image);
-assert.equal(image.getAttribute("src"), "a.jpg");
-assert.equal(image.hasAttribute("data-src"), false);
-assert.equal(a.classList.contains("focused"), true);
-assert.equal(a.onclick, onClick);
-assert.equal(document.activeElement, a);
-assert.equal(main.scrollTop, 640);
-assert.equal(movies.querySelector(".home-track").scrollLeft, 330);
+    // Row/card reordering reuses nodes, and real text/image changes still apply.
+    patchHomeMarkup(
+      container,
+      home(
+        [
+          row("series", [card("c")]),
+          row("movies", [card("b"), card("a", { title: "Updated", image: "new.jpg" })], "New title")
+        ],
+        "--width: 120px"
+      )
+    );
+    assert.equal(container.querySelector('[data-row-key="movies"]'), movies);
+    assert.equal(movies.querySelectorAll("article")[0], b);
+    assert.equal(movies.querySelectorAll("article")[1], a);
+    assert.equal(a.querySelector("span").textContent, "Updated");
+    assert.equal(image.hasAttribute("src"), false);
+    assert.equal(image.getAttribute("data-src"), "new.jpg");
+    assert.equal(shell.style.getPropertyValue("--width"), "120px");
+    assert.equal(shell.style.getPropertyValue("--measured-width"), "160px");
+    assert.equal(container.querySelector('[data-item-id="d"]'), null);
 
-// Row/card reordering reuses nodes, and real text/image changes still apply.
-patchHomeMarkup(
-  container,
-  home(
-    [
-      row("series", [card("c")]),
-      row("movies", [card("b"), card("a", { title: "Updated", image: "new.jpg" })], "New title")
-    ],
-    "--width: 120px"
-  )
-);
-assert.equal(container.querySelector('[data-row-key="movies"]'), movies);
-assert.equal(movies.querySelectorAll("article")[0], b);
-assert.equal(movies.querySelectorAll("article")[1], a);
-assert.equal(a.querySelector("span").textContent, "Updated");
-assert.equal(image.hasAttribute("src"), false);
-assert.equal(image.getAttribute("data-src"), "new.jpg");
-assert.equal(shell.style.getPropertyValue("--width"), "120px");
-assert.equal(shell.style.getPropertyValue("--measured-width"), "160px");
-assert.equal(container.querySelector('[data-item-id="d"]'), null);
+    // Repeated titles with different episodes must never exchange their state.
+    patchHomeMarkup(
+      container,
+      home([row("continue", [card("same", { episode: "1" }), card("same", { episode: "2" })])])
+    );
+    const episodes = [...container.querySelectorAll("article")];
+    patchHomeMarkup(
+      container,
+      home([row("continue", [card("same", { episode: "2" }), card("same", { episode: "1" })])])
+    );
+    assert.equal(container.querySelectorAll("article")[0], episodes[1]);
+    assert.equal(container.querySelectorAll("article")[1], episodes[0]);
 
-// Repeated titles with different episodes must never exchange their state.
-patchHomeMarkup(
-  container,
-  home([row("continue", [card("same", { episode: "1" }), card("same", { episode: "2" })])])
-);
-const episodes = [...container.querySelectorAll("article")];
-patchHomeMarkup(
-  container,
-  home([row("continue", [card("same", { episode: "2" }), card("same", { episode: "1" })])])
-);
-assert.equal(container.querySelectorAll("article")[0], episodes[1]);
-assert.equal(container.querySelectorAll("article")[1], episodes[0]);
+    // Progressive cards appended at runtime survive unchanged row markup.
+    const progressive = home([row("continue", [card("one")])]);
+    patchHomeMarkup(container, progressive);
+    const extra = document.createElement("article");
+    extra.setAttribute("data-item-id", "progressive");
+    container.querySelector(".home-track").appendChild(extra);
+    patchHomeMarkup(container, progressive);
+    assert.equal(extra.isConnected, true);
+    forgetHomeMarkup(container);
+    patchHomeMarkup(container, first);
+    assert.equal(extra.isConnected, false);
+    assert.notEqual(container.querySelector(".home-shell"), shell);
+    console.log(
+      "VIDAA Home patching: images, focus, scroll, reordering and source updates passed."
+    );
 
-// Progressive cards appended at runtime survive unchanged row markup.
-const progressive = home([row("continue", [card("one")])]);
-patchHomeMarkup(container, progressive);
-const extra = document.createElement("article");
-extra.setAttribute("data-item-id", "progressive");
-container.querySelector(".home-track").appendChild(extra);
-patchHomeMarkup(container, progressive);
-assert.equal(extra.isConnected, true);
-forgetHomeMarkup(container);
-patchHomeMarkup(container, first);
-assert.equal(extra.isConnected, false);
-assert.notEqual(container.querySelector(".home-shell"), shell);
-console.log("VIDAA Home patching: images, focus, scroll, reordering and source updates passed.");
-
-document.getElementById("result").textContent = "PASS: images, focus, scrolling, reordering, updates and progressive cards";
-} catch(error) { document.getElementById("result").textContent = "FAIL: "+error.stack; throw error; }
+    document.getElementById("result").textContent =
+      "PASS: images, focus, scrolling, reordering, updates and progressive cards";
+  } catch (error) {
+    document.getElementById("result").textContent = "FAIL: " + error.stack;
+    throw error;
+  }
 </script>

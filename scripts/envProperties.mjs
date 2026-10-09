@@ -93,30 +93,41 @@ export function parseProperties(source = "") {
 }
 
 export function normalizeEnvProperties(properties = {}) {
-  properties = { ...properties, NUVIO_ACCOUNT_BACKEND_MODE: String(properties.NUVIO_ACCOUNT_BACKEND_MODE || "").trim().toLowerCase() };
+  properties = {
+    ...properties,
+    NUVIO_ACCOUNT_BACKEND_MODE: String(properties.NUVIO_ACCOUNT_BACKEND_MODE || "")
+      .trim()
+      .toLowerCase()
+  };
   const env = {};
   ENV_PROPERTY_KEYS.forEach((key) => {
     const rawValue = Object.prototype.hasOwnProperty.call(properties, key)
       ? properties[key]
-      : properties.NUVIO_ACCOUNT_BACKEND_MODE === "shared" && (key === "NUVIO_SUPABASE_URL" || key === "NUVIO_SUPABASE_ANON_KEY")
+      : properties.NUVIO_ACCOUNT_BACKEND_MODE === "shared" &&
+          (key === "NUVIO_SUPABASE_URL" || key === "NUVIO_SUPABASE_ANON_KEY")
         ? ""
         : DEFAULT_ENV_VALUES[key];
     const normalizedValue = String(rawValue ?? "");
     const shouldUseDefault =
       (key === "INTRODB_API_URL" ||
         key === "SPONSOR_NAMES" ||
-        ((key === "NUVIO_SUPABASE_URL" || key === "NUVIO_SUPABASE_ANON_KEY") && properties.NUVIO_ACCOUNT_BACKEND_MODE !== "shared")) &&
+        ((key === "NUVIO_SUPABASE_URL" || key === "NUVIO_SUPABASE_ANON_KEY") &&
+          properties.NUVIO_ACCOUNT_BACKEND_MODE !== "shared")) &&
       !normalizedValue.trim();
     env[key] = shouldUseDefault ? DEFAULT_ENV_VALUES[key] : normalizedValue;
   });
   const key = env.NUVIO_SUPABASE_ANON_KEY.trim();
   env.NUVIO_SUPABASE_ANON_KEY = key;
   let isPublicKey = key.startsWith("sb_publishable_") && key.length > 20;
-  if (key.startsWith("sb_secret_")) throw new Error("The app requires a public Supabase key, never a secret key.");
+  if (key.startsWith("sb_secret_"))
+    throw new Error("The app requires a public Supabase key, never a secret key.");
   if (key.split(".").length === 3) {
     let payload = null;
-    try { payload = JSON.parse(Buffer.from(key.split(".")[1], "base64url").toString("utf8")); } catch (_) {}
-    if (payload?.role && payload.role !== "anon") throw new Error("The app requires an anon or publishable Supabase key.");
+    try {
+      payload = JSON.parse(Buffer.from(key.split(".")[1], "base64url").toString("utf8"));
+    } catch (_) {}
+    if (payload?.role && payload.role !== "anon")
+      throw new Error("The app requires an anon or publishable Supabase key.");
     isPublicKey = payload?.role === "anon";
   }
   if (env.NUVIO_ACCOUNT_BACKEND_MODE === "shared") {

@@ -117,7 +117,11 @@ for (const code of [37, 38, 39, 40]) {
   const detached = { isConnected: false, tagName: "BUTTON" };
   const down = remoteEvent(40, false, { target: detached });
   focus.handleKey(down);
-  assert.equal(downs.length, before + 1, "Detached VIDAA keydown must still reach the mounted screen");
+  assert.equal(
+    downs.length,
+    before + 1,
+    "Detached VIDAA keydown must still reach the mounted screen"
+  );
   assert.deepEqual(down.calls, ["prevent", "stop", "stopImmediate"]);
 
   focus.handleKeyUp(remoteEvent(40, false, { target: detached }));
@@ -154,10 +158,18 @@ for (const code of [37, 38, 39, 40]) {
   for (const code of [13, 37, 39]) {
     const event = remoteEvent(code, false, { target: input });
     focus.handleKey(event);
-    assert.deepEqual(event.calls, ["stop", "stopImmediate"], `Text input key ${code} must keep its default and skip page handlers`);
+    assert.deepEqual(
+      event.calls,
+      ["stop", "stopImmediate"],
+      `Text input key ${code} must keep its default and skip page handlers`
+    );
     const release = remoteEvent(code, false, { target: input });
     focus.handleKeyUp(release);
-    assert.deepEqual(release.calls, ["stop", "stopImmediate"], `Text input keyup ${code} must keep its default and skip page handlers`);
+    assert.deepEqual(
+      release.calls,
+      ["stop", "stopImmediate"],
+      `Text input keyup ${code} must keep its default and skip page handlers`
+    );
   }
 
   const bodyTargetEnter = remoteEvent(13, false, { target });

@@ -88,8 +88,16 @@ export function createSettingsScreenMethods04() {
                 ${this.renderAccountActionButton({
                   focusKey: "account:signin",
                   icon: "vpn_key",
-                  title: server.isLocal ? t("server_options_local_active") : server.capabilities.emailPasswordAuth ? t("auth_email_signin_title") : t("account_signin_qr_title", {}, "Sign In with QR"),
-                  subtitle: server.isLocal ? t("auth_local_description") : server.capabilities.emailPasswordAuth ? t("auth_email_signin_subtitle") : t("account_signin_qr_subtitle", {}, "Scan a QR code and complete email login on your phone")
+                  title: server.isLocal
+                    ? t("server_options_local_active")
+                    : server.capabilities.emailPasswordAuth
+                      ? t("auth_email_signin_title")
+                      : t("account_signin_qr_title", {}, "Sign In with QR"),
+                  subtitle: server.isLocal
+                    ? t("auth_local_description")
+                    : server.capabilities.emailPasswordAuth
+                      ? t("auth_email_signin_subtitle")
+                      : t("account_signin_qr_subtitle", {}, "Scan a QR code and complete email login on your phone")
                 })}
               `
                   : ""

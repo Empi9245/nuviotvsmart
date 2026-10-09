@@ -32,10 +32,13 @@ assert.deepEqual(names(classifyWebPlaybackHeaders({ Referer: "https://example.co
 });
 
 // 4. Custom headers are not rejected by a rigid whitelist.
-assert.deepEqual(names(classifyWebPlaybackHeaders({ "X-Custom-Header": "123", Accept: "video/*" })), {
-  forwardable: ["X-Custom-Header", "Accept"],
-  restricted: []
-});
+assert.deepEqual(
+  names(classifyWebPlaybackHeaders({ "X-Custom-Header": "123", Accept: "video/*" })),
+  {
+    forwardable: ["X-Custom-Header", "Accept"],
+    restricted: []
+  }
+);
 
 for (const restrictedName of [
   "User-Agent",
@@ -88,15 +91,25 @@ assert.deepEqual(diagnostic.forwardedHeaderNames, ["Authorization", "X-Test"]);
 assert.deepEqual(diagnostic.restrictedHeaderNames, ["Cookie"]);
 const diagnosticText = JSON.stringify(diagnostic);
 for (const secret of ["Bearer super-secret", "session=top-secret", "api-key-value"]) {
-  assert.equal(diagnosticText.includes(secret), false, "Diagnostics must never contain header values");
+  assert.equal(
+    diagnosticText.includes(secret),
+    false,
+    "Diagnostics must never contain header values"
+  );
 }
 
 // Guard the existing shared hls.js path: both loaders receive normalized headers.
 const hlsSource = await readFile(
-  new URL("../js/core/player/playerControllerMethods-13-resolve-remote-media-source-type.js", import.meta.url),
+  new URL(
+    "../js/core/player/playerControllerMethods-13-resolve-remote-media-source-type.js",
+    import.meta.url
+  ),
   "utf8"
 );
-assert.match(hlsSource, /const forwardedHeaders = this\.normalizePlaybackHeaders\(requestHeaders\)/);
+assert.match(
+  hlsSource,
+  /const forwardedHeaders = this\.normalizePlaybackHeaders\(requestHeaders\)/
+);
 assert.match(hlsSource, /xhrSetup:/);
 assert.match(hlsSource, /fetchSetup:/);
 
@@ -111,13 +124,19 @@ assert.doesNotMatch(playSource, /VidaaPlaybackProxy/);
 
 // The standalone incompatibility path is explicit and happens before controller playback.
 const screenSource = await readFile(
-  new URL("../js/ui/screens/player/playerScreenMethods-18-start-player-controller-playback.js", import.meta.url),
+  new URL(
+    "../js/ui/screens/player/playerScreenMethods-18-start-player-controller-playback.js",
+    import.meta.url
+  ),
   "utf8"
 );
 assert.match(screenSource, /reason: "vidaa-standalone-incompatible"/);
 
 const compatibilitySource = await readFile(
-  new URL("../js/ui/screens/player/playerScreenMethods-17-get-web-header-restricted-stream-message.js", import.meta.url),
+  new URL(
+    "../js/ui/screens/player/playerScreenMethods-17-get-web-header-restricted-stream-message.js",
+    import.meta.url
+  ),
   "utf8"
 );
 assert.match(compatibilitySource, /if \(!Environment\.isVidaa\(\)\)/);

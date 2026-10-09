@@ -4,26 +4,36 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDirectory = path.join(root, "supabase", "upstream");
-const files = (await readdir(sourceDirectory)).filter((file) => /^\d{14}_.+\.sql$/.test(file)).sort();
-if (files.length !== 11) throw new Error("Expected all 11 upstream migrations, including security and RPC grants");
+const files = (await readdir(sourceDirectory))
+  .filter((file) => /^\d{14}_.+\.sql$/.test(file))
+  .sort();
+if (files.length !== 11)
+  throw new Error("Expected all 11 upstream migrations, including security and RPC grants");
 const parts = [];
 for (const file of files) {
   let source = await readFile(path.join(sourceDirectory, file), "utf8");
   if (file.endsWith("_storage.sql")) {
     // Avatars ship with the app. No public Storage buckets are needed.
-    source = "INSERT INTO nuvio_migrations.schema_migrations (version) VALUES ('00000000000002') ON CONFLICT DO NOTHING;";
+    source =
+      "INSERT INTO nuvio_migrations.schema_migrations (version) VALUES ('00000000000002') ON CONFLICT DO NOTHING;";
   }
   if (file.endsWith("_clean_account_restore.sql")) {
     // Hosted roles cannot attach this custom parameter to a function. Backup
     // import is outside this app's scope and its RPC is revoked below.
-    const setting = /ALTER FUNCTION public\.sync_restore_account_backup\(jsonb, text\)\s+SET nuvio\.skip_profile_defaults = 'on';/;
+    const setting =
+      /ALTER FUNCTION public\.sync_restore_account_backup\(jsonb, text\)\s+SET nuvio\.skip_profile_defaults = 'on';/;
     if (!setting.test(source)) throw new Error("Review upstream backup restore adaptation");
     source = source.replace(setting, "-- Account backup import is disabled on the shared backend.");
   }
   if (file.endsWith("_baseline.sql")) {
-    const monitorRole = /DO \$\$\s*BEGIN\s*IF NOT EXISTS \([\s\S]*?rolname = 'supabase_monitor'[\s\S]*?END;\s*\$\$;/;
-    if (!monitorRole.test(source)) throw new Error("Upstream baseline changed: review the monitor role adaptation");
-    source = source.replace(monitorRole, "-- Hosted Supabase owns monitoring roles; no custom monitor is created.");
+    const monitorRole =
+      /DO \$\$\s*BEGIN\s*IF NOT EXISTS \([\s\S]*?rolname = 'supabase_monitor'[\s\S]*?END;\s*\$\$;/;
+    if (!monitorRole.test(source))
+      throw new Error("Upstream baseline changed: review the monitor role adaptation");
+    source = source.replace(
+      monitorRole,
+      "-- Hosted Supabase owns monitoring roles; no custom monitor is created."
+    );
     source = source.replace(/^GRANT .* TO supabase_monitor;\r?\n/gm, "");
     source = source.replace(/^ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin .*;\r?\n/gm, "");
   }
@@ -64,7 +74,11 @@ COMMIT;
 `;
 const hardening = await readFile(path.join(root, "supabase", "hosted-hardening.sql"), "utf8");
 const sql = header + parts.join("\n") + hardening + footer;
-if (/CREATE ROLE supabase_monitor|ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin|GRANT .* TO supabase_monitor/.test(sql)) {
+if (
+  /CREATE ROLE supabase_monitor|ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin|GRANT .* TO supabase_monitor/.test(
+    sql
+  )
+) {
   throw new Error("Hosted adaptation left unsupported role changes");
 }
 const output = path.join(root, "supabase", "bootstrap.sql");

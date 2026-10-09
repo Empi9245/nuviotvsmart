@@ -35,7 +35,9 @@ export function createAuthQrSignInScreenMethods02() {
       this.container
         .querySelector("[data-action='use-official']")
         ?.addEventListener("click", () => this.openServerConnection("officialReview"));
-      this.container.querySelectorAll("[data-action='connect-custom']").forEach((node) => node.addEventListener("click", () => this.openServerConnection("input")));
+      this.container
+        .querySelectorAll("[data-action='connect-custom']")
+        .forEach((node) => node.addEventListener("click", () => this.openServerConnection("input")));
       this.container.querySelector("[data-action='use-local']")?.addEventListener("click", () => this.openServerConnection("localReview"));
       this.container.querySelector("[data-action='email-submit']")?.addEventListener("click", () => void this.submitEmailLogin());
       this.container.querySelector("[data-action='email-mode']")?.addEventListener("click", () => this.toggleEmailMode());

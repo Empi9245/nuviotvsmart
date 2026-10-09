@@ -2,7 +2,10 @@ import { httpRequest } from "../../../core/network/httpClient.js";
 import { recordSyncFailure } from "../../../core/sync/syncBackoffPolicy.js";
 import { trackSessionRequest } from "../../../core/auth/sessionLifecycle.js";
 import { ServerConfigurationStore } from "../../local/serverConfigurationStore.js";
-import { accountAuthorizationHeaders, requireAccountBackend } from "../../../core/server/serverConfiguration.js";
+import {
+  accountAuthorizationHeaders,
+  requireAccountBackend
+} from "../../../core/server/serverConfiguration.js";
 
 function trackSyncRequest(request) {
   return trackSessionRequest(request).catch((error) => {

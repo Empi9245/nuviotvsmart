@@ -7,7 +7,8 @@ const listeners = new Map();
 const entries = new Map();
 const deleted = [];
 const currentName = source.match(/var CACHE_NAME = "([^"]+)"/)[1];
-const key = (request) => new URL(typeof request === "string" ? request : request.url, "https://nuvio.test/").href;
+const key = (request) =>
+  new URL(typeof request === "string" ? request : request.url, "https://nuvio.test/").href;
 const cache = {
   async match(request) {
     return entries.get(key(request))?.clone();
@@ -25,7 +26,11 @@ vm.runInNewContext(source, {
     addEventListener(name, callback) {
       listeners.set(name, callback);
     },
-    clients: { claim: async () => { claimed = true; } }
+    clients: {
+      claim: async () => {
+        claimed = true;
+      }
+    }
   },
   caches: {
     async open(name) {
@@ -60,16 +65,26 @@ function request(path, options = {}) {
 }
 function handle(req) {
   let result;
-  listeners.get("fetch")({ request: req, respondWith(promise) { result = promise; } });
+  listeners.get("fetch")({
+    request: req,
+    respondWith(promise) {
+      result = promise;
+    }
+  });
   return result;
 }
 entries.set(key("./app.bundle.js"), new Response("old cached build"));
 assert.equal(await (await handle(request("/app.bundle.js?v=new"))).text(), "new build");
 assert.equal(await (await cache.match("./app.bundle.js")).text(), "new build");
-network = async () => { throw new Error("offline"); };
+network = async () => {
+  throw new Error("offline");
+};
 assert.equal(await (await handle(request("/app.bundle.js?v=new"))).text(), "new build");
 entries.set(key("./index.html"), new Response("offline app shell"));
-assert.equal(await (await handle(request("/?wrapper=vidaa", { mode: "navigate" }))).text(), "offline app shell");
+assert.equal(
+  await (await handle(request("/?wrapper=vidaa", { mode: "navigate" }))).text(),
+  "offline app shell"
+);
 await assert.rejects(handle(request("/missing-script.js")), /offline/);
 network = async () => new Response("server unavailable", { status: 503 });
 assert.equal(await (await handle(request("/app.bundle.js?v=new"))).text(), "new build");
@@ -79,11 +94,18 @@ for (const req of [
   request("/playlist.m3u8"),
   request("/stream", { headers: new Headers({ range: "bytes=0-" }) }),
   request("https://external.test/script.js")
-]) assert.equal(handle(req), undefined);
+])
+  assert.equal(handle(req), undefined);
 assert.equal(fetched, beforeBypass);
 let activation;
-listeners.get("activate")({ waitUntil(promise) { activation = promise; } });
+listeners.get("activate")({
+  waitUntil(promise) {
+    activation = promise;
+  }
+});
 await activation;
 assert.deepEqual(deleted, ["nuvio-vidaa-old"]);
 assert.equal(claimed, true);
-console.log("VIDAA cache checks passed: online freshness, offline fallback, media bypass and scoped cleanup.");
+console.log(
+  "VIDAA cache checks passed: online freshness, offline fallback, media bypass and scoped cleanup."
+);

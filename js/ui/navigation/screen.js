@@ -2,7 +2,7 @@ function isVidaaViewportLocked() {
   const root = globalThis?.document?.documentElement;
   return Boolean(
     root?.classList?.contains("vidaa-tv") ||
-      String(globalThis?.__NUVIO_PLATFORM__ || "").toLowerCase() === "vidaa"
+    String(globalThis?.__NUVIO_PLATFORM__ || "").toLowerCase() === "vidaa"
   );
 }
 

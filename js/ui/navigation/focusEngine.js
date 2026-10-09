@@ -183,10 +183,7 @@ export const FocusEngine = {
       return;
     }
 
-    if (
-      isVidaa &&
-      (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)
-    ) {
+    if (isVidaa && (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)) {
       normalizedEvent.preventDefault();
       normalizedEvent.stopPropagation();
       normalizedEvent.stopImmediatePropagation();
@@ -247,10 +244,7 @@ export const FocusEngine = {
     }
 
     const isArrowKey = normalizedEvent.keyCode >= 37 && normalizedEvent.keyCode <= 40;
-    if (
-      isVidaa &&
-      (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)
-    ) {
+    if (isVidaa && (isArrowKey || normalizedEvent.keyCode === VIDAA_SELECT_KEY_CODE)) {
       normalizedEvent.preventDefault();
       normalizedEvent.stopPropagation();
       normalizedEvent.stopImmediatePropagation();

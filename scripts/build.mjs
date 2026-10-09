@@ -697,7 +697,9 @@ async function runBuild() {
       rootDir
     });
     const envSourceBaseName = path.basename(envResult.sourcePath || "");
-    console.log(`runtime configuration: ${path.relative(rootDir, envResult.sourcePath || rootDir)}`);
+    console.log(
+      `runtime configuration: ${path.relative(rootDir, envResult.sourcePath || rootDir)}`
+    );
     const usingFallbackEnv =
       !envResult.sourcePath || envSourceBaseName === "local.example.properties";
     if (requireConfiguredRuntimeEnv && usingFallbackEnv) {

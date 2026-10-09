@@ -9,11 +9,19 @@ import { catalogRepository } from "../../../data/repository/catalogRepository.js
 import { I18n } from "../../../i18n/index.js";
 
 const t = (key, fallback) => I18n.t(key, {}, { fallback });
-const escapeHtml = (value) => String(value ?? "").replaceAll("&", "&amp;")
-  .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 
 export function normalizeInstallUrl(value) {
-  const url = new URL(String(value || "").trim().replace(/^stremio:\/\//i, "https://"));
+  const url = new URL(
+    String(value || "")
+      .trim()
+      .replace(/^stremio:\/\//i, "https://")
+  );
   if (url.protocol !== "https:" || url.username || url.password || url.hash) {
     throw new Error("Invalid addon URL");
   }
@@ -47,11 +55,7 @@ export const SharedPluginScreen = {
         : this.message;
     const statusKind = this.saving || this.syncing ? "loading" : this.messageKind;
     const statusIcon =
-      statusKind === "error"
-        ? "error_outline"
-        : statusKind === "success"
-          ? "check_circle"
-          : "sync";
+      statusKind === "error" ? "error_outline" : statusKind === "success" ? "check_circle" : "sync";
     const installedCount = `${urls.length} ${urls.length === 1 ? "addon" : "addons"}`;
     const accountHint = authenticated
       ? t("addon_shared_account_synced", "Changes sync with your account.")
@@ -340,20 +344,33 @@ export const SharedPluginScreen = {
     try {
       let url = value;
       if (action === "install") {
-        try { url = normalizeInstallUrl(value); } catch {
+        try {
+          url = normalizeInstallUrl(value);
+        } catch {
           this.message = t("addon_shared_invalid_url", "Enter a valid HTTPS add-on URL.");
           this.messageKind = "error";
           return;
         }
         const manifest = await addonRepository.fetchAddon(url, { force: true, timeoutMs: 10000 });
         if (manifest.status !== "success" || !manifest.data?.id || !manifest.data?.name) {
-          this.message = t("addon_shared_manifest_error", "Could not load this add-on. Check its manifest URL.");
+          this.message = t(
+            "addon_shared_manifest_error",
+            "Could not load this add-on. Check its manifest URL."
+          );
           this.messageKind = "error";
           return;
         }
       }
-      if (!this.mounted || profileId !== ProfileManager.getActiveProfileId() || generation !== AuthManager.sessionGeneration) return;
-      const changed = action === "install" ? await addonRepository.addAddon(url) : await addonRepository.removeAddon(url);
+      if (
+        !this.mounted ||
+        profileId !== ProfileManager.getActiveProfileId() ||
+        generation !== AuthManager.sessionGeneration
+      )
+        return;
+      const changed =
+        action === "install"
+          ? await addonRepository.addAddon(url)
+          : await addonRepository.removeAddon(url);
       if (!changed) {
         this.message = t("addon_shared_already_installed", "This add-on is already installed.");
         this.messageKind = "error";
@@ -362,8 +379,14 @@ export const SharedPluginScreen = {
       if (AuthManager.isAuthenticated) {
         if (!(await LibrarySyncService.push())) {
           await addonRepository.setAddonOrder(previousUrls);
-          addonRepository.setAddonEnabledStates(Object.entries(previousEnabled).map(([url, enabled]) => ({ url, enabled })), { replace: true });
-          this.message = t("addon_shared_sync_error", "Unable to save or load add-ons. Check your connection and try again.");
+          addonRepository.setAddonEnabledStates(
+            Object.entries(previousEnabled).map(([url, enabled]) => ({ url, enabled })),
+            { replace: true }
+          );
+          this.message = t(
+            "addon_shared_sync_error",
+            "Unable to save or load add-ons. Check your connection and try again."
+          );
           this.messageKind = "error";
           return;
         }
@@ -413,7 +436,9 @@ export const SharedPluginScreen = {
     if (code === 38 || code === 40 || code === 37 || code === 39) {
       event.preventDefault();
       if (inputFocused && (code === 38 || code === 40)) {
-        try { document.activeElement?.blur?.(); } catch (_) {}
+        try {
+          document.activeElement?.blur?.();
+        } catch (_) {}
       }
       ScreenUtils.moveFocus(
         this.container,

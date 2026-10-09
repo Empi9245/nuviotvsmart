@@ -170,13 +170,25 @@ class AuthManagerClass {
   // ------------------------------------
   async bootstrap() {
     const configuration = ServerConfigurationStore.getActive();
-    if (configuration.isShared && localStorage.getItem("nuvioSharedBackendV1") !== configuration.backendUrl) {
-      await this._teardownAccountSession({ serverSwitch: true, verify: true, resetLocalData: true, notifyState: false });
+    if (
+      configuration.isShared &&
+      localStorage.getItem("nuvioSharedBackendV1") !== configuration.backendUrl
+    ) {
+      await this._teardownAccountSession({
+        serverSwitch: true,
+        verify: true,
+        resetLocalData: true,
+        notifyState: false
+      });
       localStorage.setItem("nuvioSharedBackendV1", configuration.backendUrl);
     }
     if (ServerConfigurationStore.getActive().isLocal) {
       if (SessionStore.accessToken || SessionStore.refreshToken) {
-        await this._teardownAccountSession({ serverSwitch: true, verify: true, notifyState: false });
+        await this._teardownAccountSession({
+          serverSwitch: true,
+          verify: true,
+          notifyState: false
+        });
       }
       this.setState(AuthState.SIGNED_OUT);
       return;
@@ -263,7 +275,8 @@ class AuthManagerClass {
 
   async signUpWithEmail(email, password) {
     const configuration = ServerConfigurationStore.getActive();
-    if (!configuration.isShared) throw new Error("Account registration is unavailable on this server");
+    if (!configuration.isShared)
+      throw new Error("Account registration is unavailable on this server");
     const generation = this.sessionGeneration;
     const res = await fetchSupabaseAuth("/auth/v1/signup", {
       method: "POST",
@@ -273,7 +286,8 @@ class AuthManagerClass {
     });
     if (!res.ok) throw new Error(await parseResponseError(res, "Registration failed"));
     const data = await res.json();
-    if (generation !== this.sessionGeneration) throw new Error("Registration was cancelled because the server changed");
+    if (generation !== this.sessionGeneration)
+      throw new Error("Registration was cancelled because the server changed");
     if (data?.access_token && data?.refresh_token) {
       SessionStore.accessToken = data.access_token;
       SessionStore.refreshToken = data.refresh_token;
@@ -312,7 +326,12 @@ class AuthManagerClass {
     return this._teardownAccountSession({ serverSwitch: true, verify: true, resetLocalData });
   }
 
-  async _teardownAccountSession({ serverSwitch = false, verify = false, resetLocalData = false, notifyState = true } = {}) {
+  async _teardownAccountSession({
+    serverSwitch = false,
+    verify = false,
+    resetLocalData = false,
+    notifyState = true
+  } = {}) {
     const wasSignedOut = this.state === AuthState.SIGNED_OUT;
     const hadAccountSession =
       !SessionStore.isAnonymousSession &&

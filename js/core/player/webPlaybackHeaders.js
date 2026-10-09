@@ -32,13 +32,7 @@ function normalizeHeaderEntries(headers = {}) {
   return Object.entries(headers)
     .map(([name, value]) => [String(name || "").trim(), String(value ?? "").trim()])
     .filter(([name, value]) => name && value)
-    .filter(
-      ([name, value]) =>
-        !name.includes("\r") &&
-        !name.includes("\n") &&
-        !value.includes("\r") &&
-        !value.includes("\n")
-    );
+    .filter(([name, value]) => !name.includes("\r") && !name.includes("\n") && !value.includes("\r") && !value.includes("\n"));
 }
 
 export function isBrowserRestrictedPlaybackHeader(name = "") {
@@ -87,8 +81,7 @@ export function normalizeNotWebReady(value) {
 export function getStandaloneWebPlaybackCompatibility(headers = {}, notWebReady = false) {
   const classification = classifyWebPlaybackHeaders(headers);
   const normalizedNotWebReady = normalizeNotWebReady(notWebReady);
-  const unsupportedStandalone =
-    normalizedNotWebReady && classification.restrictedHeaderNames.length > 0;
+  const unsupportedStandalone = normalizedNotWebReady && classification.restrictedHeaderNames.length > 0;
 
   return {
     ...classification,
@@ -102,10 +95,7 @@ export function getStandaloneWebPlaybackCompatibility(headers = {}, notWebReady 
   };
 }
 
-export function createWebPlaybackHeaderDiagnosticSnapshot(
-  headers = {},
-  { notWebReady = false, playbackEngine = "" } = {}
-) {
+export function createWebPlaybackHeaderDiagnosticSnapshot(headers = {}, { notWebReady = false, playbackEngine = "" } = {}) {
   const compatibility = getStandaloneWebPlaybackCompatibility(headers, notWebReady);
   const browserSafeHeaderNames = Object.keys(compatibility.forwardableHeaders);
   const engine = String(playbackEngine || "")

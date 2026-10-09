@@ -1,7 +1,8 @@
 import * as internals from "./homeScreenContext.js";
 
 export function createHomeScreenMethods13() {
-  const { Platform, metaRepository, isCollectionFolderItem, resolveTrailerSource, withTimeout, resolveTrailerMetaWithTmdbFallback } = internals;
+  const { Platform, metaRepository, isCollectionFolderItem, resolveTrailerSource, withTimeout, resolveTrailerMetaWithTmdbFallback } =
+    internals;
 
   return {
     mountTrailerLayer(container, source, onReady = null) {

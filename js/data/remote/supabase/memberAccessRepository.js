@@ -29,7 +29,12 @@ const listeners = new Set();
 
 function supportsMembership() {
   const configuration = ServerConfigurationStore.getActive();
-  return AuthManager.isAuthenticated && !configuration.isLocal && !configuration.isCustom && !configuration.isShared;
+  return (
+    AuthManager.isAuthenticated &&
+    !configuration.isLocal &&
+    !configuration.isCustom &&
+    !configuration.isShared
+  );
 }
 
 function normalizeAccess(payload) {

@@ -1,9 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerController.js";
-import {
-  classifyWebPlaybackHeaders,
-  isBrowserRestrictedPlaybackHeader
-} from "./webPlaybackHeaders.js";
+import { classifyWebPlaybackHeaders, isBrowserRestrictedPlaybackHeader } from "./webPlaybackHeaders.js";
 
 export function createPlayerControllerMethods12() {
   const { Platform, nativeVideoEngine, WEBOS_MEDIA_TYPE_PROBE_TIMEOUT_MS } = internals;

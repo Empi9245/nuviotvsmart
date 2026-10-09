@@ -70,20 +70,26 @@ export function createAuthQrSignInScreenMethods01() {
       const menuItems = [
         { action: "connect-custom", label: I18n.t("server_options_connect_custom") },
         ...(!configuration?.isLocal ? [{ action: "use-local", label: I18n.t("server_options_use_local") }] : []),
-        ...(configuration?.isCustom || configuration?.isLocal ? [{ action: "use-official", label: I18n.t("server_options_use_official") }] : [])
+        ...(configuration?.isCustom || configuration?.isLocal
+          ? [{ action: "use-official", label: I18n.t("server_options_use_official") }]
+          : [])
       ];
 
       this.container.innerHTML = `
           <div class="qr-layout">
-            ${configuration.isShared ? "" : `<button type="button" class="qr-server-menu-trigger focusable" data-action="server-menu"
-                    aria-label="${escapeHtml(I18n.t("server_options_content_description"))}">⋮</button>`}
+            ${
+              configuration.isShared
+                ? ""
+                : `<button type="button" class="qr-server-menu-trigger focusable" data-action="server-menu"
+                    aria-label="${escapeHtml(I18n.t("server_options_content_description"))}">⋮</button>`
+            }
             <section class="qr-left-panel">
               <div class="qr-brand-lockup">
                 ${renderBrandWordmarkImage({ className: "qr-logo" })}
               </div>
 
               <div class="qr-copy-block">
-                <h1 class="qr-title">${I18n.t(configuration.isShared ? this.isRegistering ? "auth_email_create_account" : "auth_email_signin_title" : "auth.qr.title")}</h1>
+                <h1 class="qr-title">${I18n.t(configuration.isShared ? (this.isRegistering ? "auth_email_create_account" : "auth_email_signin_title") : "auth.qr.title")}</h1>
                 <p id="qr-description" class="qr-description">${this.getLeftDescription()}</p>
                 ${this.renderConnectedAccountIdentity()}
               </div>
@@ -102,9 +108,9 @@ export function createAuthQrSignInScreenMethods01() {
                       ? I18n.t("auth.qr.syncedData")
                       : this.useLocalMode
                         ? I18n.t("auth_local_description")
-                      : this.useEmailLogin
-                        ? I18n.t("auth.email.instruction")
-                        : I18n.t("auth.qr.scanInstruction")
+                        : this.useEmailLogin
+                          ? I18n.t("auth.email.instruction")
+                          : I18n.t("auth.qr.scanInstruction")
                   }
                 </p>
                 ${this.renderLoginContent()}
@@ -124,7 +130,8 @@ export function createAuthQrSignInScreenMethods01() {
         ? ".server-dialog-cancel"
         : this.isServerMenuOpen
           ? ".qr-server-menu-item.focusable"
-          : this.focusAfterRender || (this.useLocalMode ? "#qr-back-btn" : this.useEmailLogin && !this.isSignedIn ? "#auth-email-input" : "#qr-refresh-btn");
+          : this.focusAfterRender ||
+            (this.useLocalMode ? "#qr-back-btn" : this.useEmailLogin && !this.isSignedIn ? "#auth-email-input" : "#qr-refresh-btn");
       const focusContainer = this.showSignOutConfirmation ? this.container.querySelector(".auth-signout-confirm-dialog") : this.container;
       this.focusAfterRender = null;
       ScreenUtils.setInitialFocus(focusContainer, initialSelector);

@@ -10,10 +10,7 @@ export function createPlayerScreenMethods17() {
     internals;
 
   return {
-    getWebHeaderRestrictedStreamMessage(
-      streamCandidate = this.getCurrentStreamCandidate(),
-      requestHeadersOverride = null
-    ) {
+    getWebHeaderRestrictedStreamMessage(streamCandidate = this.getCurrentStreamCandidate(), requestHeadersOverride = null) {
       const candidate = streamCandidate || {};
       const raw = candidate?.raw || {};
       const rawBehaviorHints = raw?.behaviorHints || {};

@@ -316,13 +316,9 @@ export function createPlayerScreenMethods66() {
       if (zone === "close") {
         target = panel.querySelector("[data-episode-action='close']");
       } else if (zone === "seasons") {
-        target = panel.querySelector(
-          `[data-episode-season-index="${Number(this.episodePanelSeasonIndex || 0)}"]`
-        );
+        target = panel.querySelector(`[data-episode-season-index="${Number(this.episodePanelSeasonIndex || 0)}"]`);
       } else {
-        target = panel.querySelector(
-          `[data-episode-index="${Number(this.episodePanelIndex || 0)}"]`
-        );
+        target = panel.querySelector(`[data-episode-index="${Number(this.episodePanelIndex || 0)}"]`);
       }
       if (!target) {
         return false;

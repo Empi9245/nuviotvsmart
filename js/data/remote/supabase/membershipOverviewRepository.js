@@ -121,7 +121,12 @@ async function loadOverview({ resetPrevious = false } = {}) {
     try {
       const configuration = ServerConfigurationStore.getActive();
       if (configuration.isLocal || configuration.isCustom || configuration.isShared) {
-        return setState({ overview: EMPTY_OVERVIEW, isLoading: false, isRefreshing: false, hasError: false });
+        return setState({
+          overview: EMPTY_OVERVIEW,
+          isLoading: false,
+          isRefreshing: false,
+          hasError: false
+        });
       }
       if (!AuthManager.isAuthenticated) {
         if (AuthManager.getAuthState() === AuthState.LOADING) {

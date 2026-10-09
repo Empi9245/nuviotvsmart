@@ -47,15 +47,16 @@ function errorMessage(error) {
       "custom_server_error_invalid_url",
       "Enter a valid HTTP or HTTPS Backend URL."
     ),
-    official_server: ServerConfigurationStore.getActive().isCustom || ServerConfigurationStore.getActive().isLocal
-      ? text(
-          "custom_server_error_official_available",
-          "api.nuvio.tv is the official server. Close this dialog and choose Use official server to switch back."
-        )
-      : text(
-          "custom_server_error_official_active",
-          "api.nuvio.tv is the official server and is already selected."
-        ),
+    official_server:
+      ServerConfigurationStore.getActive().isCustom || ServerConfigurationStore.getActive().isLocal
+        ? text(
+            "custom_server_error_official_available",
+            "api.nuvio.tv is the official server. Close this dialog and choose Use official server to switch back."
+          )
+        : text(
+            "custom_server_error_official_active",
+            "api.nuvio.tv is the official server and is already selected."
+          ),
     connection_failed: text(
       "custom_server_error_connection",
       "Could not reach the discovery endpoint. Check the URL and server availability."
@@ -144,7 +145,9 @@ export const ServerConnectionScreen = {
     this.discoveryController = null;
     this.restartWatchdog = null;
     this.isMounted = true;
-    this.mode = ["input", "officialReview", "localReview"].includes(initialMode) ? initialMode : "list";
+    this.mode = ["input", "officialReview", "localReview"].includes(initialMode)
+      ? initialMode
+      : "list";
     this.inputValue =
       this.mode === "input" ? discoveryInputValue(ServerConfigurationStore.getActive()) : "";
     this.discoveredServer = null;
@@ -170,9 +173,9 @@ export const ServerConnectionScreen = {
           <p class="auth-simple-subtitle">${escapeHtml(
             active.isLocal
               ? text("server_options_local_active", "Using local mode")
-            : active.isCustom
-              ? text("server_options_custom_active", "Connected to a self-hosted server")
-              : text("server_options_official_active", "Using the official Nuvio server")
+              : active.isCustom
+                ? text("server_options_custom_active", "Connected to a self-hosted server")
+                : text("server_options_official_active", "Using the official Nuvio server")
           )}</p>
           <p class="auth-simple-subtitle">${escapeHtml(active.backendUrl)}</p>
         </div>
@@ -351,7 +354,11 @@ export const ServerConnectionScreen = {
         const action = node.dataset.action;
         if (action === "connect") this.openInput();
         if (action === "official") this.openOfficialReview();
-        if (action === "local") { this.mode = "localReview"; this.error = ""; this.render(); }
+        if (action === "local") {
+          this.mode = "localReview";
+          this.error = "";
+          this.render();
+        }
         if (action === "back") this.returnToPrevious();
         if (action === "cancel") this.cancelDialog();
         if (action === "check") void this.checkServer();
@@ -439,7 +446,11 @@ export const ServerConnectionScreen = {
       console.warn("Failed to prepare server switch", error);
     }
     if (!sessionCleared) {
-      this.mode = configuration?.isLocal ? "localReview" : configuration ? "review" : "officialReview";
+      this.mode = configuration?.isLocal
+        ? "localReview"
+        : configuration
+          ? "review"
+          : "officialReview";
       this.error = text(
         "custom_server_session_clear_failed",
         "Could not safely clear the current session. The server was not changed."
@@ -451,10 +462,14 @@ export const ServerConnectionScreen = {
     const saved = configuration?.isLocal
       ? ServerConfigurationStore.useLocal()
       : configuration
-      ? ServerConfigurationStore.saveCustom(configuration)
-      : ServerConfigurationStore.useOfficial();
+        ? ServerConfigurationStore.saveCustom(configuration)
+        : ServerConfigurationStore.useOfficial();
     if (!saved) {
-      this.mode = configuration?.isLocal ? "localReview" : configuration ? "review" : "officialReview";
+      this.mode = configuration?.isLocal
+        ? "localReview"
+        : configuration
+          ? "review"
+          : "officialReview";
       this.error = text("custom_server_save_failed", "Could not save the server configuration.");
       this.render();
       return;
@@ -491,7 +506,11 @@ export const ServerConnectionScreen = {
       clearTimeout(this.restartWatchdog);
       this.restartWatchdog = null;
     }
-    this.mode = configuration?.isLocal ? "localReview" : configuration ? "review" : "officialReview";
+    this.mode = configuration?.isLocal
+      ? "localReview"
+      : configuration
+        ? "review"
+        : "officialReview";
     this.error = text(
       "custom_server_restart_failed",
       "The server was saved, but the app could not restart automatically. Restart it manually."
@@ -519,7 +538,11 @@ export const ServerConnectionScreen = {
     const action = navigationContainer?.querySelector(".focusable.focused")?.dataset?.action;
     if (action === "connect") this.openInput();
     if (action === "official") this.openOfficialReview();
-    if (action === "local") { this.mode = "localReview"; this.error = ""; this.render(); }
+    if (action === "local") {
+      this.mode = "localReview";
+      this.error = "";
+      this.render();
+    }
     if (action === "back") this.returnToPrevious();
     if (action === "cancel") this.cancelDialog();
     if (action === "check" || action === "serverInput") void this.checkServer();
