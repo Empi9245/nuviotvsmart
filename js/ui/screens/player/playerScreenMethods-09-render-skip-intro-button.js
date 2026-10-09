@@ -242,7 +242,7 @@ export function createPlayerScreenMethods09() {
         .filter(Boolean);
     },
     getCurrentStreamCandidate() {
-      if (!this.streamCandidates.length) {
+      if (!Array.isArray(this.streamCandidates) || !this.streamCandidates.length) {
         return null;
       }
       const current = this.streamCandidates[this.currentStreamIndex] || null;

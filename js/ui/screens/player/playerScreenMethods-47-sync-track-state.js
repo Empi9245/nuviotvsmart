@@ -2,7 +2,7 @@
 import * as internals from "./playerScreenContext.js";
 
 export function createPlayerScreenMethods47() {
-  const { PlayerController } = internals;
+  const { PlayerController, Environment } = internals;
 
   return {
     syncTrackState() {
@@ -54,6 +54,27 @@ export function createPlayerScreenMethods47() {
           this.selectedEmbeddedSubtitleTrackIndex = Number.isFinite(selectedEmbeddedSubtitleTrack) ? selectedEmbeddedSubtitleTrack : -1;
         }
         this.selectedSubtitleTrackIndex = -1;
+      } else if (Environment.isVidaa()) {
+        // VIDAA firmware misreports track.mode readbacks while a switch is
+        // settling and can leave several tracks reporting "showing". Adopt the
+        // native readback only when exactly one track is showing; otherwise
+        // keep the app-tracked selection so the dialog does not snap back to
+        // the first selection on every refresh.
+        this.selectedEmbeddedSubtitleTrackIndex = -1;
+        const showingIndexes = [];
+        textTracks.forEach((track, index) => {
+          if (track?.mode === "showing") {
+            showingIndexes.push(index);
+          }
+        });
+        if (showingIndexes.length === 1) {
+          this.selectedSubtitleTrackIndex = showingIndexes[0];
+        } else if (
+          showingIndexes.length === 0 &&
+          !(Number(this.selectedSubtitleTrackIndex) >= 0 && Number(this.selectedSubtitleTrackIndex) < textTracks.length)
+        ) {
+          this.selectedSubtitleTrackIndex = -1;
+        }
       } else {
         this.selectedEmbeddedSubtitleTrackIndex = -1;
         this.selectedSubtitleTrackIndex = textTracks.findIndex((track) => track?.mode === "showing");
