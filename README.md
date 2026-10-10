@@ -92,6 +92,13 @@ this device for the current profile.
 Builds can supply optional TMDB and Trakt app defaults through `local.properties`.
 Personal credentials override those defaults; clearing them restores the defaults
 when available. The public source does not include shared API credentials.
+Without a configured TMDB key, enabling enrichment opens the key setup. Selecting
+a language alone cannot localize the metadata supplied by catalogue addons.
+
+The player automatically tries the next available source when a stream fails.
+It keeps the playback position, skips failed sources and displays an error only
+after the available sources have been exhausted. Opening a saved stream from
+Continue Watching also searches for alternatives when that stream fails.
 
 ```bash
 git clone https://github.com/derpwinnie/NuvioTVSmart.git NuvioTVSmart

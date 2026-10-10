@@ -23,12 +23,14 @@ export function createPlayerScreenMethods55() {
       }
       const subtitleId = subtitle.id || subtitle.url || `subtitle-${subtitleIndex}`;
       const videoAtSelection = PlayerController.video;
+      const videoSource = videoAtSelection?.src;
       const playRequestToken = PlayerController.playRequestToken;
       const mountToken = this.playerMountToken;
       const isCurrentSelection = () =>
         Number(selectionToken) === Number(this.subtitleSelectionToken) &&
         this.playerMountToken === mountToken &&
         PlayerController.video === videoAtSelection &&
+        videoAtSelection?.src === videoSource &&
         PlayerController.playRequestToken === playRequestToken;
       if (!isCurrentSelection()) {
         return;

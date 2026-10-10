@@ -9,6 +9,7 @@ const workspace = fileURLToPath(new URL("../", import.meta.url));
 const defaultFixtures = [
   "test-vidaa-home-patching.html",
   "test-vidaa-home-window.html",
+  "test-vidaa-home-poster-expansion.html",
   "test-vidaa-navigation-stress.html",
   "test-vidaa-home-row-updates.html"
 ];

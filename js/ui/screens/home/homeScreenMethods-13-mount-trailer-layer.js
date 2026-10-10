@@ -172,8 +172,8 @@ export function createHomeScreenMethods13() {
       });
       targets.forEach((target) => {
         const frame = target?.querySelector?.(".home-poster-frame") || null;
-        // VIDAA CSS already disables size transitions. Don't flush layout to
-        // temporarily disable and then restore them on the key-input path.
+        // VIDAA CSS disables size transitions as soon as is-expanded is removed.
+        // Don't flush layout to override them on the key-input path.
         const overrideTransition =
           instant && !Platform.isVidaa() && (target.classList.contains("is-expanded") || target.classList.contains("is-trailer-active"));
         const previousCardTransition = overrideTransition && target instanceof HTMLElement ? target.style.transition : "";
@@ -231,8 +231,14 @@ export function createHomeScreenMethods13() {
       this.homeActivePosterNodes?.add(node);
       this.hydrateFocusedPosterAssets(node);
       this.expandedPosterNode = node;
+      // VIDAA navigation already anchors the focused card at the track's left
+      // inset. Expansion grows to the right: realigning during its width tween
+      // introduces a second camera movement (especially at the end of a row).
+      if (Platform.isVidaa()) {
+        return;
+      }
       requestAnimationFrame(() => {
-        if (node.classList.contains("focused")) {
+        if (node.isConnected && this.expandedPosterNode === node && node.classList.contains("focused")) {
           this.ensureTrackHorizontalVisibility(node);
         }
       });

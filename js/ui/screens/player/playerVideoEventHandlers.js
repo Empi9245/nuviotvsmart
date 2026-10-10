@@ -270,25 +270,15 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
     if (this.tryNextStreamCandidate({ streamCandidate: currentSourceCandidate, playbackUrl: this.activePlaybackUrl, sourceAttemptToken }))
       return;
 
-    this.clearPlaybackStallGuard();
-    this.releaseStartupAudioGate({ resume: false });
-    this.loadingVisible = false;
-    this.bufferingActive = false;
-    this.paused = true;
-    this.dismissPauseOverlay();
-    this.updateLoadingVisibility();
-    this.setControlsVisible(true, { focus: false });
-    this.sourcesError = this.formatPlaybackErrorForSources(
-      `${this.mediaErrorMessage(mediaErrorCode, playbackErrorDetail, currentSourceCandidate)}. Choose another source manually.`,
-      {
-        mediaErrorCode,
-        detail: playbackErrorDetail,
-        eventDetail,
-        streamCandidate: currentSourceCandidate,
-        playbackUrl: this.activePlaybackUrl,
-        reason: "media-error"
-      }
-    );
+    this.showStartupError(this.mediaErrorMessage(mediaErrorCode, playbackErrorDetail, currentSourceCandidate), {
+      mediaErrorCode,
+      detail: playbackErrorDetail,
+      eventDetail,
+      streamCandidate: currentSourceCandidate,
+      playbackUrl: this.activePlaybackUrl,
+      reason: "media-error",
+      sourceAttemptToken
+    });
     if (this.currentEngineFsStream) {
       logEngineFsDebug("EngineFS playback failed; keeping torrent alive until player exit or source change", {
         reason: "playback-error",
@@ -296,11 +286,6 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
         fileIdx: this.currentEngineFsStream.fileIdx
       });
     }
-    // Keep source switching user-initiated after an in-playback failure. Opening
-    // the panel here steals focus from the player (notably on webOS) and differs
-    // from Android TV, where fatal playback errors do not open Sources.
-    this.renderSourcesPanel();
-
     console.warn("Playback failed", {
       url: this.activePlaybackUrl,
       mediaErrorCode

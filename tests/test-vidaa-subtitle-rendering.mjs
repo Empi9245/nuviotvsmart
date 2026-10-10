@@ -189,6 +189,116 @@ test("native cue refresh restores the current showing track", () => {
   assert.equal(track.mode, "showing");
 });
 
+test("native cue refresh queues restoration when mode readback is delayed 180 ms", () => {
+  let mode = "showing";
+  let elapsed = 0;
+  const pendingModes = [];
+  const track = {
+    get mode() {
+      return mode;
+    },
+    set mode(value) {
+      pendingModes.push({ value, at: elapsed + 180 });
+    }
+  };
+  const ui = createScreen([track]);
+  ui.refreshSubtitleTrackRendering();
+  assert.equal(track.mode, "showing", "The hidden request has not been reflected yet");
+  ui.refreshSubtitleTrackRendering();
+  assert.equal(frames.length, 1, "One pending refresh owns the track");
+  elapsed = 16;
+  frames.shift()();
+  assert.deepEqual(
+    pendingModes.map(({ value }) => value),
+    ["hidden", "showing"],
+    "Restoration must follow the delayed hidden request"
+  );
+  elapsed = 180;
+  while (pendingModes.length && pendingModes[0].at <= elapsed) mode = pendingModes.shift().value;
+  assert.equal(track.mode, "hidden");
+  elapsed = 196;
+  while (pendingModes.length && pendingModes[0].at <= elapsed) mode = pendingModes.shift().value;
+  assert.equal(track.mode, "showing");
+});
+
+test("native cue refresh owns selection before synchronous mode change events", () => {
+  let mode = "showing";
+  let ui;
+  const track = {
+    get mode() {
+      return mode;
+    },
+    set mode(value) {
+      mode = value;
+      ui.syncTrackState();
+    }
+  };
+  ui = createScreen([track]);
+  ui.refreshSubtitleTrackRendering();
+  assert.equal(ui.selectedSubtitleTrackIndex, 0, "The style refresh must not appear as OFF");
+  frames.shift()();
+  assert.equal(track.mode, "showing");
+  assert.equal(ui.selectedSubtitleTrackIndex, 0);
+});
+
+test("unchanged native cue styles perform no writes or cuechange feedback", () => {
+  const track = new EventTarget();
+  track.mode = "showing";
+  const cueEvents = [];
+  const writes = [];
+  const values = {
+    startTime: 2,
+    endTime: 4,
+    line: "auto",
+    lineAlign: "start",
+    position: "auto",
+    positionAlign: "auto",
+    snapToLines: true
+  };
+  const cue = { text: "Ciao" };
+  Object.entries(values).forEach(([key, initial]) => {
+    let value = initial;
+    Object.defineProperty(cue, key, {
+      get: () => value,
+      set: (next) => {
+        value = next;
+        writes.push(key);
+        cueEvents.push(() => track.dispatchEvent(new Event("cuechange")));
+      }
+    });
+  });
+  track.cues = [cue];
+  track.activeCues = [cue];
+  const ui = createScreen([track]);
+  ui.subtitleCueStyleBindings = new Map();
+  ui.refreshSubtitleCueStyles = PlayerScreen.refreshSubtitleCueStyles;
+  ui.refreshSubtitleCueStyles();
+  assert.equal(writes.length, 0, "Default settings must not rewrite unchanged native cues");
+  ui.subtitleStyleSettings = { verticalOffset: 5, backgroundColor: "#80808080" };
+  ui.refreshSubtitleCueStyles();
+  assert.equal(
+    writes.length,
+    0,
+    "Gray background is CSS and must not mutate native cue timing/layout"
+  );
+  ui.subtitleDelayMs = 1000;
+  ui.refreshSubtitleCueStyles();
+  assert.deepEqual(writes, ["startTime", "endTime"]);
+  for (let count = 0; cueEvents.length && count < 20; count++) cueEvents.shift()();
+  assert.equal(
+    cueEvents.length,
+    0,
+    "Applied cue timing must settle instead of feeding cuechange again"
+  );
+  assert.equal(writes.length, 2);
+  track.dispatchEvent(new Event("cuechange"));
+  assert.equal(writes.length, 2, "Ordinary cue progress does not rewrite the whole track");
+  ui.subtitleDelayMs = 0;
+  ui.refreshSubtitleCueStyles();
+  assert.equal(cue.startTime, 2);
+  assert.equal(cue.endTime, 4);
+});
+
 for (const action of ["OFF", "another track", "stream replacement", "HTML ownership"]) {
   test(`queued cue refresh cannot revive native text after ${action}`, async () => {
     const tracks = [{ mode: "showing" }, { mode: "disabled" }];

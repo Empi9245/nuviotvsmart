@@ -90,6 +90,7 @@ export function createPlayerScreenMethods54() {
       this.cancelExternalSubtitleActivation?.();
       this.requestedSubtitleEntry = entry;
       const video = PlayerController.video;
+      const videoSource = video?.src;
       const playRequestToken = PlayerController.playRequestToken;
       const mountToken = this.playerMountToken;
       const playbackUrl = this.activePlaybackUrl;
@@ -98,6 +99,7 @@ export function createPlayerScreenMethods54() {
         this.playerMountToken === mountToken &&
         this.activePlaybackUrl === playbackUrl &&
         PlayerController.video === video &&
+        video?.src === videoSource &&
         PlayerController.playRequestToken === playRequestToken;
       const previousSubtitleSelectionKey = this.getActiveSubtitleSelectionKey();
       if (this.subtitleSelectionTimer) {
@@ -272,14 +274,63 @@ export function createPlayerScreenMethods54() {
         this.selectedManifestSubtitleTrackId = null;
       }
 
-      const controllerResult =
-        typeof PlayerController.setNativeTextTrack === "function" ? PlayerController.setNativeTextTrack(targetIndex) : false;
-      const appliedByController = await Promise.resolve(controllerResult).catch(() => false);
-      if (!isCurrentSelection()) return false;
-      const matchesSelection = () => nativeTextTrackSelectionMatches(this.getTextTracks(), targetIndex);
-      // Luna resolves asynchronously and may own outputs whose DOM flags are
-      // readonly. Other native backends must expose the applied modes.
-      if (appliedByController && (Environment.isWebOS() || (await confirmNativeTrackSelection(matchesSelection, isCurrentSelection)))) {
+      const pendingNativeSelection = { isCurrent: isCurrentSelection };
+      this.pendingNativeSubtitleSelection = pendingNativeSelection;
+      try {
+        const controllerResult =
+          typeof PlayerController.setNativeTextTrack === "function" ? PlayerController.setNativeTextTrack(targetIndex) : false;
+        const appliedByController = await Promise.resolve(controllerResult).catch(() => false);
+        if (!isCurrentSelection()) return false;
+        const matchesSelection = () => nativeTextTrackSelectionMatches(this.getTextTracks(), targetIndex);
+        // Luna resolves asynchronously and may own outputs whose DOM flags are
+        // readonly. Other native backends must expose the applied modes.
+        if (appliedByController && (Environment.isWebOS() || (await confirmNativeTrackSelection(matchesSelection, isCurrentSelection)))) {
+          this.selectedAddonSubtitleId = null;
+          this.selectedSubtitleTrackIndex = targetIndex;
+          this.selectedEmbeddedSubtitleTrackIndex = -1;
+          this.resetSubtitleDelayAfterSelectionChange(previousSubtitleSelectionKey);
+          this.invalidateTrackDialogCaches();
+          this.refreshSubtitleCueStyles();
+          this.renderControlButtons();
+          this.renderSubtitleDialog();
+          return true;
+        }
+        if (!isCurrentSelection()) return false;
+
+        let vidaaFallbackApplied = false;
+        if (Environment.isVidaa()) {
+          // A controller promise already performed the bounded VIDAA retries.
+          // Use the UI fallback only for an unavailable/synchronous controller.
+          if (!(controllerResult && typeof controllerResult.then === "function")) {
+            vidaaFallbackApplied = await Promise.resolve(
+              selectVidaaTextTrack(this.getTextTracks(), targetIndex, {
+                isCurrent: isCurrentSelection,
+                getTracks: () => this.getTextTracks()
+              })
+            );
+          }
+        } else {
+          textTracks.forEach((track, index) => {
+            try {
+              track.mode = index === targetIndex ? "showing" : "disabled";
+            } catch (_) {
+              // Best effort: some WebOS builds expose readonly mode.
+            }
+          });
+        }
+
+        const applied = Environment.isVidaa()
+          ? vidaaFallbackApplied
+          : await confirmNativeTrackSelection(matchesSelection, isCurrentSelection);
+        if (!isCurrentSelection()) return false;
+        if (!applied) {
+          if (this.pendingNativeSubtitleSelection === pendingNativeSelection) this.pendingNativeSubtitleSelection = null;
+          this.syncTrackState();
+          this.renderControlButtons();
+          this.renderSubtitleDialog();
+          return false;
+        }
+
         this.selectedAddonSubtitleId = null;
         this.selectedSubtitleTrackIndex = targetIndex;
         this.selectedEmbeddedSubtitleTrackIndex = -1;
@@ -289,39 +340,9 @@ export function createPlayerScreenMethods54() {
         this.renderControlButtons();
         this.renderSubtitleDialog();
         return true;
+      } finally {
+        if (this.pendingNativeSubtitleSelection === pendingNativeSelection) this.pendingNativeSubtitleSelection = null;
       }
-      if (!isCurrentSelection()) return false;
-
-      if (Environment.isVidaa()) {
-        selectVidaaTextTrack(textTracks, targetIndex);
-      } else {
-        textTracks.forEach((track, index) => {
-          try {
-            track.mode = index === targetIndex ? "showing" : "disabled";
-          } catch (_) {
-            // Best effort: some WebOS builds expose readonly mode.
-          }
-        });
-      }
-
-      const applied = await confirmNativeTrackSelection(matchesSelection, isCurrentSelection);
-      if (!isCurrentSelection()) return false;
-      if (!applied) {
-        this.syncTrackState();
-        this.renderControlButtons();
-        this.renderSubtitleDialog();
-        return false;
-      }
-
-      this.selectedAddonSubtitleId = null;
-      this.selectedSubtitleTrackIndex = targetIndex;
-      this.selectedEmbeddedSubtitleTrackIndex = -1;
-      this.resetSubtitleDelayAfterSelectionChange(previousSubtitleSelectionKey);
-      this.invalidateTrackDialogCaches();
-      this.refreshSubtitleCueStyles();
-      this.renderControlButtons();
-      this.renderSubtitleDialog();
-      return true;
     }
   };
 }

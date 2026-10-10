@@ -280,25 +280,17 @@ export function createPlayerScreenMethods38() {
         }
 
         if (this.tryNextStreamCandidate({ sourceAttemptToken, playbackUrl: this.activePlaybackUrl })) return;
-        this.loadingVisible = false;
-        this.paused = true;
-        this.dismissPauseOverlay();
-        this.updateLoadingVisibility();
-        this.updateMediaSessionPlaybackState();
-        this.setControlsVisible(true, { focus: false });
         {
           const sourceCandidate = this.getStreamCandidateByUrl(this.activePlaybackUrl) || this.getCurrentStreamCandidate();
           const mediaErrorCode = Number(PlayerController.getLastPlaybackErrorCode?.() || 0);
-          this.sourcesError = this.formatPlaybackErrorForSources(
-            `${this.mediaErrorMessage(mediaErrorCode, terminalHlsErrorDetail, sourceCandidate)}. Choose another source manually.`,
-            {
-              mediaErrorCode,
-              detail: terminalHlsErrorDetail,
-              streamCandidate: sourceCandidate,
-              playbackUrl: this.activePlaybackUrl,
-              reason: "playback-stall"
-            }
-          );
+          this.showStartupError(this.mediaErrorMessage(mediaErrorCode, terminalHlsErrorDetail, sourceCandidate), {
+            mediaErrorCode,
+            detail: terminalHlsErrorDetail,
+            streamCandidate: sourceCandidate,
+            playbackUrl: this.activePlaybackUrl,
+            reason: "playback-stall",
+            sourceAttemptToken
+          });
         }
         if (this.currentEngineFsStream) {
           logEngineFsDebug("EngineFS playback stalled; keeping torrent alive until player exit or source change", {
@@ -306,13 +298,6 @@ export function createPlayerScreenMethods38() {
             infoHash: this.currentEngineFsStream.infoHash,
             fileIdx: this.currentEngineFsStream.fileIdx
           });
-        }
-        if (this.currentEngineFsStream) {
-          this.renderSourcesPanel();
-        } else if (this.streamCandidates.length > 1) {
-          this.openSourcesPanel();
-        } else {
-          this.renderSourcesPanel();
         }
         this.updateUiTick();
       }, timeoutMs);

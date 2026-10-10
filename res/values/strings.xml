@@ -1468,6 +1468,9 @@
     <string name="player_subtitle_delay">Subtitles Delay</string>
     <string name="subtitle_delay_reset">Reset Delay</string>
     <string name="player_error_title">Playback Error</string>
+    <string name="player_switching_source">Trying the next source…</string>
+    <string name="player_error_no_working_sources">None of the sources could be played.</string>
+    <string name="player_error_stream_timeout">This source did not start or resume playback.</string>
     <string name="player_error_details">Playback error details</string>
     <string name="player_go_back">Go Back</string>
     <string name="player_speed_title">Playback Speed</string>

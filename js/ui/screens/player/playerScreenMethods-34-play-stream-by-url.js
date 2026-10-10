@@ -28,6 +28,7 @@ export function createPlayerScreenMethods34() {
         mountToken = null
       } = {}
     ) {
+      if (!this.isActiveMountToken(mountToken) || !this.isCurrentSourcePlaybackAttempt(sourceAttemptToken)) return;
       const playbackStartToken = Number(this.playbackStartToken || 0) + 1;
       this.playbackStartToken = playbackStartToken;
       const isCurrentAttempt = () =>

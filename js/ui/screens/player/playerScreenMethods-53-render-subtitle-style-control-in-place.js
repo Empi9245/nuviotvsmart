@@ -108,7 +108,14 @@ export function createPlayerScreenMethods53() {
         this.subtitleStyleSettings = style;
       }
       this.schedulePersistPlayerPresentationSettings();
-      this.applySubtitlePresentationSettings({ refreshTrackRendering: !isRepeat });
+      // Appearance changes are CSS updates. Cycling native track modes for a
+      // background/color change creates track events and rebuilds the TV menus.
+      const changesCueLayout = ["delay", "resetDelay", "verticalOffset", "reset"].includes(controlId);
+      const refreshNativeCues = !Environment.isVidaa() || changesCueLayout;
+      this.applySubtitlePresentationSettings({
+        refreshTrackRendering: refreshNativeCues && !isRepeat,
+        refreshCueStyles: refreshNativeCues
+      });
       if (!this.renderSubtitleStyleControlInPlace(controlId)) {
         this.renderSubtitleDialog();
       }

@@ -948,6 +948,32 @@ html.vidaa-tv .movie-cast-card {
   transition-delay: 0ms !important;
 }
 
+/* Expansion starts only after focus/navigation settles. Match the upstream
+   180ms width motion, but collapse immediately when is-expanded is removed so
+   D-pad geometry is final before the next card is measured. */
+html.vidaa-tv .home-screen-shell.home-layout-modern .home-poster-card.focused.is-expanded {
+  transition:
+    flex-basis 180ms ease-out,
+    min-width 180ms ease-out,
+    max-width 180ms ease-out !important;
+}
+
+/* Landscape preview changes media, not row height. Removing the shared 18px
+   bottom margin on expansion otherwise shifts every following row. */
+html.vidaa-tv
+  .home-screen-shell.home-layout-modern.home-modern-landscape-posters
+  .home-poster-card.is-landscape {
+  margin-bottom: 18px;
+}
+
+/* Keep the portrait undistorted while the expanded backdrop is loading. */
+html.vidaa-tv
+  .home-screen-shell.home-layout-modern
+  .home-poster-card:not(.is-landscape).is-expanded
+  .content-poster {
+  width: var(--home-modern-portrait-poster-width);
+}
+
 html.vidaa-tv .home-screen-shell .home-poster-frame,
 html.vidaa-tv .home-screen-shell.home-layout-modern .home-poster-frame,
 html.vidaa-tv .home-screen-shell .home-continue-media,

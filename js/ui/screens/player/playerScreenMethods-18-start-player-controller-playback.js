@@ -62,66 +62,38 @@ export function createPlayerScreenMethods18() {
       PlayerController.setStartupPresentationAudioMuted?.(true);
       this.sourcePlaybackStarting = false;
       this.armSourceFallbackDeadline(sourceCandidate);
-      return Promise.resolve()
-        .then(() => {
-          if (!this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) || this.playbackStartToken !== playbackStartToken) return;
-          return PlayerController.play(playbackUrl, playbackContext);
-        })
-        .catch((error) => {
-          if (
-            !this.isActiveMountToken(mountToken) ||
-            this.isExternalFrameMode() ||
-            !this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) ||
-            this.playbackStartToken !== playbackStartToken
-          ) {
-            return;
-          }
-          if (playbackUrl !== String(this.activePlaybackUrl || "").trim()) {
-            return;
-          }
-          if (this.isStartupErrorVisible()) {
-            return;
-          }
-          const mediaErrorCode =
-            typeof PlayerController.getLastPlaybackErrorCode === "function" ? Number(PlayerController.getLastPlaybackErrorCode() || 0) : 0;
-          const detail = String(error?.message || error?.name || error || "").trim();
-          const candidate = sourceCandidate || this.getStreamCandidateByUrl(playbackUrl) || this.getCurrentStreamCandidate();
-          if (this.tryNextStreamCandidate({ streamCandidate: candidate, playbackUrl, sourceAttemptToken })) return;
-          this.markPlaybackSourceFailed(playbackUrl);
-          if (!this.hasPresentedPlaybackFrame) {
-            this.showStartupError(this.getStartupErrorMessage(mediaErrorCode, detail, candidate), {
-              mediaErrorCode,
-              detail,
-              error,
-              streamCandidate: candidate,
-              playbackUrl,
-              reason: "play-start"
-            });
-            console.warn("Playback failed to start", {
-              url: playbackUrl,
-              mediaErrorCode,
-              error
-            });
-            return;
-          }
-          this.sourcesError = this.formatPlaybackErrorForSources(
-            `${this.mediaErrorMessage(mediaErrorCode, detail, candidate)}. Choose another source manually.`,
-            {
-              mediaErrorCode,
-              detail,
-              error,
-              streamCandidate: candidate,
-              playbackUrl,
-              reason: "play-after-startup"
-            }
-          );
-          this.renderSourcesPanel();
-          console.warn("Playback failed after startup", {
-            url: playbackUrl,
-            mediaErrorCode,
-            error
-          });
+      let playbackPromise;
+      try {
+        playbackPromise = PlayerController.play(playbackUrl, playbackContext);
+      } catch (error) {
+        playbackPromise = Promise.reject(error);
+      }
+      return Promise.resolve(playbackPromise).catch((error) => {
+        if (
+          !this.isActiveMountToken(mountToken) ||
+          this.isExternalFrameMode() ||
+          !this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) ||
+          this.playbackStartToken !== playbackStartToken
+        ) {
+          return;
+        }
+        if (playbackUrl !== String(this.activePlaybackUrl || "").trim() || this.isStartupErrorVisible()) {
+          return;
+        }
+        const mediaErrorCode =
+          typeof PlayerController.getLastPlaybackErrorCode === "function" ? Number(PlayerController.getLastPlaybackErrorCode() || 0) : 0;
+        const detail = String(error?.message || error?.name || error || "").trim();
+        const candidate = sourceCandidate || this.getStreamCandidateByUrl(playbackUrl) || this.getCurrentStreamCandidate();
+        if (this.tryNextStreamCandidate({ streamCandidate: candidate, playbackUrl, sourceAttemptToken })) return;
+        this.showStartupError(this.getStartupErrorMessage(mediaErrorCode, detail, candidate), {
+          streamCandidate: candidate,
+          playbackUrl,
+          sourceAttemptToken,
+          mediaErrorCode,
+          detail,
+          reason: "play-start-exhausted"
         });
+      });
     },
     getStartupErrorMessage(mediaErrorCode = 0, detail = "", streamCandidate = this.getCurrentStreamCandidate()) {
       const code = Number(mediaErrorCode || 0);

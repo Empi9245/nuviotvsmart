@@ -5,6 +5,8 @@ import {
   confirmNativeTrackSelection
 } from "../../../core/player/playerControllerMethods-02-is-likely-direct-file-url.js";
 
+const vidaaMountedSubtitleActivations = new WeakMap();
+
 export function createPlayerScreenMethods46() {
   const {
     PlayerController,
@@ -336,22 +338,82 @@ export function createPlayerScreenMethods46() {
         return false;
       }
 
-      textTracks.forEach((textTrack, index) => {
-        try {
-          textTrack.mode = "disabled";
-        } catch (_) {
-          // Best effort.
+      if (Environment.isVidaa()) {
+        const target = textTracks[targetIndex];
+        const video = PlayerController.video;
+        let activation = vidaaMountedSubtitleActivations.get(trackNode);
+        if (!activation) {
+          activation = {
+            screen: this,
+            target,
+            video,
+            videoSource: video?.src,
+            playRequestToken: PlayerController.playRequestToken,
+            mountToken: this.playerMountToken,
+            selectionToken: this.subtitleSelectionToken,
+            mounted: this.externalTrackNodes?.includes(trackNode),
+            startedAt: Date.now(),
+            writes: new WeakMap()
+          };
+          vidaaMountedSubtitleActivations.set(trackNode, activation);
         }
-      });
-
-      try {
-        textTracks[targetIndex].mode = "showing";
-      } catch (_) {
-        /* Verify below. */
+        const isCurrent = () =>
+          activation.screen === this &&
+          activation.target === target &&
+          activation.video === PlayerController.video &&
+          activation.videoSource === PlayerController.video?.src &&
+          activation.playRequestToken === PlayerController.playRequestToken &&
+          activation.mountToken === this.playerMountToken &&
+          activation.selectionToken === this.subtitleSelectionToken &&
+          (!activation.mounted || this.externalTrackNodes?.includes(trackNode));
+        if (!isCurrent()) return false;
+        if (!nativeTextTrackSelectionMatches(textTracks, targetIndex) && Date.now() - activation.startedAt > 850) return false;
+        const writePendingMode = (track, mode) => {
+          if (!isCurrent()) return;
+          try {
+            if (track.mode === mode) return;
+            const previous = activation.writes.get(track);
+            // A delayed readback must not cause a fresh renderer restart on
+            // every 80/140 ms activation check. Retry only pending mode writes.
+            if (previous?.mode === mode && Date.now() - previous.at < 250) return;
+            activation.writes.set(track, { mode, at: Date.now() });
+            track.mode = mode;
+          } catch (_) {
+            /* Verify the exclusive output below, including readonly modes. */
+          }
+        };
+        // A mounted track is already hidden/loading. Keep its output intact
+        // after requesting enable, and disable only competing native tracks.
+        textTracks.forEach((track) => {
+          if (track !== target) writePendingMode(track, "disabled");
+        });
+        try {
+          if (isCurrent() && textTracks.every((track) => track === target || track.mode === "disabled")) {
+            writePendingMode(target, "showing");
+          }
+        } catch (_) {
+          /* Readonly track modes cannot confirm an exclusive selection. */
+        }
+        if (!isCurrent()) return false;
+      } else {
+        textTracks.forEach((textTrack) => {
+          try {
+            textTrack.mode = "disabled";
+          } catch (_) {
+            // Best effort.
+          }
+        });
+        try {
+          textTracks[targetIndex].mode = "showing";
+        } catch (_) {
+          /* Verify below. */
+        }
       }
 
-      if (nativeTextTrackSelectionMatches(textTracks, targetIndex)) {
-        this.selectedSubtitleTrackIndex = targetIndex;
+      const currentTracks = this.getTextTracks();
+      const confirmedIndex = currentTracks.indexOf(textTracks[targetIndex]);
+      if (confirmedIndex >= 0 && nativeTextTrackSelectionMatches(currentTracks, confirmedIndex)) {
+        this.selectedSubtitleTrackIndex = confirmedIndex;
         this.refreshTrackDialogs();
         return true;
       }

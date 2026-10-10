@@ -247,6 +247,7 @@ export function createPlayerScreenMethods01() {
         this.tickTimer = setInterval(() => this.updateUiTick(), 1000);
         this.startSkipIntervalCheckTimer();
         this.endedHandler = () => {
+          if (this.sourcePlaybackStarting || this.sourceFallbackPending || !this.isActiveMountToken(mountToken)) return;
           if (PlayerController.isLivePlaybackItemType?.()) {
             return;
           }

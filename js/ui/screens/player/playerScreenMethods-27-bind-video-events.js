@@ -44,8 +44,12 @@ export function createPlayerScreenMethods27() {
       ];
 
       bindings.forEach(([eventName, handler]) => {
-        video.addEventListener(eventName, handler);
-        this.videoListeners.push({ target: video, eventName, handler });
+        const guardedHandler = (event) => {
+          if (!this.isActiveMountToken() || this.sourcePlaybackStarting || this.sourceFallbackPending) return;
+          handler(event);
+        };
+        video.addEventListener(eventName, guardedHandler);
+        this.videoListeners.push({ target: video, eventName, handler: guardedHandler });
       });
 
       if (typeof window?.addEventListener === "function") {

@@ -218,8 +218,10 @@ export function createPlayerScreenMethods25() {
       const nextStart = Math.max(0, startTime + offsetSeconds);
       const nextEnd = Math.max(nextStart + 0.001, endTime + offsetSeconds);
       try {
-        cue.startTime = nextStart;
-        cue.endTime = nextEnd;
+        // Native setters may queue cuechange even for the same value. Keep
+        // styling idempotent so the cuechange handler cannot feed itself.
+        if (cue.startTime !== nextStart) cue.startTime = nextStart;
+        if (cue.endTime !== nextEnd) cue.endTime = nextEnd;
       } catch (_) {
         // Some native text tracks expose readonly cue timing.
       }
@@ -229,33 +231,33 @@ export function createPlayerScreenMethods25() {
         return;
       }
       try {
-        cue.line = snapshot.line;
+        if (cue.line !== snapshot.line) cue.line = snapshot.line;
       } catch (_) {
         // Ignore cue restore failures.
       }
       try {
-        if ("lineAlign" in cue) {
+        if ("lineAlign" in cue && cue.lineAlign !== snapshot.lineAlign) {
           cue.lineAlign = snapshot.lineAlign;
         }
       } catch (_) {
         // Ignore cue restore failures.
       }
       try {
-        if ("position" in cue) {
+        if ("position" in cue && cue.position !== snapshot.position) {
           cue.position = snapshot.position;
         }
       } catch (_) {
         // Ignore cue restore failures.
       }
       try {
-        if ("positionAlign" in cue) {
+        if ("positionAlign" in cue && cue.positionAlign !== snapshot.positionAlign) {
           cue.positionAlign = snapshot.positionAlign;
         }
       } catch (_) {
         // Ignore cue restore failures.
       }
       try {
-        if ("snapToLines" in cue) {
+        if ("snapToLines" in cue && cue.snapToLines !== snapshot.snapToLines) {
           cue.snapToLines = snapshot.snapToLines;
         }
       } catch (_) {
@@ -276,7 +278,7 @@ export function createPlayerScreenMethods25() {
       }
 
       try {
-        if ("snapToLines" in cue) {
+        if ("snapToLines" in cue && cue.snapToLines !== true) {
           cue.snapToLines = true;
         }
       } catch (_) {
@@ -286,7 +288,7 @@ export function createPlayerScreenMethods25() {
       const baseLine = Number.isFinite(Number(snapshot.line)) ? Number(snapshot.line) : -1;
       const adjustedLine = clamp(baseLine - lineOffset, -100, 100);
       try {
-        cue.line = adjustedLine;
+        if (cue.line !== adjustedLine) cue.line = adjustedLine;
       } catch (_) {
         // Ignore cue styling failures.
       }

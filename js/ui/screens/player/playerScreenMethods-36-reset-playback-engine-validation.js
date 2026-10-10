@@ -262,6 +262,7 @@ export function createPlayerScreenMethods36() {
     },
     markPlaybackProgress() {
       const currentSeconds = this.getPlaybackCurrentSeconds();
+      this.noteSourcePlaybackProgress(currentSeconds);
       const bufferingBaselineSeconds = Number(this.bufferingSpinnerBaselineSeconds);
       const bufferingRecovered =
         this.bufferingActive &&

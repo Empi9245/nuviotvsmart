@@ -190,6 +190,7 @@ import {
 import { resolveYoutubeId, buildYoutubeEmbedUrl } from "./homeScreenHelpers-05-normalize-collection-folder-item.js";
 import { parseRuntimeMinutes } from "./homeScreenHelpers-04-animate-hero-logo-swap.js";
 import { isHomeTmdbEnabled } from "./homeMetadataSettings.js";
+import { resolveHomeTmdbLookupId } from "./homeMetadataIds.js";
 import { isTmdbConfigured } from "../../../core/tmdb/tmdbApiConfig.js";
 
 export function resolveTrailerSource(meta = {}) {
@@ -268,7 +269,8 @@ export async function fetchModernHeroTmdbEnrichment(hero = {}, itemType = "movie
     return null;
   }
   try {
-    const lookupId = Number(hero.tmdbId || 0) > 0 ? `tmdb:${Number(hero.tmdbId)}` : hero.imdbId || hero.id;
+    const lookupId = resolveHomeTmdbLookupId(hero);
+    if (!lookupId) return null;
     const tmdbId = await TmdbService.ensureTmdbId(lookupId, itemType);
     if (!tmdbId) {
       return null;

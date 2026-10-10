@@ -190,13 +190,19 @@ const rows = [];
 const owner = {
   actionMap: new Map(),
   renderSectionHeader: () => "",
-  renderToggleRow: () => "",
+  renderToggleRow: (row) => {
+    rows.push(row);
+    return "";
+  },
   renderActionRow: (row) => {
     rows.push(row);
     return "";
   },
   openTextDialog(dialog) {
     this.textDialog = dialog;
+  },
+  openOptionDialog(dialog) {
+    this.optionDialog = dialog;
   },
   render: async () => {}
 };
@@ -229,6 +235,68 @@ storage.set("activeProfileId", JSON.stringify("1"));
 await stopProfileSettingsCloudSync({ waitForInFlight: false });
 dialog.onClear();
 assert.equal(getTmdbApiKey(), defaultMode ? "fixture-default-key" : "");
+
+// A configured-looking toggle must not silently enable requests with no key.
+rows.length = 0;
+owner.textDialog = null;
+renderTmdbIntegrationDetail.call(owner, { tmdb: TmdbSettingsStore.get() });
+const enabledRow = rows.find((row) => row.focusKey === "integration:tmdb:enabled");
+assert.equal(enabledRow.checked, defaultMode);
+if (!defaultMode) {
+  assert.ok(enabledRow.subtitle.includes("API key"));
+  assert.equal(rows.find((row) => row.focusKey === "integration:tmdb:language").disabled, true);
+  TmdbSettingsStore.set({ enabled: false }, { silentSync: true });
+  owner.actionMap.get("integration:tmdb:enabled")();
+  assert.equal(TmdbSettingsStore.get().enabled, false);
+  assert.equal(owner.textDialog.inputType, "password");
+  globalThis.fetch = async () => ({ ok: false, status: 401 });
+  assert.equal(await owner.textDialog.onSubmit("fixture-invalid-setup-key"), false);
+  assert.equal(TmdbSettingsStore.get().enabled, false);
+  globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ success: true }) });
+  assert.equal(await owner.textDialog.onSubmit("fixture-setup-key"), true);
+  assert.equal(TmdbSettingsStore.get().enabled, true);
+} else {
+  TmdbSettingsStore.set({ enabled: false }, { silentSync: true });
+  owner.actionMap.get("integration:tmdb:enabled")();
+  assert.equal(TmdbSettingsStore.get().enabled, true);
+  assert.equal(owner.textDialog, null);
+}
+
+// Select Italian through the production settings dialog, then fetch actual
+// production metadata to verify that its API language and artwork agree.
+renderTmdbIntegrationDetail.call(owner, { tmdb: TmdbSettingsStore.get() });
+owner.actionMap.get("integration:tmdb:language")();
+const italianOption = owner.optionDialog.options.find((option) => option.id === "it");
+assert.ok(italianOption);
+owner.optionDialog.onSelect(italianOption);
+assert.equal(TmdbSettingsStore.get().language, "it");
+globalThis.fetch = async (url) => {
+  const request = new URL(url);
+  assert.equal(request.searchParams.get("language"), "it");
+  assert.equal(
+    request.searchParams.get("api_key"),
+    defaultMode ? "fixture-default-key" : "fixture-setup-key"
+  );
+  assert.ok(request.searchParams.get("include_image_language").split(",").includes("it"));
+  return {
+    ok: true,
+    json: async () => ({
+      title: "Titolo italiano",
+      overview: "Descrizione italiana dopo la configurazione",
+      images: { logos: [{ file_path: "/it-logo.png", iso_639_1: "it" }] },
+      videos: {
+        results: [{ site: "YouTube", key: "it-trailer", type: "Trailer", iso_639_1: "it" }]
+      }
+    })
+  };
+};
+const configuredItalianMetadata = await TmdbMetadataService.fetchEnrichment({
+  tmdbId: 399,
+  contentType: "movie"
+});
+assert.equal(configuredItalianMetadata.description, "Descrizione italiana dopo la configurazione");
+assert.ok(configuredItalianMetadata.logo.endsWith("/it-logo.png"));
+await stopProfileSettingsCloudSync({ waitForInFlight: false });
 console.warn = originalWarn;
 
 if (!defaultMode) {

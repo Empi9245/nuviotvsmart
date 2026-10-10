@@ -108,6 +108,9 @@ export function createPlayerScreenMethods30() {
         return false;
       }
       this.hasPresentedPlaybackFrame = true;
+      this.clearSourceFallbackDeadline();
+      this.sourceFallbackStatus = "";
+      this.syncLoadingOverlayStatus();
       this.beginPlaybackEngineValidation();
       this.warmBitmapSubtitleSharedResources();
       if (!this.startupTrackPreferenceReady) {

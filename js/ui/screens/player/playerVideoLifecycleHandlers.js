@@ -4,9 +4,10 @@ import * as internals from "./playerScreenContext.js";
 export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback) {
   const { PlayerController, PlayerSettingsStore, Environment, TrackingScrobbleService } = internals;
   const onWaiting = () => {
-    if (this.isStartupErrorVisible()) {
+    if (this.sourcePlaybackStarting || this.sourceFallbackPending || this.isStartupErrorVisible()) {
       return;
     }
+    this.armSourceFallbackDeadline();
     if (this.hasPresentedPlaybackFrame && !this.playbackEngineValidated) {
       this.resetPlaybackEngineValidation();
     } else if (this.postValidationRecoveryValidationActive) {
@@ -69,6 +70,7 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
       }
       this.loadingVisible = true;
     }
+    this.armSourceFallbackDeadline();
     this.playbackRecoveryActive = false;
     this.playbackRecoveryAttempts = 0;
     this.beginPlaybackEngineValidation();
@@ -202,6 +204,7 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
       TrackingScrobbleService.pause(this.buildScrobbleContext());
     }
     this.clearPlaybackStallGuard();
+    this.clearSourceFallbackDeadline();
     this.paused = true;
     this.updateMediaSessionPlaybackState();
     this.setControlsVisible(true, { focus: false });

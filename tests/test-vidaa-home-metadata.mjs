@@ -156,11 +156,66 @@ for (const addonSuccess of [false, true]) {
 for (const layout of ["classic", "grid"]) {
   const state = heroState(layout);
   state.getCurrentFocusedNode = () => ({ hero: { id: "other", type: "movie" } });
-  TmdbMetadataService.fetchEnrichment = async () => italian;
+  TmdbMetadataService.fetchEnrichment = async ({ language }) => {
+    assert.equal(language, "it-IT", "Home must request the selected metadata language");
+    return italian;
+  };
   metaRepository.getMetaFromAllAddons = async () => ({ status: "error" });
   mdbListRepository.getImdbRatingForItem = async () => null;
   await state.enrichCurrentHeroAsync(state.heroItem);
   assert.equal(state.heroItem.description, italian.description);
+}
+
+// Catalog summaries can use addon-local IDs and publish provider IDs only in full metadata.
+{
+  const lookups = [];
+  TmdbService.ensureTmdbId = async (id) => {
+    lookups.push(id);
+    return id === "tmdb:99" || id === "tt0099" ? 99 : null;
+  };
+  TmdbMetadataService.fetchEnrichment = async () => italian;
+  mdbListRepository.getImdbRatingForItem = async () => null;
+  for (const providerIds of [
+    { tmdb_id: 99 },
+    { ids: { tmdb: 99 } },
+    { external_ids: { imdb_id: "tt0099" } }
+  ]) {
+    const state = heroState();
+    state.heroItem = { ...state.heroItem, id: "addon-local-title", ...providerIds };
+    state.heroCandidates = [state.heroItem];
+    state.getCurrentFocusedNode = () => ({ hero: state.heroItem });
+    metaRepository.getMetaFromAllAddons = async () => ({ status: "error" });
+    await state.enrichCurrentHeroAsync(state.heroItem);
+    assert.equal(
+      state.heroItem.description,
+      italian.description,
+      "Home must accept addon provider ID aliases"
+    );
+  }
+
+  for (const identifiers of [{ ids: { tmdb: 99 } }, { id: "tt0099" }]) {
+    const state = heroState();
+    state.heroItem = { ...state.heroItem, id: "addon-local-title" };
+    state.heroCandidates = [state.heroItem];
+    state.getCurrentFocusedNode = () => ({ hero: state.heroItem });
+    metaRepository.getMetaFromAllAddons = async () => ({
+      status: "success",
+      data: { description: "English full metadata", ...identifiers }
+    });
+    await state.enrichCurrentHeroAsync(state.heroItem);
+    assert.equal(
+      state.heroItem.description,
+      italian.description,
+      "Full addon metadata must supply a missing TMDB lookup ID"
+    );
+    assert.equal(
+      state.heroItem.id,
+      "addon-local-title",
+      "Localization must retain the addon catalog identity"
+    );
+  }
+  assert.ok(lookups.includes("tmdb:99"));
+  TmdbService.ensureTmdbId = async () => 99;
 }
 
 // Repainting during a request must not launch the same requests repeatedly.
@@ -295,6 +350,22 @@ profile = "profile-a";
   } finally {
     globalThis.setTimeout = originalTimeout;
   }
+}
+// Continue Watching also accepts provider IDs from the full addon metadata.
+{
+  TmdbService.ensureTmdbId = async (id) => (id === "tmdb:99" ? 99 : null);
+  TmdbMetadataService.fetchEnrichment = async ({ language }) => {
+    assert.equal(language, "it-IT");
+    return italian;
+  };
+  const state = createHomeScreenMethods26();
+  const result = await state.enrichContinueWatchingMetaWithTmdb(
+    { id: "addon-local-title", name: "English", external_ids: { tmdb: 99 } },
+    { contentId: "addon-local-title", contentType: "movie" }
+  );
+  assert.equal(result.description, italian.description);
+  assert.equal(result.logo, italian.logo);
+  assert.equal(result.continueWatchingTmdbEnriched, true);
 }
 console.log(
   "Home metadata checks passed: localization ordering, provider independence, carousel layouts, profile/language cache isolation and stale responses."

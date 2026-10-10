@@ -367,6 +367,14 @@ test("asynchronous native setters remain pending until their flags confirm", asy
   assert.equal(ui.requestedSubtitleEntry.trackIndex, 1);
   await advance(200);
   assert.equal(await audioResult, true);
+  assert.equal(
+    ui.selectedSubtitleTrackIndex,
+    0,
+    "Text remains pending until disable and enable readbacks confirm"
+  );
+  // VIDAA waits for all competing tracks to disable before enabling the target.
+  // Pump that bounded retry window before awaiting a promise backed by fake timers.
+  await advance(500);
   assert.equal(await textResult, true);
   assert.equal(ui.selectedAudioTrackIndex, 1);
   assert.equal(ui.selectedSubtitleTrackIndex, 1);
@@ -995,20 +1003,43 @@ test("VIDAA HTML cannot own output while native text is readonly showing", async
   assert.equal(ui.getTextTracks()[0].mode, "showing");
 });
 test("a native result later than the confirmation window is reconciled by the existing sync", async () => {
+  const delayedTextEnable = (initialMode) => {
+    let mode = initialMode;
+    return {
+      get mode() {
+        return mode;
+      },
+      set mode(nextMode) {
+        if (nextMode === "showing") {
+          setTimeout(() => {
+            mode = nextMode;
+          }, 2000);
+        } else {
+          mode = nextMode;
+        }
+      }
+    };
+  };
   useVideo(
     video(
       [flags("enabled", true, 2000), flags("enabled", false, 2000)],
-      [flags("mode", "showing", 2000), flags("mode", "disabled", 2000)]
+      // The exclusive disable must confirm before VIDAA can request enable.
+      // Only the eventual showing mode lands after the confirmation window.
+      [delayedTextEnable("showing"), delayedTextEnable("disabled")]
     )
   );
   const ui = screen();
   const audio = ui.applyAudioTrack(1, { rememberSelection: true });
   const text = ui.applySubtitleEntry({ trackIndex: 1 });
-  await advance(1200);
+  await advance(1300);
   assert.equal(await audio, false, "No confirmation within the bounded window");
   assert.equal(await text, false);
   assert.equal(ui.selectedAudioTrackIndex, 0);
-  assert.equal(ui.selectedSubtitleTrackIndex, 0);
+  assert.equal(
+    ui.selectedSubtitleTrackIndex,
+    -1,
+    "No track is showing after the bounded selection timed out"
+  );
   assert.deepEqual(ui.rememberedAudio, { language: "it" });
   await advance(2000);
   ui.syncTrackState();

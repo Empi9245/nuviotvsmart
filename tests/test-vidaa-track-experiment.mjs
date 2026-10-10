@@ -120,6 +120,7 @@ function fixture(
     ...PlayerScreen,
     playerMountToken: 1,
     playerRouteActive: true,
+    container: { style: {}, querySelector: () => null },
     videoListeners: [],
     uiRefs: {},
     activePlaybackUrl: "https://secret.invalid/video?token=private",
@@ -193,6 +194,7 @@ function fixture(
     renderWebOsEmbeddedTextSubtitleAtCurrentTime() {},
     renderBitmapSubtitleAtCurrentTime() {},
     clearPlaybackStallGuard() {},
+    armSourceFallbackDeadline() {},
     setControlsVisible() {},
     resetPlaybackEngineValidation() {},
     startPlayerControllerPlayback() {

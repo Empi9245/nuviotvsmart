@@ -1,6 +1,7 @@
 import * as internals from "./homeScreenContext.js";
 import { isTmdbConfigured } from "../../../core/tmdb/tmdbApiConfig.js";
 import { homeMetadataSettingsSignature } from "./homeMetadataSettings.js";
+import { resolveHomeTmdbLookupId } from "./homeMetadataIds.js";
 
 export function createHomeScreenMethods26() {
   const {
@@ -196,8 +197,8 @@ export function createHomeScreenMethods26() {
       }
       const contentType = item.contentType || meta.type || "movie";
       try {
-        const explicitTmdbId = Number(item.tmdbId || 0);
-        const tmdbLookupId = explicitTmdbId > 0 ? `tmdb:${explicitTmdbId}` : firstNonEmpty(item.imdbId, item.contentId, meta.id);
+        const tmdbLookupId = resolveHomeTmdbLookupId(item, meta);
+        if (!tmdbLookupId) return meta;
         const tmdbId = await TmdbService.ensureTmdbId(tmdbLookupId, contentType);
         if (!tmdbId) {
           return meta;

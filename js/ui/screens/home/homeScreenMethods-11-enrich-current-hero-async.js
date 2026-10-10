@@ -1,5 +1,6 @@
 import * as internals from "./homeScreenContext.js";
 import { homeMetadataSettingsSignature, isHomeTmdbEnabled } from "./homeMetadataSettings.js";
+import { resolveHomeTmdbLookupId } from "./homeMetadataIds.js";
 
 export function createHomeScreenMethods11() {
   const {
@@ -150,6 +151,10 @@ export function createHomeScreenMethods11() {
         return commitHero(mergedHero, revision);
       };
       try {
+        const metadataPromise =
+          LayoutPreferences.get()?.preferExternalMetaAddonDetail !== false
+            ? metaRepository.getMetaFromAllAddons(itemType, itemId)
+            : Promise.resolve(null);
         // Each provider publishes independently. Keep successful localized data
         // when an addon fails or finishes later, and accept slow TV responses.
         await Promise.allSettled([
@@ -158,13 +163,18 @@ export function createHomeScreenMethods11() {
             if (rating != null) await publishLatestResults();
           }),
           fetchModernHeroTmdbEnrichment(hero, itemType, this.layoutMode || "modern").then(async (enrichment) => {
+            if (!enrichment && isHomeTmdbEnabled(this.layoutMode || "modern")) {
+              const metadataResult = await metadataPromise;
+              const meta = metadataResult?.status === "success" ? metadataResult.data : null;
+              const fallbackLookupId = meta ? resolveHomeTmdbLookupId(meta, hero) : "";
+              if (canCommitHero() && fallbackLookupId && fallbackLookupId !== resolveHomeTmdbLookupId(hero)) {
+                enrichment = await fetchModernHeroTmdbEnrichment({ id: fallbackLookupId }, itemType, this.layoutMode || "modern");
+              }
+            }
             latestTmdbEnrichment = enrichment;
             if (enrichment) await publishLatestResults();
           }),
-          (LayoutPreferences.get()?.preferExternalMetaAddonDetail !== false
-            ? metaRepository.getMetaFromAllAddons(itemType, itemId)
-            : Promise.resolve(null)
-          ).then(async (result) => {
+          metadataPromise.then(async (result) => {
             latestMetadataResult = result;
             if (result?.status === "success") await publishLatestResults();
           })

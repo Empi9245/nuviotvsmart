@@ -191,27 +191,38 @@ export function createPlayerScreenMethods26() {
       }
       const selectionToken = this.subtitleSelectionToken;
       const video = PlayerController.video;
+      const videoSource = video?.src;
       const playRequestToken = PlayerController.playRequestToken;
       const mountToken = this.playerMountToken;
       const restoreTrackMode = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (callback) => setTimeout(callback, 16);
+      if (!(this.subtitleTrackRenderingRefreshes instanceof WeakMap)) this.subtitleTrackRenderingRefreshes = new WeakMap();
       this.getSubtitleCueTrackList().forEach((track) => {
-        if (!track || track.mode !== "showing") {
+        if (!track || track.mode !== "showing" || this.subtitleTrackRenderingRefreshes.has(track)) {
           return;
         }
+        const refresh = { selectionToken, video, videoSource, playRequestToken, mountToken };
+        // Native mode setters can emit change synchronously. Claim the
+        // refresh before hiding so state sync keeps the confirmed selection.
+        this.subtitleTrackRenderingRefreshes.set(track, refresh);
         try {
           track.mode = "hidden";
         } catch (_) {
+          if (this.subtitleTrackRenderingRefreshes.get(track) === refresh) this.subtitleTrackRenderingRefreshes.delete(track);
           return;
         }
         restoreTrackMode(() => {
+          const ownsRefresh = this.subtitleTrackRenderingRefreshes.get(track) === refresh;
+          if (ownsRefresh) this.subtitleTrackRenderingRefreshes.delete(track);
           // A timing/style refresh must not revive a track retired by OFF,
           // another selection, or a new stream while the frame was queued.
           if (
+            !ownsRefresh ||
             this.subtitleSelectionToken !== selectionToken ||
             this.playerMountToken !== mountToken ||
             PlayerController.video !== video ||
+            video?.src !== videoSource ||
             PlayerController.playRequestToken !== playRequestToken ||
-            track.mode !== "hidden" ||
+            (track.mode !== "hidden" && track.mode !== "showing") ||
             this.htmlSubtitleSelectedId ||
             this.isAssAddonSubtitleActive() ||
             !this.getSubtitleCueTrackList().includes(track)
@@ -219,6 +230,8 @@ export function createPlayerScreenMethods26() {
             return;
           }
           try {
+            // Queue restoration even if readback still says showing: on
+            // delayed firmware the earlier hidden request is still pending.
             track.mode = "showing";
           } catch (_) {
             // Ignore native text-track refresh failures.

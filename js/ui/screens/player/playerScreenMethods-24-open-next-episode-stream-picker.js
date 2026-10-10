@@ -258,7 +258,7 @@ export function createPlayerScreenMethods24() {
         this.audioAmplificationAvailable = false;
       }
     },
-    applySubtitlePresentationSettings({ refreshTrackRendering = false } = {}) {
+    applySubtitlePresentationSettings({ refreshTrackRendering = false, refreshCueStyles = true } = {}) {
       const uiRoot = this.uiRefs?.root;
       const video = PlayerController.video;
       if (!uiRoot || !video) {
@@ -324,7 +324,9 @@ export function createPlayerScreenMethods24() {
       video.style.setProperty("--player-subtitle-font-weight", subtitleFontWeight);
       video.style.setProperty("--player-subtitle-shadow", subtitleShadow);
       video.style.setProperty("--player-subtitle-offset", `${residualOffsetVh.toFixed(2)}vh`);
-      this.refreshSubtitleCueStyles();
+      if (refreshCueStyles) {
+        this.refreshSubtitleCueStyles();
+      }
       this.renderBitmapSubtitleAtCurrentTime({ force: true });
       if (refreshTrackRendering) {
         this.refreshSubtitleTrackRendering();

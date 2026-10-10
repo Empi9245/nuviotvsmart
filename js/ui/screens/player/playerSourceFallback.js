@@ -21,11 +21,13 @@ export function createPlayerSourceFallbackMethods() {
       }
       this.sourceFallbackPending = false;
       this.sourcePlaybackStarting = true;
+      this.lastPlaybackErrorAt = 0;
       if (!automaticSourceFallback && !sourceRecovery) {
         this.failedPlaybackUrls?.clear();
         this.failedPlaybackStreamIds?.clear();
         this.sourceFallbackStatus = "";
         this.sourceFallbackExhausted = false;
+        this.syncLoadingOverlayStatus();
       }
       const index = this.streamCandidates.findIndex(
         (entry) => entry === candidate || (candidate?.id && entry.id === candidate.id)
@@ -43,17 +45,19 @@ export function createPlayerSourceFallbackMethods() {
       const torrent =
         candidate?.infoHash ||
         candidate?.raw?.infoHash ||
+        candidate?.raw?.clientResolve?.infoHash ||
         candidate?.engineFs ||
         candidate?.raw?.engineFs;
+      this.sourceFallbackProgressSeconds = Number(this.getPlaybackCurrentSeconds());
       this.sourceFallbackDeadlineTimer = setTimeout(
         () => {
-          this.sourceFallbackDeadlineTimer = null;
           if (
             !this.isActiveMountToken(mountToken) ||
             !this.isCurrentSourcePlaybackAttempt(token) ||
             this.isStartupErrorVisible()
           )
             return;
+          this.sourceFallbackDeadlineTimer = null;
           this.showStartupError(
             t("player_error_stream_timeout", {}, "This source did not start or resume playback."),
             {
@@ -67,7 +71,10 @@ export function createPlayerSourceFallbackMethods() {
       );
     },
     captureSourcePlaybackRestore() {
-      const seconds = Number(this.getPlaybackCurrentSeconds());
+      const currentSeconds = Number(this.getPlaybackCurrentSeconds());
+      const recordedSeconds =
+        Number(PlayerController.getRecordedProgressSnapshot?.()?.positionMs || 0) / 1000;
+      const seconds = currentSeconds > 1 ? currentSeconds : recordedSeconds;
       // An errored media element often reports paused=true. Preserve the user's
       // pause state, rather than turning an automatic recovery into a pause.
       if (this.hasPresentedPlaybackFrame && Number.isFinite(seconds) && seconds > 1) {
@@ -85,27 +92,57 @@ export function createPlayerSourceFallbackMethods() {
         };
       }
     },
+    noteSourcePlaybackProgress(currentSeconds) {
+      const previous = this.sourceFallbackProgressSeconds;
+      this.sourceFallbackProgressSeconds = Number(currentSeconds);
+      if (
+        this.sourcePlaybackStarting ||
+        this.sourceFallbackPending ||
+        !this.hasPresentedPlaybackFrame ||
+        this.pendingPlaybackRestore
+      )
+        return;
+      if (Number.isFinite(previous) && currentSeconds > previous + 0.25) {
+        this.clearSourceFallbackDeadline();
+        this.sourceFallbackStatus = "";
+        this.syncLoadingOverlayStatus();
+      }
+    },
     tryNextStreamCandidate({
       streamCandidate = null,
       playbackUrl = "",
       sourceAttemptToken = null
     } = {}) {
-      if (!this.isCurrentSourcePlaybackAttempt(sourceAttemptToken) || this.isExternalFrameMode())
-        return true;
+      if (this.isExternalFrameMode()) return false;
+      if (!this.isCurrentSourcePlaybackAttempt(sourceAttemptToken)) return true;
       if (this.sourceFallbackPending) return true;
       const candidate = streamCandidate || this.getCurrentStreamCandidate();
       const current = this.getCurrentStreamCandidate();
       if (candidate?.id && current?.id && candidate.id !== current.id) return true;
-      const failedUrl = playbackUrl || candidate?.url || this.activePlaybackUrl;
+      const failedUrl = playbackUrl || candidate?.url || "";
       this.markPlaybackSourceFailed(failedUrl, candidate);
-      const nextIndex = this.streamCandidates.findIndex((entry, index) => {
-        if (index <= this.currentStreamIndex || !entry) return false;
-        if (entry.id && this.failedPlaybackStreamIds?.has(String(entry.id).trim())) return false;
+      if (candidate?.url && candidate.url !== failedUrl)
+        this.failedPlaybackUrls.add(String(candidate.url).trim());
+      const candidates = this.streamCandidates;
+      let nextIndex = -1;
+      for (let offset = 1; offset < candidates.length; offset++) {
+        const index = (this.currentStreamIndex + offset) % candidates.length;
+        const entry = candidates[index];
+        if (!entry || (entry.id && this.failedPlaybackStreamIds?.has(String(entry.id).trim())))
+          continue;
         const url = String(entry.url || entry.externalUrl || "").trim();
-        return !url || !this.failedPlaybackUrls?.has(url);
-      });
+        if (url && this.failedPlaybackUrls?.has(url)) continue;
+        nextIndex = index;
+        break;
+      }
+      const searchMissingCandidates =
+        nextIndex < 0 &&
+        candidates.length <= 1 &&
+        !this.sourceFallbackLoadAttempted &&
+        Boolean(this.params?.videoId || this.params?.itemId) &&
+        !candidate?.ytId;
       this.clearSourceFallbackDeadline();
-      if (nextIndex < 0) {
+      if (nextIndex < 0 && !searchMissingCandidates) {
         this.sourcePlaybackStarting = false;
         this.sourceFallbackStatus = "";
         this.sourceFallbackExhausted = this.streamCandidates.length > 1;
@@ -117,6 +154,7 @@ export function createPlayerSourceFallbackMethods() {
       const token = this.sourcePlaybackAttemptToken;
       const mountToken = this.playerMountToken;
       const next = this.streamCandidates[nextIndex];
+      if (searchMissingCandidates) this.sourceFallbackLoadAttempted = true;
       this.clearPlaybackStallGuard();
       if (this.engineFsStartupRetryTimer) clearTimeout(this.engineFsStartupRetryTimer);
       this.engineFsStartupRetryTimer = null;
@@ -142,6 +180,47 @@ export function createPlayerSourceFallbackMethods() {
           !this.sourceFallbackPending
         )
           return;
+        if (searchMissingCandidates) {
+          let timer;
+          let timedOut = false;
+          try {
+            await Promise.race([
+              this.reloadSources(),
+              new Promise((_, reject) => {
+                timer = setTimeout(() => {
+                  timedOut = true;
+                  reject(new Error("Source search timed out"));
+                }, 20000);
+              })
+            ]);
+          } catch (_) {
+            // The final error below covers an unavailable addon as well.
+          } finally {
+            clearTimeout(timer);
+            if (timedOut) this.cancelSourceLoad();
+          }
+          if (!this.isActiveMountToken(mountToken) || !this.isCurrentSourcePlaybackAttempt(token))
+            return;
+          this.sourceFallbackPending = false;
+          if (
+            !this.tryNextStreamCandidate({
+              streamCandidate: candidate,
+              playbackUrl: failedUrl,
+              sourceAttemptToken: token
+            })
+          ) {
+            this.showStartupError(
+              t("player_error_no_working_sources", {}, "None of the sources could be played."),
+              {
+                streamCandidate: candidate,
+                sourceAttemptToken: token,
+                details: [],
+                reason: "source-search-exhausted"
+              }
+            );
+          }
+          return;
+        }
         this.currentStreamIndex = nextIndex;
         try {
           await this.playStreamCandidate(next, {

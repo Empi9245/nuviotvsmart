@@ -184,24 +184,21 @@ export function createPlayerControllerMethods15() {
       }
 
       const video = this.video;
+      const videoSource = video.src;
       const playRequestToken = this.playRequestToken;
       const isCurrent = () =>
         this.video === video &&
+        video.src === videoSource &&
         this.playRequestToken === playRequestToken &&
         this.nativeTextTrackSelectionToken === requestToken &&
         (!Platform.isWebOS() ||
           !this.isUsingNativePlayback() ||
           (this.selectedWebOsSubtitleTrackIndex === targetIndex && this.selectedWebOsEmbeddedSubtitleTrackIndex === -1));
       if (Platform.isVidaa()) {
-        selectVidaaTextTrack(tracks, targetIndex);
-        return confirmNativeTrackSelection(
-          () =>
-            nativeTextTrackSelectionMatches(
-              nativeTrackListToArray(video.textTracks || video.webkitTextTracks || video.mozTextTracks),
-              targetIndex
-            ),
-          isCurrent
-        );
+        return selectVidaaTextTrack(tracks, targetIndex, {
+          isCurrent,
+          getTracks: () => nativeTrackListToArray(video.textTracks || video.webkitTextTracks || video.mozTextTracks)
+        });
       }
 
       if (Platform.isWebOS() && this.isUsingNativePlayback()) {

@@ -10,6 +10,7 @@ tests/*
 !tests/test-vidaa-home-patching.html
 !tests/test-vidaa-home-row-updates.html
 !tests/test-vidaa-home-window.html
+!tests/test-vidaa-home-poster-expansion.html
 !tests/test-vidaa-navigation-stress.html
 !tests/run-vidaa-home-dom-tests.mjs
 !tests/test-vidaa-*.mjs

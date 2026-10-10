@@ -302,6 +302,8 @@ export function initializePlayerMountState(params, initialStreamUrl) {
   this.sourcePlaybackStarting = false;
   this.sourceFallbackStatus = "";
   this.sourceFallbackExhausted = false;
+  this.sourceFallbackLoadAttempted = false;
+  this.sourceFallbackProgressSeconds = null;
   this.sourceFallbackDeadlineTimer = null;
   this.playbackStallTimer = null;
   this.playbackEngineValidationEngine = "";

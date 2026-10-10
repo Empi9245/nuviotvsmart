@@ -55,11 +55,8 @@ export function createPlayerScreenMethods47() {
         }
         this.selectedSubtitleTrackIndex = -1;
       } else if (Environment.isVidaa()) {
-        // VIDAA firmware misreports track.mode readbacks while a switch is
-        // settling and can leave several tracks reporting "showing". Adopt the
-        // native readback only when exactly one track is showing; otherwise
-        // keep the app-tracked selection so the dialog does not snap back to
-        // the first selection on every refresh.
+        // Keep a confirmed selection during a bounded switch/style refresh.
+        // An unrelated hidden/loading track must never inherit that selection.
         this.selectedEmbeddedSubtitleTrackIndex = -1;
         const showingIndexes = [];
         textTracks.forEach((track, index) => {
@@ -67,12 +64,25 @@ export function createPlayerScreenMethods47() {
             showingIndexes.push(index);
           }
         });
-        if (showingIndexes.length === 1) {
+        const previousIndex = Number(this.selectedSubtitleTrackIndex);
+        const previousTrack = textTracks[previousIndex];
+        const refresh = this.subtitleTrackRenderingRefreshes?.get(previousTrack);
+        const refreshIsCurrent = Boolean(
+          refresh &&
+          refresh.selectionToken === this.subtitleSelectionToken &&
+          refresh.mountToken === this.playerMountToken &&
+          refresh.video === PlayerController.video &&
+          refresh.videoSource === PlayerController.video?.src &&
+          refresh.playRequestToken === PlayerController.playRequestToken
+        );
+        const selectionPending = Boolean(this.pendingNativeSubtitleSelection?.isCurrent?.());
+        if (this.htmlSubtitleSelectedId || this.assSubtitleRenderer || this.selectedManifestSubtitleTrackId) {
+          this.selectedSubtitleTrackIndex = -1;
+        } else if (selectionPending) {
+          this.selectedSubtitleTrackIndex = previousTrack ? previousIndex : -1;
+        } else if (showingIndexes.length === 1) {
           this.selectedSubtitleTrackIndex = showingIndexes[0];
-        } else if (
-          showingIndexes.length === 0 &&
-          !(Number(this.selectedSubtitleTrackIndex) >= 0 && Number(this.selectedSubtitleTrackIndex) < textTracks.length)
-        ) {
+        } else if (!previousTrack || !(showingIndexes.includes(previousIndex) || refreshIsCurrent)) {
           this.selectedSubtitleTrackIndex = -1;
         }
       } else {
