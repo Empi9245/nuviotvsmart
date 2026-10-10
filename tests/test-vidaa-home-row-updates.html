@@ -40,6 +40,7 @@
     <script type="module">
       import { createHomeRowRenderPass } from "../js/ui/screens/home/homeRowRenderCache.js";
       import { updateHomeDom, registerHomeDomNodes } from "../js/ui/screens/home/homeDomUpdate.js";
+      import { createHomeScreenMethods05 } from "../js/ui/screens/home/homeScreenMethods-05-apply-hero-to-dom.js";
       import {
         updateVidaaHomeCardWindow,
         restoreVidaaHomeCard,
@@ -96,6 +97,38 @@
       }
 
       try {
+        // Enrichment replaces hero metadata before another incremental render.
+        // The replaced rating must remain managed rather than being duplicated.
+        const heroFixture = document.createElement("div");
+        const heroMarkup = (rating) => `<div class="home-shell"><article class="home-hero-card">
+          <div class="home-modern-hero-meta-line"><span class="home-hero-imdb">${rating}</span></div>
+          <div class="home-modern-hero-secondary"></div></article></div>`;
+        updateHomeDom(heroFixture, heroMarkup("7.0"));
+        const heroScreen = {
+          ...createHomeScreenMethods05(),
+          container: heroFixture,
+          layoutMode: "modern",
+          heroItem: { id: "tt123", type: "movie", name: "Fixture", imdbRating: 8.5 },
+          scheduleHomeTruncationUpdate() {},
+          syncCollectionHeroMedia() {}
+        };
+        for (let pass = 0; pass < 3; pass++) {
+          heroScreen.applyHeroToDom();
+          assert(
+            heroFixture.querySelectorAll(".home-hero-imdb").length === 1,
+            "one enriched hero rating"
+          );
+          updateHomeDom(heroFixture, heroMarkup("8.5"), { incremental: true });
+          assert(
+            heroFixture.querySelectorAll(".home-hero-imdb").length === 1,
+            "incremental render must not duplicate ratings"
+          );
+          assert(
+            heroFixture.querySelector(".home-hero-imdb").textContent === "8.5",
+            "latest rating survives reconciliation"
+          );
+        }
+
         updateHomeDom(
           fixture,
           '<div class="home-shell"><main class="home-main"><div class="home-loading">Loading</div></main></div>'

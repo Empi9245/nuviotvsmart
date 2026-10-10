@@ -1,5 +1,6 @@
 import * as internals from "./homeScreenContext.js";
 import { restoreVidaaHomeCard } from "./vidaaHomeCardWindow.js";
+import { registerHomeDomNodes } from "./homeDomUpdate.js";
 
 export function createHomeScreenMethods05() {
   const {
@@ -131,6 +132,16 @@ export function createHomeScreenMethods05() {
           chipNode.classList.toggle("is-empty", !display.chips.length);
         }
       }
+      // Metadata replaced above belongs to the generated Home tree. Register it
+      // so incremental renders reconcile it instead of retaining it as runtime
+      // content alongside another copy of the rating.
+      registerHomeDomNodes(
+        Array.from(
+          heroNode.querySelectorAll(
+            ".home-modern-hero-meta-line, .home-modern-hero-secondary, .home-hero-meta-primary, .home-hero-meta-secondary, .home-hero-chip-row"
+          )
+        )
+      );
 
       const descriptionNode = heroNode.querySelector(".home-hero-description");
       if (descriptionNode) {
