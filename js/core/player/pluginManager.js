@@ -27,6 +27,7 @@ import {
 } from "./pluginModels.js";
 import { PLUGIN_QUOTAS } from "./pluginPolicy.js";
 import { validatePluginUrl } from "./pluginSecurity.js";
+import { readStreamAudioDelayHints } from "./streamAudioDelay.js";
 import { I18n } from "../../i18n/index.js";
 import { emitPluginDiagnosticEvent } from "../diagnostics/pluginDiagnostics.js";
 
@@ -313,6 +314,12 @@ export function resultToStream(result = {}, scraper = {}) {
   const name = `${displayNameBase}${String(displayNameBase).includes(qualityLabel) ? "" : ` - ${qualityLabel}`}`;
   const displayTitle = baseTitle || baseName || scraper.name;
   const resultHeaders = normalizePluginResultHeaders(result.headers);
+  // Preserve the provider's own hints (Android reads audioDelayMs /
+  // audioDelayLanguage from local plugin results) and layer the request
+  // headers on top of them.
+  const sourceHints =
+    result.behaviorHints && typeof result.behaviorHints === "object" ? result.behaviorHints : {};
+  const audioDelayHints = readStreamAudioDelayHints(sourceHints);
   return {
     title: displayTitle,
     name,
@@ -323,14 +330,17 @@ export function resultToStream(result = {}, scraper = {}) {
     infoHash: androidResultString(result.infoHash),
     addonName: scraper.name,
     addonLogo: null,
-    behaviorHints: resultHeaders
-      ? {
-          notWebReady: null,
-          bingeGroup: null,
-          countryWhitelist: null,
-          proxyHeaders: { request: resultHeaders, response: null }
-        }
-      : null,
+    behaviorHints:
+      resultHeaders || audioDelayHints
+        ? {
+            ...sourceHints,
+            notWebReady: sourceHints.notWebReady ?? null,
+            bingeGroup: sourceHints.bingeGroup ?? null,
+            countryWhitelist: sourceHints.countryWhitelist ?? null,
+            ...(audioDelayHints || {}),
+            ...(resultHeaders ? { proxyHeaders: { request: resultHeaders, response: null } } : {})
+          }
+        : null,
     subtitles: normalizePluginSubtitles(result.subtitles)
   };
 }

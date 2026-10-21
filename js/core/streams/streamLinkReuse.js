@@ -64,6 +64,8 @@ export function saveReusableStreamLink(
       videoHash: hints.videoHash || raw.videoHash || launchHints.videoHash || null,
       videoSize: hints.videoSize ?? raw.videoSize ?? launchHints.videoSize ?? null,
       bingeGroup: hints.bingeGroup || null,
+      audioDelayMs: Number.isFinite(Number(hints.audioDelayMs)) ? Number(hints.audioDelayMs) : null,
+      audioDelayLanguage: hints.audioDelayLanguage ? String(hints.audioDelayLanguage) : null,
       infoHash: torrent ? hash.toLowerCase() : null,
       fileIdx:
         torrent && fileIdx != null && Number.isInteger(Number(fileIdx)) && Number(fileIdx) >= 0
@@ -103,6 +105,10 @@ export function cachedStreamLinkCandidate(cached) {
       videoHash: cached.videoHash,
       videoSize: cached.videoSize,
       bingeGroup: cached.bingeGroup,
+      ...(cached.audioDelayMs != null ? { audioDelayMs: Number(cached.audioDelayMs) } : {}),
+      ...(cached.audioDelayLanguage
+        ? { audioDelayLanguage: String(cached.audioDelayLanguage) }
+        : {}),
       proxyHeaders: { request: { ...cached.headers } }
     }
   };
