@@ -1,8 +1,36 @@
 import { validatePluginFetchRequest } from "../core/player/pluginSecurity.js";
+import {
+  PLUGIN_PROXY_PATH,
+  PLUGIN_PROXY_HEADER,
+  isPluginProxyMissingStatus
+} from "../core/player/pluginProxyProtocol.js";
 
 const DEFAULT_RESPONSE_BYTES = 1024 * 1024;
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 const activeRequests = new Map();
+
+// Browser networking rules (CORS) block almost every plugin provider request:
+// the TV probe of 8 Oct 2026 recorded TypeError: Failed to fetch on real
+// providers. When the app is served over HTTP(S), the host can relay these
+// requests server-side through the same-origin plugin proxy, where no CORS
+// rules apply. "unknown" tries the proxy once; a host without the endpoint
+// answers 404/405/501 and every later request goes direct.
+let pluginProxyState = "unknown";
+
+function pageSupportsPluginProxy() {
+  const page = globalThis.location;
+  return Boolean(page && /^(?:http|https):$/.test(String(page?.protocol || "")));
+}
+
+function isCrossOriginPluginTarget(targetUrl) {
+  try {
+    const page = globalThis.location;
+    const base = String(page?.href || page?.origin || "");
+    return new URL(String(targetUrl), base).origin !== page.origin;
+  } catch (_) {
+    return false;
+  }
+}
 
 function abortError(message = "Plugin request cancelled") {
   const error = new Error(message);
@@ -123,6 +151,54 @@ async function readResponseBytes(response, limit, state) {
   return { bytes, truncated };
 }
 
+async function performViaPluginProxy(validation, request, state, controller) {
+  const response = await fetch(PLUGIN_PROXY_PATH, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: validation.url,
+      method: validation.method,
+      headers: validation.headers,
+      followRedirects: validation.followRedirects,
+      bodyKind: validation.bodyKind,
+      body: validation.body,
+      ...(validation.bodyBase64 !== undefined ? { bodyBase64: validation.bodyBase64 } : {})
+    }),
+    signal: controller?.signal || request.signal
+  });
+  const hasProxyHeader = Boolean(response.headers.get(PLUGIN_PROXY_HEADER));
+  if (isPluginProxyMissingStatus(response.status, hasProxyHeader)) {
+    pluginProxyState = "unavailable";
+    return null;
+  }
+  const proxyError = response.headers.get("x-nuvio-proxy-error");
+  if (proxyError) {
+    // Relay the upstream transport failure as a fetch() rejection, matching
+    // what a direct browser fetch would have produced for the scraper.
+    throw new Error(`Plugin provider request failed: ${proxyError}`);
+  }
+  if (state.aborted) throw state.error;
+  const headers = responseHeaders(response);
+  const finalUrl = headers["x-nuvio-proxy-final-url"] || validation.url;
+  const statusText = headers["x-nuvio-proxy-status-text"] || "";
+  delete headers["x-nuvio-proxy-final-url"];
+  delete headers["x-nuvio-proxy-status-text"];
+  delete headers["x-nuvio-proxy-error"];
+  delete headers[PLUGIN_PROXY_HEADER];
+  const { bytes, truncated } = await readResponseBytes(response, responseLimit(request), state);
+  return {
+    returnValue: true,
+    ok: response.status >= 200 && response.status < 300,
+    status: response.status,
+    statusText,
+    url: finalUrl,
+    body: await responseText(bytes, headers["content-type"]),
+    ...(request.responseEncoding === "base64" ? { bodyBase64: btoa(binaryString(bytes)) } : {}),
+    headers,
+    truncated
+  };
+}
+
 export function cancelBrowserPluginRequest(requestId) {
   const state = activeRequests.get(String(requestId || "").slice(0, 128));
   if (!state || state.aborted) return false;
@@ -164,6 +240,15 @@ export async function fetchBrowserPluginRequest(request = {}) {
   try {
     const perform = async () => {
       if (state.aborted) throw state.error;
+      if (
+        pluginProxyState !== "unavailable" &&
+        pageSupportsPluginProxy() &&
+        isCrossOriginPluginTarget(validation.url)
+      ) {
+        const proxied = await performViaPluginProxy(validation, request, state, controller);
+        if (proxied) return proxied;
+        // The serving host has no proxy endpoint: fall through to direct fetch.
+      }
       const requestBody =
         validation.bodyKind === "base64"
           ? Uint8Array.from(atob(validation.bodyBase64), (char) => char.charCodeAt(0))

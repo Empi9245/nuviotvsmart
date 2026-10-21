@@ -1,6 +1,9 @@
 {
   "buildCommand": "node scripts/import-official-trakt-config.mjs --if-missing && node scripts/import-official-mdblist-config.mjs --if-missing && npm run package:vidaa",
   "outputDirectory": "dist/vidaa",
+  "functions": {
+    "api/plugin-proxy.js": { "maxDuration": 60 }
+  },
   "headers": [
     {
       "source": "/",

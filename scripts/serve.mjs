@@ -5,6 +5,7 @@ import { readFile, stat } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { buildRuntimeEnvScript, readEnvProperties } from "./envProperties.mjs";
+import { PLUGIN_PROXY_PATH, PLUGIN_PROXY_HEADER, runPluginProxyHttp } from "./pluginProxyCore.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -188,9 +189,63 @@ async function proxyLocalMediaRequest(request, response, pathname) {
   return true;
 }
 
+const MAX_PLUGIN_PROXY_REQUEST_BYTES = 6 * 1024 * 1024;
+
+function readRequestBody(request, limit) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let length = 0;
+    request.on("data", (chunk) => {
+      length += chunk.length;
+      if (length > limit) {
+        reject(new Error("Plugin proxy request body is too large"));
+        request.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    request.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    request.on("error", reject);
+  });
+}
+
+async function servePluginProxy(request, response) {
+  response.setHeader(PLUGIN_PROXY_HEADER, "1");
+  if (request.method !== "POST") {
+    response.writeHead(405, {
+      "Cache-Control": "no-store",
+      "Content-Type": "text/plain; charset=utf-8",
+      Allow: "POST"
+    });
+    response.end("Method not allowed");
+    return;
+  }
+  let rawBody;
+  try {
+    rawBody = await readRequestBody(request, MAX_PLUGIN_PROXY_REQUEST_BYTES);
+  } catch (error) {
+    response.writeHead(413, {
+      "Cache-Control": "no-store",
+      "Content-Type": "text/plain; charset=utf-8"
+    });
+    response.end(String(error?.message || error));
+    return;
+  }
+  const result = await runPluginProxyHttp(rawBody);
+  response.writeHead(result.status, {
+    ...result.headers,
+    "Cache-Control": "no-store"
+  });
+  response.end(result.body);
+}
+
 const server = http.createServer(async (request, response) => {
   try {
     const requestUrl = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
+    if (requestUrl.pathname === PLUGIN_PROXY_PATH) {
+      await servePluginProxy(request, response);
+      return;
+    }
     if (requestUrl.pathname === "/nuvio.env.js") {
       const { env } = await readEnvProperties({ rootDir });
       response.writeHead(200, {
