@@ -5,7 +5,6 @@ export function createMetaDetailsScreenMethods08() {
   const {
     ScreenUtils,
     LayoutPreferences,
-    showHomeRatings,
     mdbListRatingIcon,
     renderLoadingIndicator,
     EPISODE_VIRTUALIZATION_THRESHOLD,
@@ -14,11 +13,12 @@ export function createMetaDetailsScreenMethods08() {
     resolveDetailBackdropUrl,
     isSeriesDetailMeta,
     formatMdbListRating,
-    resolveImdbRating,
     getAddonIconPath,
     escapeHtml,
     escapeAttribute,
     resolveTrailerItems,
+    showHomeRatings,
+    resolveImdbRating,
     captureHorizontalScrollMap
   } = internals;
 

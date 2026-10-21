@@ -181,6 +181,7 @@ export function createHomeScreenMethods23() {
           ? HOME_GRID_SAFE_MAX_COLUMNS * homeGridRowCount
           : rowItemLimit;
       this.teardownGridStickyHeader();
+      this.renderedWatchedTitleIds = this.watchedTitleIds;
 
       const rowPass = Platform.isVidaa()
         ? createHomeRowRenderPass(canUpdateInPlace ? this.homeRowMarkupCache : new Map(), {

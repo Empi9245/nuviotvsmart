@@ -10,6 +10,7 @@ export function createTmdbMetadataServiceMethods01() {
     TMDB_API_KEY,
     tmdbShowReleaseInfo,
     TMDB_BASE_URL,
+    TMDB_METADATA_MAX_RESPONSE_BYTES,
     TMDB_TRAILER_FALLBACK_LANGUAGE,
     ENTITY_RAIL_MAX_ITEMS,
     TOP_RATED_VOTE_COUNT_FLOOR,
@@ -25,6 +26,7 @@ export function createTmdbMetadataServiceMethods01() {
     fetchEnglishPersonNames,
     fetchEnglishTitle,
     resolveCredits,
+    resolveTmdbCredits,
     toImageUrl,
     buildTmdbImageLanguageFilter,
     selectBestLocalizedImagePath,
@@ -54,18 +56,23 @@ export function createTmdbMetadataServiceMethods01() {
       const type = resolveType(contentType);
       const lang = normalizeMoreLikeThisLanguage(language || settings.language);
       const imageLanguages = buildTmdbImageLanguageFilter(lang);
+      const creditType = type === "tv" ? "aggregate_credits" : "credits";
       const appendedResources = includeExtras
-        ? "images,credits,release_dates,content_ratings,videos,external_ids"
+        ? `images,${creditType},release_dates,content_ratings,videos,external_ids`
         : "images,release_dates,content_ratings,external_ids";
       const params = `api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(lang)}&append_to_response=${appendedResources}&include_image_language=${encodeURIComponent(imageLanguages)}`;
       const url = `${TMDB_BASE_URL}/${type}/${encodeURIComponent(String(tmdbId))}?${params}`;
 
-      const data = await fetchTmdbJson(url, { signal });
+      const data = await fetchTmdbJson(url, {
+        signal,
+        maxResponseBytes: TMDB_METADATA_MAX_RESPONSE_BYTES
+      });
       if (!data) {
         return null;
       }
       // Home only needs text and artwork. Optional credit/trailer lookups must
       // not delay that localized presentation while a fallback request resolves.
+      data.credits = resolveTmdbCredits(data, type);
       const englishPersonNames = includeExtras
         ? await fetchEnglishPersonNames({ type, tmdbId, apiKey, data, language: lang, signal })
         : new Map();
@@ -121,7 +128,7 @@ export function createTmdbMetadataServiceMethods01() {
         description: data.overview || null,
         backdrop: toImageUrl(selectBestBackdropPath(data?.images?.backdrops, data.backdrop_path), "backdrop"),
         poster: toImageUrl(selectBestLocalizedImagePath(data?.images?.posters, lang) || data.poster_path, "poster"),
-        logo: toImageUrl(logoPath, "logo"),
+        logo: toImageUrl(logoPath, "titleLogo"),
         genres: Array.isArray(data.genres) ? data.genres.map((genre) => genre.name).filter(Boolean) : [],
         rating: typeof data.vote_average === "number" ? data.vote_average : null,
         releaseInfo: releaseInfoValue || null,

@@ -206,7 +206,8 @@ export function createPosterCardMarkup(
   isExpanded = false,
   preferLandscapePoster = false,
   deferImages = false,
-  watchedTitleIds = null
+  watchedTitleIds = null,
+  posterSettings
 ) {
   // Every VIDAA card starts through the shared loader, including the first
   // visible row. Direct initial src attributes would bypass its request budget.
@@ -291,7 +292,8 @@ export function createPosterCardMarkup(
   const normalized = customPosterForItem(
     normalizeCatalogItem(item, itemType),
     Router.getCurrent() === "folderDetail" || rowData?.rowKind === "collection" ? "collections" : "home",
-    layoutMode === "modern" && preferLandscapePoster ? "landscape" : "poster"
+    layoutMode === "modern" && preferLandscapePoster ? "landscape" : "poster",
+    posterSettings
   );
   const subtitle = buildPosterSubtitle(normalized, layoutMode);
   const preferredLandscapePosterSrc = firstNonEmpty(normalized.landscapePoster);

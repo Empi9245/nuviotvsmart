@@ -2,6 +2,11 @@ import { TmdbSettingsStore } from "../../data/local/tmdbSettingsStore.js";
 import { getTmdbApiKey } from "./tmdbApiConfig.js";
 import { fetchTmdbJson } from "./tmdbTransport.js";
 
+// Upstream later defined its own fetchTmdbJson here; the fork's transport is a
+// superset (Tizen+webOS service path, deadlines, abort). Re-export it so the
+// upstream import sites keep working with the single implementation.
+export { fetchTmdbJson };
+
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const imdbToTmdbCache = new Map();
 const imdbToTmdbInFlight = new Map();
@@ -46,7 +51,14 @@ export const TmdbService = {
     // API keys, or the network. This branch must stay before all Web-only
     // configuration gates.
     if (parsed.kind === "numeric") return parsed.idPart;
-    if (parsed.kind !== "imdb") return null;
+    if (parsed.kind !== "imdb") {
+      const fallback = String(options?.fallbackImdbId || "")
+        .trim()
+        .split(":")[0];
+      return /^tt/i.test(fallback)
+        ? this.ensureTmdbId(fallback.toLowerCase(), type, { ...options, fallbackImdbId: null })
+        : null;
+    }
 
     const contentType = getContentType(type);
     const key = lookupKey(parsed.idPart, contentType);

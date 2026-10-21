@@ -111,10 +111,14 @@ export function createMetaDetailsScreenMethods24() {
       }
 
       const actionIndex = actions.indexOf(current);
-      if (actionIndex >= 0) {
+      const synopsis = this.container.querySelector(".series-detail-description.focusable");
+      if (actionIndex >= 0 || current === synopsis) {
+        if (current === synopsis && direction === "up") return this.focusInList(actions, 0) || true;
+        if (current === synopsis && direction !== "down") return true;
         if (direction === "left") return this.focusInList(actions, actionIndex - 1) || true;
         if (direction === "right") return this.focusInList(actions, actionIndex + 1) || true;
         if (direction === "down") {
+          if (current !== synopsis && synopsis) return this.focusInList([synopsis], 0) || true;
           if (seasons.length) {
             return this.focusInList(seasons, this.getSelectedSeasonIndex(seasons)) || true;
           }
@@ -137,6 +141,7 @@ export function createMetaDetailsScreenMethods24() {
         if (direction === "left") return this.focusInList(seasons, seasonIndex - 1) || true;
         if (direction === "right") return this.focusInList(seasons, seasonIndex + 1) || true;
         if (direction === "up") {
+          if (synopsis) return this.focusInList([synopsis], 0) || true;
           if (actions.length) {
             return this.focusInList(actions, Math.min(seasonIndex, actions.length - 1)) || true;
           }

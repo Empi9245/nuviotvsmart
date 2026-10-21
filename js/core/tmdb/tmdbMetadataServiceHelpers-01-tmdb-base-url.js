@@ -8,12 +8,15 @@ import { sortCollectionPartsByReleaseDate } from "./tmdbCollectionOrdering.js";
 import { fetchTmdbJson } from "./tmdbTransport.js";
 
 export const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+// Aggregate series credits can exceed the ID-lookup response limit.
+export const TMDB_METADATA_MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 
 export const TMDB_IMAGE_SIZES = {
   poster: "w342",
   // Match Android TV: hero backdrops need enough source pixels for a 1080p TV.
   backdrop: "w1280",
   logo: "w300",
+  titleLogo: "w500",
   // Match Android TV: episode cards are wider than 300px on the TV layout.
   still: "w500",
   // Entity browse cards and logos follow the Android TMDB screen sizes.
@@ -202,21 +205,40 @@ export function addEnglishPersonNames(target, people = []) {
   });
 }
 
+export function resolveTmdbCredits(data, type) {
+  if (type !== "tv") return data?.credits || null;
+  const aggregate = data?.aggregate_credits;
+  if (!aggregate) return null;
+  return {
+    cast: (Array.isArray(aggregate.cast) ? aggregate.cast : []).map((member) => ({
+      ...member,
+      character: member.roles?.[0]?.character || null
+    })),
+    crew: (Array.isArray(aggregate.crew) ? aggregate.crew : []).flatMap((member) =>
+      (Array.isArray(member.jobs) ? member.jobs : []).map((job) => ({ ...member, job: job.job }))
+    )
+  };
+}
+
 export async function fetchEnglishPersonNames({ type, tmdbId, apiKey, data, language, signal = null } = {}) {
   if (!needsEnglishPersonNameFallback(data, language)) {
     return new Map();
   }
 
   try {
-    const params = `api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(TMDB_ENGLISH_CREDIT_LANGUAGE)}&append_to_response=credits`;
+    const params = `api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(TMDB_ENGLISH_CREDIT_LANGUAGE)}&append_to_response=${type === "tv" ? "aggregate_credits" : "credits"}`;
     const url = `${TMDB_BASE_URL}/${type}/${encodeURIComponent(String(tmdbId))}?${params}`;
-    const englishData = await fetchTmdbJson(url, { signal });
+    const englishData = await fetchTmdbJson(url, {
+      signal,
+      maxResponseBytes: TMDB_METADATA_MAX_RESPONSE_BYTES
+    });
     if (!englishData) {
       return new Map();
     }
+    const credits = resolveTmdbCredits(englishData, type);
     const names = new Map();
-    addEnglishPersonNames(names, englishData?.credits?.cast);
-    addEnglishPersonNames(names, englishData?.credits?.crew);
+    addEnglishPersonNames(names, credits?.cast);
+    addEnglishPersonNames(names, credits?.crew);
     addEnglishPersonNames(names, englishData?.created_by);
     return names;
   } catch (error) {

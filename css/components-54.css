@@ -7,12 +7,12 @@
   .series-episode-card {
     flex-basis: 800px;
     width: 800px;
-    border-radius: 40px;
+    border-radius: var(--detail-episode-radius, 24px);
   }
 
   .series-episode-thumb {
     height: 526px;
-    border-radius: 40px;
+    border-radius: var(--detail-episode-radius, 24px);
   }
 
   .series-episode-copy {
@@ -88,6 +88,7 @@
 .series-insight-divider,
 .detail-company-title {
   font-size: var(--detail-section-title-size);
+  line-height: 56px;
 }
 
 .series-insight-divider {
@@ -113,12 +114,19 @@
   margin-bottom: 20px;
 }
 
+/* Android CastMemberItem: name labelMedium 12sp, character labelSmall 10sp. */
 .movie-cast-name {
-  font-size: 30px;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 500;
+  letter-spacing: 1px;
 }
 
 .movie-cast-role {
-  font-size: 24px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 500;
+  letter-spacing: 1px;
 }
 
 .detail-company-title {
@@ -155,12 +163,26 @@
   border-radius: 24px;
 }
 
+/* The image sits inside the 2px focus border, so its corners follow the 24px card. */
+.detail-morelike-poster,
+.detail-morelike-poster-image {
+  border-radius: 22px;
+}
+
+/* Android GridContentCard label (titleMedium) and MoreLikeThis year (bodySmall, tertiary). */
 .detail-morelike-name {
-  font-size: 28px;
+  margin-top: 16px;
+  font-size: 32px;
+  line-height: 48px;
+  letter-spacing: 0.3px;
 }
 
 .detail-morelike-type {
+  margin-top: 4px;
   font-size: 24px;
+  line-height: 32px;
+  letter-spacing: 0.8px;
+  color: var(--text-tertiary);
 }
 
 .series-primary-btn {
@@ -442,4 +464,69 @@
     rgba(var(--bg-color-rgb-legacy), 0.65) 95.5%,
     var(--bg-color) 100%
   );
+}
+
+/* Android PeopleSectionTabs: TextPrimary at 0.55 alpha, 0.92 when selected,
+   full when focused; the divider uses 0.45 alpha. */
+.series-insight-tab {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.series-insight-tab.selected {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.series-insight-tab.focused {
+  color: #ffffff;
+}
+
+.series-insight-divider {
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 500;
+}
+
+/* Android MoreLikeThis source label: bodySmall, tertiary, end-aligned 10dp
+   from the edge with 2dp vertical padding. */
+.detail-more-like-source {
+  margin: 0;
+  padding: 4px 20px 4px 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: 0.8px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 1;
+}
+
+/* Android draws detail focus borders as a 2dp stroke inside the shape
+   (tv-material3 Border on the play, icon, cast and company controls). The
+   former outer spread shadow rendered broken edges on these pill/circle
+   shapes on TV browsers. */
+.series-primary-btn.focused,
+.series-secondary-btn.focused,
+.series-circle-btn.focused,
+.detail-company-card.focused {
+  box-shadow: inset 0 0 0 4px var(--detail-focus-ring);
+}
+
+.movie-cast-card.focused .movie-cast-avatar {
+  box-shadow: none;
+}
+
+/* The avatar photo covers inset shadows, so the ring is drawn above it. */
+.movie-cast-card.focused .movie-cast-avatar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  box-sizing: border-box;
+  border: 4px solid var(--detail-focus-ring);
+  border-radius: inherit;
+  pointer-events: none;
 }

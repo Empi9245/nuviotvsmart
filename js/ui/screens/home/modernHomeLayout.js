@@ -1,3 +1,5 @@
+import { LayoutPreferences } from "../../../data/local/layoutPreferences.js";
+
 export const MODERN_HOME_CONSTANTS = {
   heroFocusDelayMs: 450,
   heroRapidNavThresholdMs: 130,
@@ -69,6 +71,8 @@ export function renderModernHomeLayout({
   const sectionsMarkup = [];
   const hasCatalogRowRenderer = typeof renderCatalogRow === "function";
   const watchedTitleIdsSnapshot = hasCatalogRowRenderer ? Array.from(watchedTitleIds || []) : null;
+  // Read the poster settings once per render instead of per card.
+  const posterSettings = LayoutPreferences.get();
 
   rows.forEach((rowData, rowIndex) => {
     const isCollectionRow = rowData?.rowKind === "collection";
@@ -132,7 +136,8 @@ export function renderModernHomeLayout({
             expandFocusedPoster && focusedRowKey === rowKey && focusedItemIndex === itemIndex,
             preferLandscapePosters,
             deferRowImages,
-            watchedTitleIds
+            watchedTitleIds,
+            posterSettings
           )
         )
         .join("");

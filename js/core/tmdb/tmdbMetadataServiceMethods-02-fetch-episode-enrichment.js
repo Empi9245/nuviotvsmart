@@ -2,6 +2,7 @@
 import * as internals from "./tmdbMetadataService.js";
 import { fetchTmdbJson } from "./tmdbTransport.js";
 import { getTmdbApiKey } from "./tmdbApiConfig.js";
+import { mapWithConcurrency } from "../network/mapWithConcurrency.js";
 
 export function createTmdbMetadataServiceMethods02() {
   const {
@@ -41,8 +42,8 @@ export function createTmdbMetadataServiceMethods02() {
         return new Map();
       }
 
-      const entries = await Promise.all(
-        seasons.map(async (seasonNumber) => {
+      const entries = await mapWithConcurrency(seasons, 4, async (seasonNumber) => {
+        try {
           const url = `${TMDB_BASE_URL}/tv/${encodeURIComponent(String(tmdbId))}/season/${encodeURIComponent(String(seasonNumber))}?api_key=${encodeURIComponent(apiKey)}&language=${encodeURIComponent(lang)}`;
           const data = await fetchTmdbJson(url);
           if (!data) {
@@ -58,8 +59,11 @@ export function createTmdbMetadataServiceMethods02() {
               runtime: Number(episode?.runtime || 0) || null
             }))
             .filter((episode) => !episode.key.endsWith(":0"));
-        })
-      );
+        } catch (error) {
+          console.warn(`TMDB season ${seasonNumber} enrichment failed`, error);
+          return [];
+        }
+      });
 
       const map = new Map();
       entries.flat().forEach((episode) => {
