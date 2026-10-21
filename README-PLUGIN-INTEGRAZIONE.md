@@ -62,9 +62,23 @@ raggiunge davvero il provider (prima il browser lo eliminava).
   provider: audio originale o offset manuale).
 - **Gap reale dell'app:** quando la misurazione riesce, il provider emette
   `behaviorHints: { audioDelayMs, audioDelayLanguage: "it" }` e l'app dovrebbe
-  applicare quel ritardo alla traccia ITA (lo fa l'app Android NuvioTV; vedi
-  stringhe `audio_remember_delay_per_device` nelle res). **Né il fork né
-  upstream 1.2.9 implementano questo campo**: va sviluppato ex-novo.
+  applicare quel ritardo alla traccia ITA (lo fa l'app Android NuvioTV via
+  PR #3781 + #4027; vedi stringhe `audio_remember_delay_per_device` nelle res).
+
+### Stato del porting (22/10/2026)
+
+| Parte                                                                                                   | Stato                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contratto (`js/core/player/streamAudioDelay.js`: normalizzazione lingue, clamp ±60s, scope per traccia) | ✅ + 5 test nella suite                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Plumbing: `resultToStream` preserva i `behaviorHints` del provider (prima li droppava)                  | ✅ testato                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Plumbing: cache `streamLinkReuse` conserva `audioDelayMs`/`audioDelayLanguage`                          | ✅                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Applicazione sottotitoli (offset embedded per lingua, PR #4027)                                         | ⏳ da fare: 6 punti di applicazione (ASS/HTML/webOS/AVPlay) vanno aggiornati insieme                                                                                                                                                                                                                                                                                                                                                        |
+| Applicazione ritardo audio                                                                              | ⚠️ **blocco di piattaforma**: Tizen AVPlay e webOS NON hanno API di ritardo audio (verificato sulle doc ufficiali); il Web Audio DelayNode silenzia gli stream cross-origin su TV (è il motivo per cui `supportsTvWebAudioAmplification()` è disattivato su Tizen/webOS/VIDAA). L'unica via è un **engine dual-element** (audio ITA su `<audio>` separato con clock-sync, entrambi i segni possibili) — da progettare come passo successivo |
+
+Verifica browser 22/10 (The Office S1E2): gli stream DualSync/MovyITA arrivano
+con `⏱️ Ritardo audio +0,075 s` (hint presenti e ora preservati dal mapping);
+un solo stream "❌ AutoSync fallito" correttamente segnalato dal servizio
+(audio di contenuto diverso: video 0:33:12 vs audio 0:22:02).
 
 ## Note tecniche trovate
 
