@@ -107,7 +107,7 @@ export function createPlayerScreenMethods26() {
         }
         seen.add(cue);
         const snapshot = this.getSubtitleCueSnapshot(cue);
-        this.applySubtitleCueDelay(cue, snapshot, this.subtitleDelayMs);
+        this.applySubtitleCueDelay(cue, snapshot, this.getSubtitleCueDelayMsForTrack(track));
         this.applySubtitleCueVerticalOffset(cue, snapshot, verticalOffset);
       });
       return subtitleTextChanged;

@@ -48,8 +48,18 @@ export function createPlayerScreenMethods43() {
     isAssAddonSubtitleActive() {
       return Boolean(this.assSubtitleRenderer?.active);
     },
-    async applyAssSubtitleBody({ body, selectionToken, isCurrent = null, isRendererCurrent = null }) {
+    async applyAssSubtitleBody({
+      body,
+      selectionToken,
+      isCurrent = null,
+      isRendererCurrent = null,
+      // Source of this body ({ embedded, language }): decides whether the
+      // stream subtitle offset (#4027) joins the user's delay. Addon bodies
+      // pass nothing and are never shifted.
+      delayContext = null
+    }) {
       let initialized = false;
+      this.assSubtitleDelayContext = delayContext || { embedded: false, language: "" };
       const isCurrentSelection = () =>
         initialized && typeof isRendererCurrent === "function"
           ? isRendererCurrent()
@@ -82,7 +92,7 @@ export function createPlayerScreenMethods43() {
         return { applied: false, fallbackVtt };
       }
       initialized = true;
-      renderer.setDelay(this.subtitleDelayMs);
+      renderer.setDelay(this.getAssSubtitleDelayMs());
       this.showAssSubtitleContainer();
       syncHtmlSubtitleClearance(this);
       return { applied: true };

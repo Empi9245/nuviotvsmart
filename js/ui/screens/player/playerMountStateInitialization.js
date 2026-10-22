@@ -80,6 +80,9 @@ export function initializePlayerMountState(params, initialStreamUrl) {
   this.webOsEmbeddedHtmlSubtitleCueCount = 0;
   this.webOsEmbeddedHtmlSubtitleActivationKey = "";
   this.assSubtitleRenderer = null;
+  // Source context ({ embedded, language }) of the subtitle rendered through
+  // ass.js; captured at creation, before the selection state settles.
+  this.assSubtitleDelayContext = null;
   this.bitmapSubtitleDecoder = null;
   this.bitmapSubtitleTrack = null;
   this.bitmapSubtitleLoadToken = 0;

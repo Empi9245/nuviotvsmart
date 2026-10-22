@@ -88,7 +88,7 @@ export function createPlayerScreenMethods45() {
         return false;
       }
       const currentTime = Number(this.getPlaybackCurrentSeconds() || 0);
-      const subtitleTime = Math.max(0, currentTime - Number(this.subtitleDelayMs || 0) / 1000);
+      const subtitleTime = Math.max(0, currentTime - this.getEmbeddedSubtitleDelayMs(track) / 1000);
       const outsideWindow = subtitleTime < this.bitmapSubtitleWindowStart || subtitleTime >= this.bitmapSubtitleWindowEnd;
       const approachingWindowEnd =
         this.bitmapSubtitleWindowEnd > 0 && subtitleTime >= this.bitmapSubtitleWindowEnd - BITMAP_SUBTITLE_PREFETCH_SECONDS;
@@ -299,7 +299,7 @@ export function createPlayerScreenMethods45() {
         return false;
       }
       const currentTime = Number(this.getPlaybackCurrentSeconds() || 0);
-      const delaySeconds = Number(this.subtitleDelayMs || 0) / 1000;
+      const delaySeconds = this.getActiveSubtitleDelayMs() / 1000;
       const subtitleTime = currentTime - delaySeconds;
       const activeCues = this.htmlSubtitleCues.filter((cue) => subtitleTime >= cue.start && subtitleTime < cue.end);
       this.renderHtmlSubtitleOverlayCue(activeCues);

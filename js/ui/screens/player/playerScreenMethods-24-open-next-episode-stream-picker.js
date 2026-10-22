@@ -301,6 +301,8 @@ export function createPlayerScreenMethods24() {
       const subtitleBackgroundCss = subtitleBackgroundToCss(style.backgroundColor);
       PlayerController.setWebOsSubtitleFontSize?.(subtitleFontSize);
       if (Environment.isTizen() && PlayerController.isUsingAvPlay?.()) {
+        // AVPlay external subtitles follow the video timeline: per #4027 they
+        // only ever carry the user's own delay, never the stream offset.
         PlayerController.setAvPlayExternalSubtitleDelay?.(this.subtitleDelayMs);
       }
       uiRoot.style.setProperty("--player-subtitle-color", subtitleColor);

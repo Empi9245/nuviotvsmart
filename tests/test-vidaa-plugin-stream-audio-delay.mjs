@@ -5,7 +5,8 @@ const {
   clampStreamAudioDelayMs,
   readStreamAudioDelayHints,
   resolveStreamAudioDelayMs,
-  resolveStreamSubtitleOffsetMs
+  resolveStreamSubtitleOffsetMs,
+  resolveEffectiveSubtitleDelayMs
 } = await import("../js/core/player/streamAudioDelay.js");
 
 let checks = 0;
@@ -48,6 +49,17 @@ await check("stream delay applies per language only with audioDelayLanguage", ()
   assert.equal(resolveStreamAudioDelayMs(scoped, "ita"), 1250);
   assert.equal(resolveStreamAudioDelayMs(scoped, "en"), 0);
   assert.equal(resolveStreamAudioDelayMs(scoped, ""), 0);
+  // Latin American Spanish is its own language (PR #4027).
+  assert.equal(
+    resolveStreamAudioDelayMs({ audioDelayMs: 1250, audioDelayLanguage: "es" }, "es-419"),
+    0
+  );
+  assert.equal(
+    resolveStreamAudioDelayMs({ audioDelayMs: 1250, audioDelayLanguage: "es-419" }, "es-419"),
+    1250
+  );
+  // Tracks not loaded yet: keep the delay so the default dubbed track starts in sync.
+  assert.equal(resolveStreamAudioDelayMs(scoped, "", { hasSelectedAudio: false }), 1250);
   // Without the language hint the delay applies to every track (#3781).
   assert.equal(resolveStreamAudioDelayMs({ audioDelayMs: -400 }, "en"), -400);
   assert.equal(resolveStreamAudioDelayMs({ audioDelayMs: 0 }, "it"), 0);
@@ -57,12 +69,39 @@ await check("stream delay applies per language only with audioDelayLanguage", ()
 await check("subtitle offset only shifts embedded subs in the scoped language", () => {
   const scoped = { audioDelayMs: 1250, audioDelayLanguage: "it" };
   assert.equal(resolveStreamSubtitleOffsetMs(scoped, "it"), 1250);
+  assert.equal(resolveStreamSubtitleOffsetMs(scoped, "ita"), 1250);
   assert.equal(resolveStreamSubtitleOffsetMs(scoped, "en"), 0);
   // Addon/external subtitles are never shifted (#4027).
   assert.equal(resolveStreamSubtitleOffsetMs(scoped, "it", { embedded: false }), 0);
-  // Without the language hint the offset follows the stream delay.
-  assert.equal(resolveStreamSubtitleOffsetMs({ audioDelayMs: -400 }, "en"), -400);
+  // Without the language hint nothing tells us which subtitles come from the
+  // audio source (Android StreamDelayScope.appliesToSubtitle): no offset.
+  assert.equal(resolveStreamSubtitleOffsetMs({ audioDelayMs: -400 }, "en"), 0);
+  assert.equal(resolveStreamSubtitleOffsetMs({ audioDelayMs: -400 }, "it", { embedded: false }), 0);
+  assert.equal(resolveStreamSubtitleOffsetMs(null, "it"), 0);
 });
+
+await check(
+  "effective subtitle delay is user tweak + stream offset, never the device delay",
+  () => {
+    const scoped = { audioDelayMs: 2150, audioDelayLanguage: "es" };
+    // The user's own subtitle delay stays untouched and is simply added to.
+    assert.equal(resolveEffectiveSubtitleDelayMs(300, scoped, "es"), 2450);
+    assert.equal(resolveEffectiveSubtitleDelayMs(-500, scoped, "spa"), 1650);
+    // Out-of-scope language or external subtitles keep the user delay only.
+    assert.equal(resolveEffectiveSubtitleDelayMs(300, scoped, "en"), 300);
+    assert.equal(resolveEffectiveSubtitleDelayMs(300, scoped, "es", { embedded: false }), 300);
+    // No hint at all: identical to the plain user delay.
+    assert.equal(resolveEffectiveSubtitleDelayMs(300, null, "es"), 300);
+    assert.equal(
+      resolveEffectiveSubtitleDelayMs(
+        undefined,
+        { audioDelayMs: 75, audioDelayLanguage: "it" },
+        "it"
+      ),
+      75
+    );
+  }
+);
 
 await check("plugin results keep their behaviorHints alongside request headers", async () => {
   const storage = new Map();

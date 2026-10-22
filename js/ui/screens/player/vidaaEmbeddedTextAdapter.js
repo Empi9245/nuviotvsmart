@@ -43,7 +43,7 @@ export async function applyVidaaEmbeddedTextSubtitleTrack(track, index) {
   this.webOsEmbeddedTextSubtitleTrack = track;
   this.vidaaEmbeddedTextPendingIndex = index;
   const applied = await this.loadWebOsEmbeddedTextSubtitleWindow(
-    Math.max(0, this.getPlaybackCurrentSeconds() - Number(this.subtitleDelayMs || 0) / 1000)
+    Math.max(0, this.getPlaybackCurrentSeconds() - this.getEmbeddedSubtitleDelayMs(track) / 1000)
   );
   if (!isCurrent()) {
     if (

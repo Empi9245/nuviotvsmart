@@ -142,7 +142,10 @@ export function createPlayerScreenMethods44() {
             isCurrent: isCurrentRequest,
             // Established ownership survives prefetch or a failed selection of
             // another track when the adapter restores the previous track.
-            isRendererCurrent: isVidaaProvider ? isCurrentPlayback : null
+            isRendererCurrent: isVidaaProvider ? isCurrentPlayback : null,
+            // Embedded extraction: the track may come from the addon's audio
+            // source, so its delay can include the stream offset (#4027).
+            delayContext: this.getEmbeddedSubtitleDelayContext(track)
           });
           if (!isCurrentRequest()) {
             return false;
@@ -272,7 +275,7 @@ export function createPlayerScreenMethods44() {
             (this.webOsEmbeddedTextSubtitleUsingAss || this.webOsEmbeddedTextSubtitleUsingHtml);
           const transientFailureCount = hasExistingWebOsRenderer ? Number(this.webOsEmbeddedTextSubtitleWindowFailureCount || 0) + 1 : 0;
           const playbackTime = Number(this.getPlaybackCurrentSeconds?.());
-          const subtitleDelaySeconds = Number(this.subtitleDelayMs || 0) / 1000;
+          const subtitleDelaySeconds = this.getEmbeddedSubtitleDelayMs(track) / 1000;
           const currentSubtitleTime = Math.max(
             0,
             (Number.isFinite(playbackTime) ? playbackTime : subtitleTime) -
@@ -340,7 +343,7 @@ export function createPlayerScreenMethods44() {
         return false;
       }
       const currentTime = Number(this.getPlaybackCurrentSeconds() || 0);
-      const subtitleTime = Math.max(0, currentTime - Number(this.subtitleDelayMs || 0) / 1000);
+      const subtitleTime = Math.max(0, currentTime - this.getEmbeddedSubtitleDelayMs(track) / 1000);
       const outsideWindow =
         subtitleTime < this.webOsEmbeddedTextSubtitleWindowStart || subtitleTime >= this.webOsEmbeddedTextSubtitleWindowEnd;
       const approachingWindowEnd =

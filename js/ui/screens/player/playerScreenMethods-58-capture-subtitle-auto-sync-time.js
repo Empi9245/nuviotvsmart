@@ -46,7 +46,7 @@ export function createPlayerScreenMethods58() {
       const newDelayMs = calculateSubtitleAutoSyncDelayMs(capturePositionMs, cueStartTimeMs);
       this.subtitleDelayMs = newDelayMs;
       if (this.isAssAddonSubtitleActive()) {
-        this.assSubtitleRenderer?.setDelay(newDelayMs);
+        this.assSubtitleRenderer?.setDelay(this.getAssSubtitleDelayMs());
       }
       this.persistSubtitleDelayPreference();
       this.applySubtitlePresentationSettings({ refreshTrackRendering: true });

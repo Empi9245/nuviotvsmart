@@ -71,7 +71,7 @@ export function createPlayerScreenMethods57() {
     setSubtitleDelayValue(delayMs, { showOverlay = false } = {}) {
       this.subtitleDelayMs = clamp(Math.trunc(Number(delayMs) || 0), SUBTITLE_DELAY_MIN_MS, SUBTITLE_DELAY_MAX_MS);
       if (this.isAssAddonSubtitleActive()) {
-        this.assSubtitleRenderer?.setDelay(this.subtitleDelayMs);
+        this.assSubtitleRenderer?.setDelay(this.getAssSubtitleDelayMs());
       }
       this.persistSubtitleDelayPreference();
       this.applySubtitlePresentationSettings({ refreshTrackRendering: true });

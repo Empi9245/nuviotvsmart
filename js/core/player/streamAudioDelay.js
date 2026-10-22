@@ -91,30 +91,56 @@ export function readStreamAudioDelayHints(behaviorHints) {
   };
 }
 
-// Delay to apply for the currently selected audio track. Without
-// audioDelayLanguage the stream delay applies to every track (#3781); with it
-// the delay only applies while the selected track matches that language
-// (#4027), so the original audio stays untouched.
-export function resolveStreamAudioDelayMs(hints, selectedAudioLanguage = "") {
+// Delay to apply for the currently selected audio track (Android
+// StreamDelayScope.appliesToAudio). Without audioDelayLanguage the stream delay
+// applies to every track (#3781); with it the delay only applies while the
+// selected track matches that language (#4027), so the original audio stays
+// untouched. While the tracks are still loading the delay is kept, so the
+// default dubbed track starts in sync.
+export function resolveStreamAudioDelayMs(
+  hints,
+  selectedAudioLanguage = "",
+  { hasSelectedAudio = true } = {}
+) {
   const streamDelay = readStreamAudioDelayHints(hints);
   if (!streamDelay || streamDelay.audioDelayMs === 0) return 0;
   if (!streamDelay.audioDelayLanguage) return streamDelay.audioDelayMs;
+  if (!hasSelectedAudio) return streamDelay.audioDelayMs;
   const selected = normalizeAudioDelayLanguage(selectedAudioLanguage);
   return selected === streamDelay.audioDelayLanguage ? streamDelay.audioDelayMs : 0;
 }
 
 // Embedded subtitle tracks coming from the audio source share its timeline, so
-// they receive the same content offset (#4027). Addon/external subtitles are
-// never shifted: pass their origin to reject them.
+// they receive the same content offset (Android
+// StreamDelayScope.appliesToSubtitle). Addon/external subtitles are never
+// shifted: pass their origin to reject them. Without audioDelayLanguage
+// nothing identifies which subtitles come from the audio source, so nothing is
+// shifted.
 export function resolveStreamSubtitleOffsetMs(
   hints,
   subtitleLanguage = "",
   { embedded = true } = {}
 ) {
-  if (!embedded) return 0;
   const streamDelay = readStreamAudioDelayHints(hints);
   if (!streamDelay || streamDelay.audioDelayMs === 0) return 0;
-  if (!streamDelay.audioDelayLanguage) return streamDelay.audioDelayMs;
+  if (!streamDelay.audioDelayLanguage) return 0;
+  if (!embedded) return 0;
   const language = normalizeAudioDelayLanguage(subtitleLanguage);
   return language === streamDelay.audioDelayLanguage ? streamDelay.audioDelayMs : 0;
+}
+
+// Delay the player must apply to one subtitle output: the user's own subtitle
+// delay plus the stream source offset for embedded tracks in the scoped
+// language. The stream part is never persisted (Android keeps it in
+// streamSubtitleDelayUs, apart from the user's subtitleDelayUs).
+export function resolveEffectiveSubtitleDelayMs(
+  userDelayMs,
+  hints,
+  subtitleLanguage = "",
+  { embedded = true } = {}
+) {
+  return (
+    Math.round(Number(userDelayMs) || 0) +
+    resolveStreamSubtitleOffsetMs(hints, subtitleLanguage, { embedded })
+  );
 }

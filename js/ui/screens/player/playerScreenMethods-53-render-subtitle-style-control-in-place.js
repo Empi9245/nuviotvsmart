@@ -97,7 +97,7 @@ export function createPlayerScreenMethods53() {
       if ((controlId === "delay" || controlId === "resetDelay" || controlId === "reset") && this.isAssAddonSubtitleActive()) {
         // ass.js delay is seconds, positive = later; update in place instead
         // of recreating the renderer.
-        this.assSubtitleRenderer?.setDelay(this.subtitleDelayMs);
+        this.assSubtitleRenderer?.setDelay(this.getAssSubtitleDelayMs());
       }
 
       if (controlId === "delay" || controlId === "resetDelay" || controlId === "reset") {
