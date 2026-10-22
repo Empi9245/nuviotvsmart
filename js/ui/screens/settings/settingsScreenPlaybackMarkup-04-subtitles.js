@@ -3,7 +3,6 @@ import * as internals from "./settingsScreenContext.js";
 
 export function renderPlaybackSubtitleBody(model) {
   const {
-    Platform,
     SUBTITLE_VERTICAL_OFFSET_DEFAULT,
     labelForOptionId,
     SUBTITLE_SIZE_OPTIONS,
@@ -91,7 +90,7 @@ export function renderPlaybackSubtitleBody(model) {
                 `${clampSubtitleTextOpacity(model.player.subtitleStyle?.textOpacity)}%`
               )
             })}
-            ${this.renderActionRow({ focusKey: "playback:subtitleBackgroundColor", title: t("sub_bg_color", {}, "Subtitle background color"), subtitle: t("sub_bg_color", {}, "Background behind subtitle text"), value: labelForOptionId(SUBTITLE_BACKGROUND_COLOR_OPTIONS, Platform.isVidaa() ? "#00000000" : String(model.player.subtitleStyle?.backgroundColor || "#00000000").toUpperCase(), "Off"), disabled: Platform.isVidaa() })}
+            ${this.renderActionRow({ focusKey: "playback:subtitleBackgroundColor", title: t("sub_bg_color", {}, "Subtitle background color"), subtitle: t("sub_bg_color", {}, "Background behind subtitle text"), value: labelForOptionId(SUBTITLE_BACKGROUND_COLOR_OPTIONS, String(model.player.subtitleStyle?.backgroundColor || "#00000000").toUpperCase(), "Off") })}
             ${this.renderToggleRow({
               focusKey: "playback:subtitleOutline",
               title: t("settings.playback.subtitleOutline.title", {}, "Subtitle outline"),

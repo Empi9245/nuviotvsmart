@@ -296,9 +296,9 @@ export function createPlayerScreenMethods24() {
         : "";
       const subtitleFontSize = normalizeSubtitleFontSize(style.fontSize);
       const htmlSubtitleFontSize = formatHtmlSubtitleFontSize(subtitleFontSize);
-      // Use transparent caption surfaces on VIDAA, including saved shaded
-      // backgrounds from an older build.
-      const subtitleBackgroundCss = Environment.isVidaa() ? "transparent" : subtitleBackgroundToCss(style.backgroundColor);
+      // subtitleBackgroundToCss hands rgba() to firmware that drops 8-digit
+      // hex; the background setting applies on every platform like upstream.
+      const subtitleBackgroundCss = subtitleBackgroundToCss(style.backgroundColor);
       PlayerController.setWebOsSubtitleFontSize?.(subtitleFontSize);
       if (Environment.isTizen() && PlayerController.isUsingAvPlay?.()) {
         PlayerController.setAvPlayExternalSubtitleDelay?.(this.subtitleDelayMs);

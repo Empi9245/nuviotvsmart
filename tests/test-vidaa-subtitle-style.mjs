@@ -53,17 +53,28 @@ const ui = {
 };
 
 const backgroundControl = ui.getSubtitleStyleControls().find(({ id }) => id === "backgroundColor");
-assert.equal(backgroundControl.disabled, true);
-assert.equal(backgroundControl.value, "Off");
-assert.equal(ui.adjustSubtitleStyleControl("backgroundColor", 1), false);
+assert.equal(
+  Boolean(backgroundControl.disabled),
+  false,
+  "VIDAA exposes the background control like the original"
+);
+assert.equal(backgroundControl.value, "Gray");
+assert.equal(ui.adjustSubtitleStyleControl("backgroundColor", 1), true);
 assert.equal(
   counts.persisted,
-  0,
-  "Disabled background adjustments do not save an unavailable appearance"
+  1,
+  "Background adjustments persist like any other appearance choice"
 );
 ui.applySubtitlePresentationSettings({ refreshCueStyles: false });
-assert.equal(root.style.getPropertyValue("--player-subtitle-background"), "transparent");
-assert.equal(video.style.getPropertyValue("--player-subtitle-background"), "transparent");
+assert.equal(
+  root.style.getPropertyValue("--player-subtitle-background"),
+  "rgba(255, 255, 255, 0.4)",
+  "Saved backgrounds render through CSS rgba for old firmware"
+);
+assert.equal(
+  video.style.getPropertyValue("--player-subtitle-background"),
+  "rgba(255, 255, 255, 0.4)"
+);
 assert.equal(counts.cues, 0, "Gray background must not rescan native subtitle cues");
 assert.equal(
   counts.trackRefresh,
@@ -109,21 +120,16 @@ for (const platform of ["vidaa", "tizen", "webos"]) {
   };
   renderPlaybackSubtitleBody.call(settings, model);
   const row = rows.find(({ focusKey }) => focusKey === "playback:subtitleBackgroundColor");
-  assert.equal(row.disabled, platform === "vidaa");
-  if (platform === "vidaa")
-    assert.equal(
-      row.value,
-      "Off",
-      "Saved gray backgrounds must not appear enabled in VIDAA settings"
-    );
+  assert.equal(Boolean(row.disabled), false, "The background picker stays available on every TV");
+  assert.equal(
+    row.value,
+    "Light gray 50% (Apple TV)",
+    "Saved backgrounds show their real value on every platform"
+  );
   registerPlaybackActionsPart02.call(settings, model);
   settings.actionMap.get("playback:subtitleBackgroundColor")();
-  assert.equal(
-    dialogs,
-    platform === "vidaa" ? 0 : 1,
-    "VIDAA blocks the background action; other TVs keep the picker"
-  );
+  assert.equal(dialogs, 1, "Every platform keeps the background picker");
 }
 console.log(
-  "PASS VIDAA captions/UI stay transparent and appearance/delay/offset never cycle native modes; Tizen background/refresh remain active"
+  "PASS subtitle background applies on every platform while VIDAA appearance edits stay CSS-only and never cycle native modes"
 );

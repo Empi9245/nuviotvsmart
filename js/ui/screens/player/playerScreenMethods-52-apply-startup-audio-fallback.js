@@ -522,12 +522,11 @@ export function createPlayerScreenMethods52() {
         },
         { id: "reset", label: t("subtitle_style_defaults", {}, "Reset Defaults"), value: "" }
       ].map((item) => {
-        const vidaaTransparentBackground = Environment.isVidaa() && item.id === "backgroundColor";
-        const disabled = vidaaTransparentBackground || availability[item.id] === false;
+        const disabled = availability[item.id] === false;
         return {
           ...item,
           disabled,
-          value: vidaaTransparentBackground ? subtitleBackgroundColorLabel("#00000000") : disabled ? unavailableValue : item.value
+          value: disabled ? unavailableValue : item.value
         };
       });
     },

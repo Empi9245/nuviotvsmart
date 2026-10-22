@@ -4,7 +4,6 @@ import * as internals from "./settingsScreenContext.js";
 export function registerPlaybackActionsPart02(model) {
   const {
     PlayerSettingsStore,
-    Platform,
     SUBTITLE_VERTICAL_OFFSET_DEFAULT,
     TorrentSettingsStore,
     TizenCapabilities,
@@ -179,7 +178,6 @@ export function registerPlaybackActionsPart02(model) {
     });
   });
   this.actionMap.set("playback:subtitleBackgroundColor", () => {
-    if (Platform.isVidaa()) return;
     this.openOptionDialog({
       title: t("sub_bg_color", {}, "Subtitle background color"),
       options: SUBTITLE_BACKGROUND_COLOR_OPTIONS,
