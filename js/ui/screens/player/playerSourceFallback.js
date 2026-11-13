@@ -123,10 +123,33 @@ export function createPlayerSourceFallbackMethods() {
       this.markPlaybackSourceFailed(failedUrl, candidate);
       if (candidate?.url && candidate.url !== failedUrl)
         this.failedPlaybackUrls.add(String(candidate.url).trim());
-      const candidates = this.streamCandidates;
+      // Advance strictly one position past the failed source in the SAME order
+      // the sources panel shows (getOrderedStreamCandidates). Walking the raw
+      // streamCandidates array would follow chunk arrival order after a source
+      // reload, landing on a source that is not the one right after the
+      // selected card. Already-failed entries keep being skipped so a cascade
+      // continues in list order, wrapping only at the end of the list.
+      const candidates =
+        typeof this.getOrderedStreamCandidates === "function"
+          ? this.getOrderedStreamCandidates()
+          : this.streamCandidates;
+      const findCandidateIndex = (entry) =>
+        candidates.findIndex((item) => item === entry || (entry?.id && item?.id === entry.id));
+      let anchorIndex = -1;
+      for (const entry of [candidate, current, this.streamCandidates[this.currentStreamIndex]]) {
+        if (!entry) continue;
+        anchorIndex = findCandidateIndex(entry);
+        if (anchorIndex >= 0) break;
+      }
+      if (anchorIndex < 0) {
+        anchorIndex = Math.max(
+          0,
+          Math.min(Number(this.currentStreamIndex || 0), Math.max(0, candidates.length - 1))
+        );
+      }
       let nextIndex = -1;
       for (let offset = 1; offset < candidates.length; offset++) {
-        const index = (this.currentStreamIndex + offset) % candidates.length;
+        const index = (anchorIndex + offset) % candidates.length;
         const entry = candidates[index];
         if (!entry || (entry.id && this.failedPlaybackStreamIds?.has(String(entry.id).trim())))
           continue;
@@ -174,7 +197,7 @@ export function createPlayerSourceFallbackMethods() {
       this.renderEpisodePanel();
       const token = this.sourcePlaybackAttemptToken;
       const mountToken = this.playerMountToken;
-      const next = this.streamCandidates[nextIndex];
+      const next = candidates[nextIndex];
       if (searchMissingCandidates) this.sourceFallbackLoadAttempted = true;
       this.clearPlaybackStallGuard();
       if (this.engineFsStartupRetryTimer) clearTimeout(this.engineFsStartupRetryTimer);
@@ -242,7 +265,10 @@ export function createPlayerSourceFallbackMethods() {
           }
           return;
         }
-        this.currentStreamIndex = nextIndex;
+        const rawNextIndex = this.streamCandidates.findIndex(
+          (entry) => entry === next || (next?.id && entry?.id === next.id)
+        );
+        if (rawNextIndex >= 0) this.currentStreamIndex = rawNextIndex;
         try {
           await this.playStreamCandidate(next, {
             automaticSourceFallback: true,

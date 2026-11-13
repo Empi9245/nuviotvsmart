@@ -36,6 +36,15 @@ export function normalizeTmdbBackdropUrl(value) {
   );
 }
 
+/**
+ * Grid tiles (catalog, discover, folders, search) render posters at the same
+ * scale as Home cards. On VIDAA they must download the same small rendition as
+ * Android's poster size (w342) instead of full-size artwork into a ~250px tile.
+ */
+export function limitTmdbPosterTileUrl(value) {
+  return limitTmdbImageWidth(normalizeTmdbPosterUrl(value), 342);
+}
+
 export function normalizeTmdbPosterUrl(value) {
   const normalized = String(value || "").trim();
   if (!normalized || !TMDB_IMAGE_HOST_PATTERN.test(normalized)) {

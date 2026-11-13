@@ -1,4 +1,5 @@
 import { customPosterForItem, posterFallbackAttributes } from "../../../core/poster/customPoster.js";
+import { limitTmdbPosterTileUrl } from "../../../core/tmdb/tmdbImageUrl.js";
 /* eslint-disable no-unused-vars */
 import * as internals from "./catalogSeeAllScreen.js";
 import { Platform } from "../../../platform/index.js";
@@ -253,7 +254,7 @@ export function createCatalogSeeAllScreenMethods02() {
                 <div class="seeall-card-poster-wrap">
                   ${
                     item.poster
-                      ? `<img class="seeall-card-poster-image"${posterFallbackAttributes(item)} ${Platform.isVidaa() ? "data-src" : "src"}="${escapeHtml(item.poster)}" alt="${escapeHtml(item.name || "content")}" loading="lazy" decoding="async" />`
+                      ? `<img class="seeall-card-poster-image"${posterFallbackAttributes(item)} ${Platform.isVidaa() ? "data-src" : "src"}="${escapeHtml(Platform.isVidaa() ? limitTmdbPosterTileUrl(item.poster) : item.poster)}" alt="${escapeHtml(item.name || "content")}" loading="lazy" decoding="async" />`
                       : `<div class="seeall-card-poster placeholder"></div>`
                   }
                   ${isTitleItemWatched(item, this.watchedTitleIds) ? renderTitleWatchedBadge() : ""}

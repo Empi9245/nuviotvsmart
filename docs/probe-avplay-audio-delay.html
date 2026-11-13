@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <title>Probe AVPlay audio delay</title>
+    <style>
+      body {
+        background: #111;
+        color: #eee;
+        font-family: monospace;
+        font-size: 22px;
+        padding: 24px;
+      }
+      h1 {
+        font-size: 28px;
+      }
+      .ok {
+        color: #6f6;
+      }
+      .ko {
+        color: #f66;
+      }
+      .warn {
+        color: #fc6;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Probe AVPlay audio delay</h1>
+    <p id="status">Avvio…</p>
+    <pre id="out"></pre>
+    <object
+      id="avPlayerObject"
+      class="tizen-avplay-object"
+      type="application/avplayer"
+      width="1"
+      height="1"
+    ></object>
+    <script>
+      (function () {
+        var out = document.getElementById("out");
+        var status = document.getElementById("status");
+        var lines = [];
+
+        function log(cls, text) {
+          lines.push('<span class="' + cls + '">' + text.replace(/</g, "&lt;") + "</span>");
+          out.innerHTML = lines.join("\n");
+        }
+
+        function probe(name, fn) {
+          try {
+            var result = fn();
+            log("ok", "[OK]   " + name + (result === undefined ? "" : " -> " + result));
+          } catch (e) {
+            log(
+              "ko",
+              "[ERR]  " + name + " -> " + (e && e.name ? e.name + ": " + e.message : String(e))
+            );
+          }
+        }
+
+        function keysOf(obj) {
+          var keys = [];
+          for (var k in obj) {
+            try {
+              keys.push(k + ":" + typeof obj[k]);
+            } catch (e) {
+              keys.push(k + ":<blocked>");
+            }
+          }
+          return keys;
+        }
+
+        // 1) Trova l'oggetto player: Tizen webapis.avplay oppure <object type="application/avplayer">.
+        var av = null;
+        if (typeof webapis !== "undefined" && webapis.avplay) {
+          av = webapis.avplay;
+          log("ok", "Trovato webapis.avplay");
+        } else {
+          var el = document.getElementById("avPlayerObject");
+          if (el) {
+            av = el;
+            log("ok", "Trovato <object id=avPlayerObject type=application/avplayer>");
+          }
+        }
+        if (!av) {
+          log("ko", "Nessun oggetto avplay disponibile su questa piattaforma.");
+          status.textContent = "Finito: avplay assente.";
+          return;
+        }
+
+        // 2) Enumerazione membri (i plugin NPAPI/NPRuntime a volte la consentono).
+        var members = keysOf(av);
+        log(
+          members.length ? "ok" : "warn",
+          "Membri enumerabili (" + members.length + "): " + members.join(", ")
+        );
+
+        // 3) Test candidati audio delay. Valori 0/null: nessun effetto collaterale atteso.
+        // Semantica attesa (come DirectFB SetAudioDelay e mpv/ExoPlayer):
+        // microsecondi o millisecondi, < 0 = audio prima, > 0 = audio dopo.
+        probe("av.setAudioDelay(0)", function () {
+          return av.setAudioDelay(0);
+        });
+        probe("av.SetAudioDelay(0)", function () {
+          return av.SetAudioDelay(0);
+        });
+        probe("av.setAudioDelayMs(0)", function () {
+          return av.setAudioDelayMs(0);
+        });
+        probe("av.setStreamingProperty('AUDIO_DELAY','0')", function () {
+          return av.setStreamingProperty("AUDIO_DELAY", "0");
+        });
+        probe("av.setStreamingProperty('AUD_DELAY','0')", function () {
+          return av.setStreamingProperty("AUD_DELAY", "0");
+        });
+        probe("av.setStreamingProperty('AV_SYNC','0')", function () {
+          return av.setStreamingProperty("AV_SYNC", "0");
+        });
+        probe("av.setStreamingProperty('ADAPTIVE_INFO','') [solo sintassi]", function () {
+          return av.setStreamingProperty("ADAPTIVE_INFO", "");
+        });
+
+        // 4) Info di contorno utili al debug.
+        probe("av.getState()", function () {
+          return av.getState();
+        });
+        probe("Object.keys(av).length", function () {
+          return Object.keys ? Object.keys(av).length : "n/d";
+        });
+
+        status.textContent = "Finito. Copia/screenshot dell'output qui sotto.";
+      })();
+    </script>
+  </body>
+</html>

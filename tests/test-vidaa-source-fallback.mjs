@@ -424,6 +424,48 @@ test("fatal candidates wrap from the selected source and exhaust once without lo
   assert.equal(terminals.length, 1);
 });
 
+test("fallback follows the visible source list order, not chunk arrival order", async () => {
+  const a = candidate("a");
+  const b = candidate("b");
+  const c = candidate("c");
+  // Raw array (chunk arrival order) differs from the panel order: the raw
+  // neighbor of b is a, while the panel shows c right after b.
+  const { ui, calls } = screen({ sources: [b, a, c], index: 0 });
+  ui.getOrderedStreamCandidates = () => [a, b, c];
+  ui.showStartupError("Fixture failure", { streamCandidate: b });
+  await drain();
+  assert.deepEqual(
+    calls.map((call) => call.id),
+    ["c"],
+    "The source after the selected one in the panel order plays next"
+  );
+});
+
+test("the failure cascade walks the list one step at a time and never re-runs the source policy", async () => {
+  const { ui, calls } = screen({
+    sources: [candidate("a"), candidate("b"), candidate("c"), candidate("d")],
+    index: 0,
+    failIds: ["b"]
+  });
+  // The settings policy (default/first-stream/regex) may only pick the FIRST
+  // source. Once playback fails the fallback must simply take the next list
+  // entry — second after the first, third after the second — without ever
+  // asking the selector again.
+  ui.selectBestStreamCandidate = () => {
+    throw new Error("the fallback must not re-run best-candidate selection");
+  };
+  ui.selectNextEpisodeStreamByAutoPlayPolicy = () => {
+    throw new Error("the fallback must not re-run the autoplay source policy");
+  };
+  ui.showStartupError("Fixture first failure", { streamCandidate: ui.getCurrentStreamCandidate() });
+  await drain();
+  assert.deepEqual(
+    calls.map((call) => call.id),
+    ["b", "c"],
+    "First fails -> second plays; second fails -> third plays"
+  );
+});
+
 test("simultaneous errors schedule only one switch and obsolete candidate errors are ignored", async () => {
   const { ui, calls, stops, terminals } = screen();
   const failed = ui.getCurrentStreamCandidate();

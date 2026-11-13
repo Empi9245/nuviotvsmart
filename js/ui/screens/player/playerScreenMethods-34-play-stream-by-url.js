@@ -36,6 +36,7 @@ export function createPlayerScreenMethods34() {
       this.initialEmbeddedTrackBootstrapPromise = null;
       this.embeddedTrackRequestPromise = null;
       this.embeddedTrackRequestUrl = "";
+      this.teardownStreamAudioDelayEngine();
       this.clearStartupAudioPreferenceRetry();
       this.pendingWebOsAudioSelection = null;
       this.failedAutomaticAudioFallbackEntryId = "";

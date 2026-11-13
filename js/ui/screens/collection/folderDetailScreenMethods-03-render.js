@@ -1,4 +1,5 @@
 import { customPosterForItem, posterFallbackAttributes } from "../../../core/poster/customPoster.js";
+import { limitTmdbPosterTileUrl } from "../../../core/tmdb/tmdbImageUrl.js";
 /* eslint-disable no-unused-vars */
 import * as internals from "./folderDetailScreen.js";
 
@@ -59,7 +60,7 @@ export function createFolderDetailScreenMethods03() {
                 <div class="seeall-card-poster-wrap">
                   ${
                     item.poster
-                      ? `<img class="seeall-card-poster-image" ${posterFallbackAttributes(item)} src="${escapeHtml(item.poster)}" alt="${escapeHtml(item.name || "content")}" loading="${folderPosterLoadingMode()}" decoding="async" />`
+                      ? `<img class="seeall-card-poster-image" ${posterFallbackAttributes(item)} src="${escapeHtml(limitTmdbPosterTileUrl(item.poster))}" alt="${escapeHtml(item.name || "content")}" loading="${folderPosterLoadingMode()}" decoding="async" />`
                       : `<div class="seeall-card-poster placeholder"></div>`
                   }
                   ${isTitleItemWatched(item, this.watchedTitleIds) ? renderTitleWatchedBadge() : ""}
@@ -105,7 +106,7 @@ export function createFolderDetailScreenMethods03() {
               <div class="seeall-card-poster-wrap">
                 ${
                   item.poster
-                    ? `<img class="seeall-card-poster-image" ${posterFallbackAttributes(item)} src="${escapeHtml(item.poster)}" alt="${escapeHtml(item.name || "content")}" loading="${folderPosterLoadingMode()}" decoding="async" />`
+                    ? `<img class="seeall-card-poster-image" ${posterFallbackAttributes(item)} src="${escapeHtml(limitTmdbPosterTileUrl(item.poster))}" alt="${escapeHtml(item.name || "content")}" loading="${folderPosterLoadingMode()}" decoding="async" />`
                     : `<div class="seeall-card-poster placeholder"></div>`
                 }
                 ${isTitleItemWatched(item, this.watchedTitleIds) ? renderTitleWatchedBadge() : ""}

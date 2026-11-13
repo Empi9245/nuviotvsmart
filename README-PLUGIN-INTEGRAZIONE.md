@@ -67,13 +67,13 @@ raggiunge davvero il provider (prima il browser lo eliminava).
 
 ### Stato del porting (22/10/2026)
 
-| Parte                                                                                                                                                                     | Stato                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Contratto (`js/core/player/streamAudioDelay.js`: normalizzazione lingue, clamp ±60s, scope per traccia, semantica esatta di `StreamDelayScope`/`AudioDelayParts` Android) | ✅ + 6 test nella suite                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Plumbing: `resultToStream` preserva i `behaviorHints` del provider (prima li droppava)                                                                                    | ✅ testato                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Plumbing: cache `streamLinkReuse` conserva `audioDelayMs`/`audioDelayLanguage`                                                                                            | ✅                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Applicazione sottotitoli (offset embedded per lingua, PR #4027)                                                                                                           | ✅ completata 22/10: tutti i punti di applicazione uniformati (cue nativi, ASS init + re-apply, finestre embedded webOS/VIDAA, bitmap, overlay HTML, adapter VIDAA) via `playerScreenMethods-74-stream-subtitle-delay.js`; addon/esterni e AVPlay external restano solo-ritardo-utente, offset mai persistito — 6 check di wiring + contratto Android nella suite                                                                           |
-| Applicazione ritardo audio                                                                                                                                                | ⚠️ **blocco di piattaforma**: Tizen AVPlay e webOS NON hanno API di ritardo audio (verificato sulle doc ufficiali); il Web Audio DelayNode silenzia gli stream cross-origin su TV (è il motivo per cui `supportsTvWebAudioAmplification()` è disattivato su Tizen/webOS/VIDAA). L'unica via è un **engine dual-element** (audio ITA su `<audio>` separato con clock-sync, entrambi i segni possibili) — da progettare come passo successivo |
+| Parte                                                                                                                                                                     | Stato                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contratto (`js/core/player/streamAudioDelay.js`: normalizzazione lingue, clamp ±60s, scope per traccia, semantica esatta di `StreamDelayScope`/`AudioDelayParts` Android) | ✅ + 6 test nella suite                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Plumbing: `resultToStream` preserva i `behaviorHints` del provider (prima li droppava)                                                                                    | ✅ testato                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Plumbing: cache `streamLinkReuse` conserva `audioDelayMs`/`audioDelayLanguage`                                                                                            | ✅                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Applicazione sottotitoli (offset embedded per lingua, PR #4027)                                                                                                           | ✅ completata 22/10: tutti i punti di applicazione uniformati (cue nativi, ASS init + re-apply, finestre embedded webOS/VIDAA, bitmap, overlay HTML, adapter VIDAA) via `playerScreenMethods-74-stream-subtitle-delay.js`; addon/esterni e AVPlay external restano solo-ritardo-utente, offset mai persistito — 6 check di wiring + contratto Android nella suite                                                                                                                                                                                                                                                                                                                             |
+| Applicazione ritardo audio                                                                                                                                                | ✅ completata 22/10: **engine dual-element** (`js/core/player/streamAudioDelayEngine.js` + `playerScreenMethods-75-apply-stream-audio-delay.js`) — la traccia scoped su `<audio>` separato con clock-sync (hard resync >0,5 s, rate-nudge ±2% sotto soglia, entrambi i segni), video muto durante l'esecuzione; si attiva solo a delay ≠ 0 con sorgente audio risolvibile (rendition hls.js o URL diretto), altrimenti degrada a riproduzione piatta. 8 unit + 9 wiring check nella suite. Le piattaforme NON hanno API di ritardo audio (vedi probe sotto) e il Web Audio DelayNode silenzia gli stream cross-origin su TV: il dual-element è l'unica via, esattamente come in progettazione |
 
 Verifica browser 22/10 (The Office S1E2): gli stream DualSync/MovyITA arrivano
 con `⏱️ Ritardo audio +0,075 s` (hint presenti e ora preservati dal mapping);
@@ -100,6 +100,31 @@ solo `subtitleDelayMs`). Allineamento esatto ad Android (diff PR #4027):
 - test: `tests/test-vidaa-stream-subtitle-offset-wiring.mjs` (6 check di wiring)
   - contratto Android in `test-vidaa-plugin-stream-audio-delay.mjs`.
 
+### Ritardo audio applicato: engine dual-element (22/10/2026)
+
+Il delay di sorgente non è spostabile dentro il `<video>` (audio muxed, nessuna
+API piattaforma), quindi la traccia scoped viene riprodotta da un secondo
+`<audio>` su un timeline differita, con lo stesso clock del video:
+
+- `target = video.currentTime − audioDelayMs/1000` (positivo = audio più
+  TARDIVO, convenzione mpv/ExoPlayer del contratto; negativo = anticipato);
+- pre-roll: finché `target < 0` l'elemento audio resta in pausa (il contenuto
+  scoped non è ancora iniziato);
+- drift > 0,5 s → hard seek; drift 0,075–0,5 s → playbackRate ±2% (clamped
+  0,8–1,2); sotto soglia → rate 1;
+- `play`/`pause`/`seeking`/`seeked` del video forzano un resync immediato
+  (l'intervallo 500 ms assorbe solo il drift dei clock);
+- durante l'esecuzione il video è muted (altrimenti doppia timeline), e lo
+  stato di mute precedente viene ripristinato al teardown;
+- attivazione opportunistica: delay effettivo ≠ 0 **e** sorgente audio
+  risolvibile (rendition hls.js `audioTracks[].url` o URL diretto sulla traccia);
+  con AVPlay o sorgenti non risolte si degrada a riproduzione piatta senza delay.
+- wiring: `bindStreamAudioDelayEngineLifecycle` al mount, `syncStreamAudioDelayEngine`
+  ad ogni cambio traccia (`applyAudioTrack`), teardown in `resetSourceTrackState`;
+  il delay di sorgente non viene mai persistito.
+- test: `tests/test-vidaa-stream-audio-delay-engine.mjs` (8 unit, entrambi i
+  segni) + `tests/test-vidaa-stream-audio-delay-wiring.mjs` (9 check di wiring).
+
 ## Note tecniche trovate
 
 - Login: il gate QR si salta con `localStorage.setItem('skipAuthQrGate','1')`.
@@ -107,3 +132,21 @@ solo `subtitleDelayMs`). Allineamento esatto ad Android (diff PR #4027):
 - Il `serve:vidaa` avvia anche l'EngineFS companion (porte 2710/3710) — è il
   motore P2P/torrent locale (Nuvio Engine) utile per i test futuri del resolver P2P.
 - Il plugin runtime è nel build standard (`dist/assets/runtime/plugin-worker.js`).
+
+### Ritardo audio: probe runtime su TV reale (22/10/2026) — NESSUNA API esposta
+
+Probe `probe-avplay-audio-delay.html` eseguita nel runtime tile su Hisense 50E70LEVS
+(VIDAA 9.0, webview Chromium 111 / Odin 111.5563.5.1), beacon ricevuto dal server 8765:
+
+- `webapis.avplay` **assente**;
+- `<object type="application/avplayer">` presente ma **inerte** (membri = sole proprietà
+  DOM standard, `Object.keys()` = 0: nessun plugin istanziato);
+- `setAudioDelay` / `SetAudioDelay` / `setAudioDelayMs` / `setStreamingProperty(...)` /
+  `getState` → tutti `TypeError: not a function`.
+
+Verdetto: la piattaforma nativa espone il ritardo audio (DirectFB `SetAudioDelay` in µs,
+stessa semantica di mpv; MTK `hw_av_sync` nell'HAL — vedi sorgente OSS), ma il runtime
+web **non lo passa alle app**. L'applicazione del delay alla traccia audio resta quindi
+non realizzabile via API: la via praticabile è l'engine dual-element (`<audio>` separato
+con clock-sync) oppure il solo offset sottotitoli (già implementato).
+Evidenza: `evidence/round18/results.jsonl` (run `avd-*`, sec=res), 22/10/2026.

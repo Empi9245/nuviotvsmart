@@ -355,6 +355,7 @@ export function createPlayerScreenMethods61() {
       this.invalidateTrackDialogCaches();
       this.renderControlButtons();
       this.renderAudioDialog();
+      this.syncStreamAudioDelayEngine();
       return true;
     },
     renderAudioDialog() {

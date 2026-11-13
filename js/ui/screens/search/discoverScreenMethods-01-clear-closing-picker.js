@@ -1,4 +1,5 @@
 import { customPosterForItem, posterFallbackAttributes } from "../../../core/poster/customPoster.js";
+import { limitTmdbPosterTileUrl } from "../../../core/tmdb/tmdbImageUrl.js";
 /* eslint-disable no-unused-vars */
 import * as internals from "./discoverScreen.js";
 import { isVidaaNavigationBusy } from "../../navigation/vidaaNavigationActivity.js";
@@ -372,7 +373,7 @@ export function createDiscoverScreenMethods01() {
                      <div class="seeall-card-poster-wrap">
                        ${
                          item.poster
-                           ? `<img class="seeall-card-poster-image" ${posterFallbackAttributes(item)} data-src="${escapeHtml(item.poster)}" alt="${escapeHtml(item.name || "content")}" loading="lazy" decoding="async" />`
+                           ? `<img class="seeall-card-poster-image" ${posterFallbackAttributes(item)} data-src="${escapeHtml(limitTmdbPosterTileUrl(item.poster))}" alt="${escapeHtml(item.name || "content")}" loading="lazy" decoding="async" />`
                            : `<div class="seeall-card-poster placeholder"></div>`
                        }
                        ${isTitleItemWatched(item, this.watchedTitleIds) ? renderTitleWatchedBadge() : ""}
