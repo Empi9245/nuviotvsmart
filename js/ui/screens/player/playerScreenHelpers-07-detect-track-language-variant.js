@@ -238,7 +238,12 @@ export function detectTrackLanguageVariant(track = {}, language = getTrackLangua
   if (!normalizedLanguage) {
     return "";
   }
-  if (normalizedLanguage === "pt-br" || normalizedLanguage === "es-419") {
+  if (
+    normalizedLanguage === "pt-br" ||
+    normalizedLanguage === "es-419" ||
+    normalizedLanguage === "zh-ca" ||
+    normalizedLanguage === "sr-me"
+  ) {
     return normalizedLanguage;
   }
   const baseLanguage = normalizedLanguage.split("-")[0];
@@ -309,6 +314,23 @@ export function formatAudioChannelLayout(value) {
   return `${channels}ch`;
 }
 
+function formatAudioChannelCount(value) {
+  const text = cleanDisplayText(value);
+  if (!text) {
+    return "";
+  }
+  const numericValue = Number(text);
+  if (Number.isInteger(numericValue) && numericValue > 0) {
+    return `${numericValue} ch`;
+  }
+  if (text === "Mono") return "1 ch";
+  if (text === "Stereo") return "2 ch";
+  if (text === "5.1") return "6 ch";
+  if (text === "7.1") return "8 ch";
+  const numericMatch = text.match(/^(\d{1,2})(?:\s*ch)?$/i);
+  return numericMatch ? `${Number(numericMatch[1])} ch` : text;
+}
+
 export function formatAudioTrackDisplay(track = {}, index = 0) {
   const rawLabel = getMeaningfulTrackLabel(track);
   const rawLanguage = cleanDisplayText(getUsableAudioTrackLanguageValue(track));
@@ -331,8 +353,16 @@ export function formatAudioTrackDisplay(track = {}, index = 0) {
     pushUniqueText(secondaryParts, `${Math.round(sampleRate / 1000)} kHz`);
   }
   const secondary = secondaryParts.join(" | ");
+  // Android's audio card keeps the language on its own line and the codec,
+  // channel count and sample rate together on the metadata line.
+  const metadataParts = [];
+  pushUniqueText(metadataParts, codecName);
+  pushUniqueText(metadataParts, formatAudioChannelCount(track?.channelCount || track?.channels));
+  if (Number.isFinite(sampleRate) && sampleRate > 0) {
+    pushUniqueText(metadataParts, `${Math.round(sampleRate / 1000)} kHz`);
+  }
 
-  return { label, secondary };
+  return { label, secondary, languageText: languageLabel, metadata: metadataParts.join(" | ") };
 }
 
 export function formatTime(secondsValue) {
@@ -351,7 +381,8 @@ export function formatClock(date = new Date(), webOsLocaleInfo = null) {
   const hour12 = resolveSystemHour12({
     tizenApi: typeof tizen !== "undefined" ? tizen : null,
     webOsLocaleInfo,
-    intlApi: typeof Intl !== "undefined" ? Intl : null
+    intlApi: typeof Intl !== "undefined" ? Intl : null,
+    locale
   });
   const localeKey = `${String(locale || "__default__")}:${String(hour12)}`;
   const options = buildClockFormatOptions(hour12);

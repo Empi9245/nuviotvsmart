@@ -1,3 +1,4 @@
+import { canResolveMediaServerStream } from "../../../data/mediaserver/mediaServerRepository.js";
 import { syncHtmlSubtitleClearance } from "./subtitleOverlayClearance.js";
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
@@ -128,10 +129,12 @@ export function createPlayerScreenMethods09() {
         if (this.isExternalFrameMode()) {
           return;
         }
-        if (!PlayerSettingsStore.get().skipIntroEnabled) {
+        // Most titles have no intervals; check that before the settings read so
+        // this 250 ms timer does not parse storage four times a second for nothing.
+        if (!Array.isArray(this.skipIntervals) || !this.skipIntervals.length) {
           return;
         }
-        if (!Array.isArray(this.skipIntervals) || !this.skipIntervals.length) {
+        if (!PlayerSettingsStore.get().skipIntroEnabled) {
           return;
         }
         this.updateActiveSkipInterval(this.getPlaybackCurrentSeconds());
@@ -250,7 +253,8 @@ export function createPlayerScreenMethods09() {
             subtitles: Array.isArray(stream.subtitles) ? stream.subtitles : [],
             raw: stream
           };
-          return DirectDebridResolver.shouldListStream(entry) ||
+          return canResolveMediaServerStream(entry) ||
+            DirectDebridResolver.shouldListStream(entry) ||
             WebOsEngineFsResolver.canResolveStream(entry) ||
             TizenStreamingServerResolver.canResolveStream(entry)
             ? entry

@@ -4,7 +4,9 @@ import * as internals from "./playerScreenContext.js";
 export function createPlayerScreenMethods11() {
   const {
     PlayerController,
+    TrackingScrobbleService,
     Environment,
+    localMediaTracksRepository,
     warmBitmapSubtitleDecoder,
     SUBTITLE_LANGUAGE_UNKNOWN_KEY,
     subtitleLabel,
@@ -13,7 +15,7 @@ export function createPlayerScreenMethods11() {
     isEmbeddedTextSubtitleSourceTrack,
     isUnsupportedEmbeddedSubtitleTrack,
     getEmbeddedBitmapSubtitleFormat,
-    canUseWebOsBitmapSubtitles,
+    canUseEmbeddedBitmapSubtitles,
     normalizeTrackLanguageCode,
     getTrackLanguageValue,
     getMeaningfulTrackLabel,
@@ -55,6 +57,8 @@ export function createPlayerScreenMethods11() {
     bindPlayerExitCleanup() {
       this.unbindPlayerExitCleanup();
       this.playerExitCleanupHandler = () => {
+        if (this.hasPresentedPlaybackFrame && !this.postPlayNaturalCompletionPrepared && TrackingScrobbleService.isEnabled())
+          TrackingScrobbleService.stop(this.buildScrobbleContext());
         void PlayerController.flushCurrentProgress({ forceCloudSync: true });
         this.sendEngineFsRemoveOnPageExit();
         this.releaseCurrentEngineFsStreamBestEffort("player-exit", { removeTorrent: true });
@@ -134,7 +138,9 @@ export function createPlayerScreenMethods11() {
     canDiscoverEmbeddedSubtitleTracks() {
       const usingNativePlayback =
         typeof PlayerController.isUsingNativePlayback === "function" ? PlayerController.isUsingNativePlayback() : false;
-      if (!usingNativePlayback) {
+      // VIDAA probes the container with bounded Range reads from the same
+      // HTML video path; it does not expose a native playback engine here.
+      if (!usingNativePlayback && !Environment.isTizen() && !Environment.isVidaa()) {
         return false;
       }
 
@@ -143,13 +149,14 @@ export function createPlayerScreenMethods11() {
         return false;
       }
 
-      if (Environment.isWebOS()) {
-        return true;
+      if (Environment.isTizen()) {
+        // AVPlay is the native engine on Tizen, but its name is "tizen-avplay"
+        // rather than "native-*". These tracks only label AVPlay's own list.
+        return Boolean(typeof PlayerController.isUsingAvPlay === "function" && PlayerController.isUsingAvPlay());
       }
 
-      if (Environment.isTizen()) {
-        const usingAvPlay = typeof PlayerController.isUsingAvPlay === "function" ? PlayerController.isUsingAvPlay() : false;
-        return Boolean(usingAvPlay);
+      if (Environment.isWebOS()) {
+        return true;
       }
 
       if (Environment.isVidaa()) {
@@ -171,14 +178,27 @@ export function createPlayerScreenMethods11() {
       return typeof PlayerController.isLikelyDirectFileUrl === "function" ? PlayerController.isLikelyDirectFileUrl(probeUrl) : false;
     },
     canDiscoverEmbeddedAudioTracks() {
+      // AVPlay is the native engine on Tizen, but its name is "tizen-avplay"
+      // rather than "native-*". These tracks only label AVPlay's own audio
+      // list, so do not require the browser native-video gate here.
       if (Environment.isTizen()) {
-        const usingNativePlayback =
-          typeof PlayerController.isUsingNativePlayback === "function" ? PlayerController.isUsingNativePlayback() : false;
         const usingAvPlay = typeof PlayerController.isUsingAvPlay === "function" ? PlayerController.isUsingAvPlay() : false;
         const probeUrl = this.getTrackProbeUrl();
-        return Boolean(usingNativePlayback && usingAvPlay && probeUrl && !this.isCurrentSourceAdaptiveManifest());
+        return Boolean(usingAvPlay && probeUrl && !this.isCurrentSourceAdaptiveManifest());
       }
       return this.canDiscoverEmbeddedSubtitleTracks();
+    },
+    prefetchTizenEmbeddedAudioTracks(probeUrl = this.getTrackProbeUrl(), streamCandidate = this.getCurrentStreamCandidate()) {
+      if (!Environment.isTizen()) {
+        return;
+      }
+      const targetUrl = String(probeUrl || "").trim();
+      if (!targetUrl || this.isCurrentSourceAdaptiveManifest() || !this.isCurrentSourceLikelyMkv(targetUrl, streamCandidate)) {
+        return;
+      }
+      // Warm the shared cache before AVPlay publishes its track list. The
+      // startup audio gate then sees the languages while it is still closed.
+      void localMediaTracksRepository.getTracks(targetUrl).catch(() => []);
     },
     shouldUseEmbeddedSubtitleTracks() {
       if (Environment.isVidaa() && this.webOsEmbeddedTextSubtitleTrack?.embeddedTextProvider === "vidaa-range") return true;
@@ -219,7 +239,7 @@ export function createPlayerScreenMethods11() {
             // Keep WebOS bitmap tracks visible when the local decoder is
             // unavailable so the user sees the reason instead of a missing
             // subtitle entry. Other browser paths retain their existing filter.
-            return Environment.isWebOS() || canUseWebOsBitmapSubtitles();
+            return Environment.isWebOS() || canUseEmbeddedBitmapSubtitles();
           }
           return !isUnsupportedEmbeddedSubtitleTrack(track);
         })
@@ -297,8 +317,10 @@ export function createPlayerScreenMethods11() {
     warmBitmapSubtitleSharedResources() {
       if (
         !this.hasPresentedPlaybackFrame ||
-        !canUseWebOsBitmapSubtitles() ||
-        !this.embeddedSubtitleTracks.some((track) => track.bitmapSubtitle)
+        !canUseEmbeddedBitmapSubtitles() ||
+        !this.embeddedSubtitleTracks.some(
+          (track) => track.bitmapSubtitle && (!Environment.isTizen() || track.bitmapSubtitleFormat === "vobsub")
+        )
       ) {
         return;
       }

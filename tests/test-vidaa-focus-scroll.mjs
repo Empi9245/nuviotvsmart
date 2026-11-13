@@ -191,7 +191,13 @@ for (const methods of [createSearchScreenMethods04(), createMetaDetailsScreenMet
     Platform.current = null;
     now = 7000;
     const { node } = scroller();
-    const owner = { ...methods, isLegacyTvRuntime: () => false };
+    // Isolate the VIDAA helper wiring from the upstream performance policy:
+    // a constrained TV may legitimately choose an immediate scroll.
+    const owner = {
+      ...methods,
+      isLegacyTvRuntime: () => false,
+      shouldUseImmediateFocusScroll: () => false
+    };
     owner.animateScroll(node, "x", 500, 280, { mode: "spring" });
     assert.equal(node.scrollLeft, 0);
     if (platform === "vidaa") {

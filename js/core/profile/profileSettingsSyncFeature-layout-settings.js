@@ -105,8 +105,10 @@ export const layout_settings = {
       modern_sidebar_enabled: Boolean(layout.modernSidebar),
       modern_sidebar_blur_enabled: Boolean(layout.modernSidebarBlur),
       modern_landscape_posters_enabled: Boolean(layout.modernLandscapePostersEnabled),
+      always_show_landscape_clearlogo: Boolean(layout.alwaysShowLandscapeClearlogo),
       modern_hero_full_screen_backdrop: Boolean(layout.modernHeroFullScreenBackdropEnabled),
       hero_section_enabled: Boolean(layout.heroSectionEnabled),
+      hero_description_auto_scroll_enabled: Boolean(layout.heroDescriptionAutoScrollEnabled),
       discover_location: normalizeDiscoverLocationForAndroid(layout.discoverLocation),
       hero_catalog_keys: Array.isArray(layout.heroCatalogKeys) ? layout.heroCatalogKeys : [],
       poster_labels_enabled: Boolean(layout.posterLabelsEnabled),
@@ -164,8 +166,10 @@ export const layout_settings = {
       "modern_sidebar_enabled",
       "modern_sidebar_blur_enabled",
       "modern_landscape_posters_enabled",
+      "always_show_landscape_clearlogo",
       "modern_hero_full_screen_backdrop",
       "hero_section_enabled",
+      "hero_description_auto_scroll_enabled",
       "poster_labels_enabled",
       "catalog_addon_name_enabled",
       "catalog_type_suffix_enabled",
@@ -258,11 +262,17 @@ export const layout_settings = {
     if (booleanOrNull(raw.modern_landscape_posters_enabled) != null) {
       partial.modernLandscapePostersEnabled = Boolean(raw.modern_landscape_posters_enabled);
     }
+    if (booleanOrNull(raw.always_show_landscape_clearlogo) != null) {
+      partial.alwaysShowLandscapeClearlogo = Boolean(raw.always_show_landscape_clearlogo);
+    }
     if (booleanOrNull(raw.modern_hero_full_screen_backdrop) != null) {
       partial.modernHeroFullScreenBackdropEnabled = Boolean(raw.modern_hero_full_screen_backdrop);
     }
     if (booleanOrNull(raw.hero_section_enabled) != null) {
       partial.heroSectionEnabled = Boolean(raw.hero_section_enabled);
+    }
+    if (booleanOrNull(raw.hero_description_auto_scroll_enabled) != null) {
+      partial.heroDescriptionAutoScrollEnabled = Boolean(raw.hero_description_auto_scroll_enabled);
     }
     if (stringOrNull(raw.discover_location)) {
       partial.discoverLocation = normalizeDiscoverLocationForWeb(raw.discover_location);

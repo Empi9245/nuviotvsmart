@@ -117,10 +117,18 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
     this.lastPlaybackErrorAt = now;
 
     const playbackErrorDetail = this.getPlaybackEventErrorDetail(eventDetail);
+    const hlsDiagnostic =
+      typeof PlayerController.getLastHlsErrorDiagnostic === "function" ? PlayerController.getLastHlsErrorDiagnostic() : null;
+    // A native video error carries no HTTP code, so fall back to the last
+    // fatal hls.js response for the same playback.
+    const cachedHlsResponseCode = hlsDiagnostic?.fatal ? Number(hlsDiagnostic.responseCode || 0) : 0;
+    const hlsResponseCode = Number(eventDetail.hlsResponseCode || cachedHlsResponseCode || 0);
     const terminalHlsHttpFailure = isTerminalHlsHttpStatus(eventDetail.hlsResponseCode);
     const avplayError = String(eventDetail?.avplayError || "").toLowerCase();
     const normalizedPlaybackErrorDetail = String(playbackErrorDetail || "").toLowerCase();
     const currentSourceCandidate = this.getStreamCandidateByUrl(this.activePlaybackUrl) || this.getCurrentStreamCandidate();
+    const serverPlayback = currentSourceCandidate?.serverPlayback || currentSourceCandidate?.raw?.serverPlayback;
+    if (serverPlayback?.fallbackRequested && this.tryServerPlaybackFallback?.(currentSourceCandidate)) return;
     const expiredPlaybackUrl = isExpiredStreamUrl(this.activePlaybackUrl);
     const currentEngineFsState = this.currentEngineFsStream || null;
     const publicEngineFsUrl = String(currentEngineFsState?.publicPlaybackUrl || "").trim();
@@ -186,6 +194,13 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
       return;
     }
 
+    // A range request can fail when the position or segment is outside the
+    // window the provider still serves (common on live channels). Android
+    // replays the same stream from position 0 once before changing engines.
+    if (hlsResponseCode === 416 && this.retryCurrentStreamFromStartAfter416?.()) {
+      return;
+    }
+
     if (!this.hasPresentedPlaybackFrame && (mediaErrorCode === 2 || mediaErrorCode === 3 || mediaErrorCode === 4)) {
       if (currentEngineFsState) {
         const stats = await this.fetchCurrentEngineFsStats({ timeoutMs: 2500 });
@@ -225,6 +240,10 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
         return;
       }
 
+      if (!currentEngineFsState && this.retryTizenAvPlayThroughLocalProxy?.()) {
+        return;
+      }
+
       this.markPlaybackSourceFailed(this.activePlaybackUrl);
       const targetEngine =
         !terminalHlsHttpFailure && typeof PlayerController.getAlternativePlaybackEngine === "function"
@@ -257,6 +276,7 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
       const startupErrorMessage = this.getStartupErrorMessage(mediaErrorCode, playbackErrorDetail, currentSourceCandidate);
       this.clearPlaybackStallGuard();
       this.releaseStartupAudioGate({ resume: false });
+      if (this.tryServerPlaybackFallback?.(currentSourceCandidate)) return;
       this.showStartupError(startupErrorMessage, {
         mediaErrorCode,
         detail: playbackErrorDetail,
@@ -283,6 +303,7 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
       return;
     }
 
+    if (this.tryServerPlaybackFallback?.(currentSourceCandidate)) return;
     this.markPlaybackSourceFailed(this.activePlaybackUrl);
 
     if (this.tryNextStreamCandidate({ streamCandidate: currentSourceCandidate, playbackUrl: this.activePlaybackUrl, sourceAttemptToken }))

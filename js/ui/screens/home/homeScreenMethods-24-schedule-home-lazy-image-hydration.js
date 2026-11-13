@@ -23,6 +23,11 @@ const VIDAA_VERTICAL_MAX_ROWS_AHEAD = 8;
 const VIDAA_VERTICAL_PREFETCH_BUDGET = 18;
 const VIDAA_IMAGE_COMMIT_BUDGET_MS = 4;
 const VIDAA_IMAGE_COMMIT_MAX_SCANNED = 8;
+// The hydration index only needs images that still hold a deferred source.
+// Upstream's lifecycle selector also matches already-painted images, which
+// would make every idle pass queue nothing.
+const HOME_LAZY_IMAGE_PENDING_SELECTOR =
+  ".home-main .content-poster[data-src], .home-main .home-poster-landscape-logo[data-src], .home-main .home-continue-bg[data-src]";
 
 function createVidaaImageCommitElapsedTime() {
   const readPerformanceTime = () => {
@@ -223,7 +228,6 @@ export function createHomeScreenMethods24() {
   const {
     MODERN_HOME_CONSTANTS,
     CW_DAYS_CAP,
-    HOME_LAZY_IMAGE_SELECTOR,
     HOME_LAZY_IMAGE_ROW_SELECTOR,
     HOME_LEGACY_LAZY_HYDRATION_DEBOUNCE_MS,
     HOME_LEGACY_LAZY_HYDRATION_MAX_PER_FRAME,
@@ -433,7 +437,7 @@ export function createHomeScreenMethods24() {
         return [];
       }
       const imagesByRow = new Map();
-      Array.from(this.container.querySelectorAll(HOME_LAZY_IMAGE_SELECTOR)).forEach((image) => {
+      Array.from(this.container.querySelectorAll(HOME_LAZY_IMAGE_PENDING_SELECTOR)).forEach((image) => {
         const row = image.closest(HOME_LAZY_IMAGE_ROW_SELECTOR);
         const rowImages = imagesByRow.get(row) || [];
         rowImages.push(image);

@@ -4,6 +4,26 @@ const TMDB_IMAGE_HOST_PATTERN = /^(?:https?:)?\/\/image\.tmdb\.org\//i;
 // can cap small card artwork without changing the full-screen hero policy.
 const TMDB_IMAGE_WIDTHS = new Set([92, 154, 185, 300, 342, 500, 780, 1280]);
 
+let cachedCardPosterSize = null;
+
+// Upstream card callers ask for one poster rendition. VIDAA paints 342px
+// tiles, so keep the smaller source there; other platforms keep Android's
+// w500 default.
+export function preferredTmdbCardPosterSize() {
+  if (cachedCardPosterSize === null) {
+    const root = globalThis;
+    const vidaa =
+      root?.__NUVIO_PLATFORM__ === "vidaa" ||
+      Boolean(root?.Hisense_GetOSVersion || root?.Hisense_GetFirmWareVersion);
+    cachedCardPosterSize = vidaa ? "w342" : "w500";
+  }
+  return cachedCardPosterSize;
+}
+
+export function resetPreferredTmdbCardPosterSizeForTests() {
+  cachedCardPosterSize = null;
+}
+
 export function limitTmdbImageWidth(value, maxWidth) {
   if (
     typeof value !== "string" ||

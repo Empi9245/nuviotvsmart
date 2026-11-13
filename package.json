@@ -2,11 +2,11 @@
   "name": "nuvio-tv-smart",
   "private": true,
   "type": "module",
-  "version": "1.2.9",
+  "version": "1.4.1",
   "scripts": {
     "build": "node ./scripts/build.mjs",
     "test": "npm run test:plugins",
-    "test:android-parity": "node --test scripts/test-webos-audio-fallback-mute.mjs scripts/test-tmdb-detail-parity.mjs && node scripts/test-detail-stream-parity.mjs && node scripts/test-youtube-proxy.mjs && node scripts/test-mdblist-account-parity.mjs && node scripts/test-mdblist-library-parity.mjs && node scripts/test-episode-shuffle-parity.mjs && node scripts/test-ass-subtitle-placement.mjs && node scripts/test-oct16-ui-parity.mjs && node scripts/test-subtitle-language-parity.mjs && node scripts/test-trakt-progress-failure-parity.mjs && node scripts/test-trakt-activity-refresh-parity.mjs && node scripts/test-watch-party-parity.mjs && node scripts/test-watch-party-player.mjs && node scripts/test-tizen-seek-loading.mjs && node scripts/test-tizen-avplay-seek-sequencing.mjs && node scripts/test-tizen-redirect-resolver.mjs && node scripts/test-tizen-avplay-call-trace.mjs && node scripts/test-tizen-direct-avplay-source.mjs",
+    "test:android-parity": "node scripts/test-mdblist-account-parity.mjs && node scripts/test-mdblist-library-parity.mjs && node scripts/test-episode-shuffle-parity.mjs && node scripts/test-ass-subtitle-placement.mjs && node scripts/test-oct16-ui-parity.mjs && node scripts/test-subtitle-language-parity.mjs && node scripts/test-trakt-progress-failure-parity.mjs && node scripts/test-trakt-activity-refresh-parity.mjs && node scripts/test-watch-party-parity.mjs && node scripts/test-watch-party-player.mjs && node scripts/test-tizen-seek-loading.mjs && node scripts/test-tizen-avplay-seek-sequencing.mjs && node scripts/test-tizen-redirect-resolver.mjs && node scripts/test-tizen-avplay-call-trace.mjs && node scripts/test-tizen-direct-avplay-source.mjs",
     "test:plugins": "npm run build && node ./scripts/test-webos-plugin-forwarding.cjs && node ./tests/test-vidaa-plugin-readiness.mjs && node ./tests/test-vidaa-plugin-browser-transport.mjs && node ./tests/test-vidaa-plugin-browser-proxy.mjs && node ./tests/test-vidaa-plugin-management.mjs && node ./tests/test-vidaa-plugin-queue.mjs && node ./tests/test-vidaa-plugin-runtime.mjs && node ./tests/test-vidaa-plugin-redirects.mjs && node ./tests/test-vidaa-plugin-timers.mjs && node ./tests/test-vidaa-plugin-stream-audio-delay.mjs && node ./tests/test-vidaa-stream-subtitle-offset-wiring.mjs && node ./tests/test-vidaa-stream-audio-delay-engine.mjs && node ./tests/test-vidaa-stream-audio-delay-wiring.mjs",
     "prepare": "husky || true",
     "install:webos": "node ./scripts/ares-install-webos.mjs",
@@ -27,8 +27,7 @@
     "sync:webos": "node ./scripts/sync-wrapper.mjs --webos",
     "package:vidaa": "npm run build && node ./scripts/package-vidaa.mjs",
     "serve:vidaa": "node ./scripts/serve.mjs --vidaa",
-    "test:vidaa": "node ./scripts/test-vidaa.mjs",
-    "test:android-parity": "node scripts/test-mdblist-account-parity.mjs && node scripts/test-mdblist-library-parity.mjs && node scripts/test-episode-shuffle-parity.mjs && node scripts/test-ass-subtitle-placement.mjs && node scripts/test-oct16-ui-parity.mjs && node scripts/test-subtitle-language-parity.mjs && node scripts/test-trakt-progress-failure-parity.mjs && node scripts/test-trakt-activity-refresh-parity.mjs && node scripts/test-watch-party-parity.mjs && node scripts/test-watch-party-player.mjs && node scripts/test-tizen-seek-loading.mjs && node scripts/test-tizen-avplay-seek-sequencing.mjs && node scripts/test-tizen-redirect-resolver.mjs && node scripts/test-tizen-avplay-call-trace.mjs && node scripts/test-tizen-direct-avplay-source.mjs"
+    "test:vidaa": "node ./scripts/test-vidaa.mjs"
   },
   "devDependencies": {
     "@csstools/postcss-global-data": "^4.0.0",

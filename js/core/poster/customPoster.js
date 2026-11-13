@@ -1,5 +1,11 @@
 import { LayoutPreferences } from "../../data/local/layoutPreferences.js";
 import { CUSTOM_POSTER_SCREENS } from "./customPosterScreens.js";
+import {
+  normalizeTmdbBackdropUrl,
+  normalizeTmdbPosterUrl,
+  preferredTmdbCardPosterSize
+} from "../tmdb/tmdbImageUrl.js";
+import { Platform } from "../../platform/index.js";
 export { CUSTOM_POSTER_SCREENS } from "./customPosterScreens.js";
 const prepared = new Map();
 export function extractPosterIds(id, imdbId = null) {
@@ -120,19 +126,51 @@ export function resolveCustomPoster(pattern, ids, type, shape = "poster") {
   }
   return null;
 }
+// Android decodes a poster at the size of its card whatever the source is.
+// An <img> decodes the whole file: an 800x1200 poster in a 221x339 card cost a
+// 2019 Tizen set 408 ms of decoding for every row scrolled into view (130 ms
+// at 342 px). Services that resize on request are asked for the card's width,
+// the same width the TV takes from TMDB. Other hosts stay untouched.
+const WIDTH_PARAM_BY_HOST = { "easyposters.realbestia.com": "w" };
+function tvCardSizedPoster(url) {
+  if (!url || !(Platform.isTizen() || Platform.isWebOS())) return url;
+  const param = WIDTH_PARAM_BY_HOST[/^https?:\/\/([^/?#]+)/i.exec(url)?.[1]?.toLowerCase()];
+  if (!param || new RegExp(`[?&]${param}=`).test(url)) return url;
+  const width = preferredTmdbCardPosterSize().slice(1);
+  return `${url}${url.includes("?") ? "&" : "?"}${param}=${width}`;
+}
 export function customPosterForItem(
   item,
   screen,
   shape = "poster",
   settings = LayoutPreferences.get()
 ) {
+  if (!item) return item;
+  // Keep every screen on the same source sizes as Home. The helpers are
+  // idempotent and leave artwork from any other host byte-for-byte unchanged.
+  const normalizedItem = {
+    ...item,
+    // Keep the raw poster here: the card renderer applies the platform and
+    // card-shape budget after choosing the source (VIDAA 342/500, browser
+    // hero 1280). Normalising to w500 at this point irreversibly loses the
+    // larger source needed by the browser Continue Watching card.
+    poster: Platform.isVidaa() ? normalizeTmdbPosterUrl(item.poster) : item.poster,
+    backdrop: normalizeTmdbBackdropUrl(item.backdrop),
+    background: normalizeTmdbBackdropUrl(item.background),
+    landscapePoster: normalizeTmdbBackdropUrl(item.landscapePoster),
+    episodeThumbnail: normalizeTmdbBackdropUrl(item.episodeThumbnail)
+  };
+  item = normalizedItem;
   const pattern = settings.customPosterUrlPattern;
   if (!item || !pattern || !settings.customPosterEnabledScreens?.includes(screen)) return item;
-  const supportsShape = pattern.includes("{shape}");
+  const supportsShape = prepare(pattern).decoded.includes("{shape}");
   if (!supportsShape && shape !== "poster") return item;
   const ids = extractPosterIds(item.id || item.contentId, item.imdbId || item.imdb_id);
   const type = item.apiType || item.type || item.contentType || "movie";
-  const poster = resolveCustomPoster(pattern, ids, type, shape);
+  const poster =
+    shape === "poster"
+      ? tvCardSizedPoster(resolveCustomPoster(pattern, ids, type, shape))
+      : resolveCustomPoster(pattern, ids, type, shape);
   const landscape = supportsShape ? resolveCustomPoster(pattern, ids, type, "landscape") : null;
   if (!poster && !landscape) return item;
   return {
@@ -148,7 +186,8 @@ export function customPosterForItem(
 export function posterFallbackAttributes(item, landscape = false) {
   const raw = landscape ? item?.rawLandscapePosterUrl : item?.rawPosterUrl;
   if (!raw) return "";
-  const escaped = String(raw)
+  const normalized = landscape ? normalizeTmdbBackdropUrl(raw) : normalizeTmdbPosterUrl(raw);
+  const escaped = String(normalized)
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
@@ -163,12 +202,34 @@ export function installCustomPosterFallback() {
     "error",
     (event) => {
       const image = event.target;
-      const original = image?.dataset?.originalPoster;
-      if (!original || image.tagName !== "IMG") return;
-      delete image.dataset.originalPoster;
-      if (image.getAttribute("src") === original) return;
-      event.stopImmediatePropagation();
-      image.src = original;
+      if (image?.tagName !== "IMG") return;
+      const original = image.dataset?.originalPoster;
+      if (original) {
+        delete image.dataset.originalPoster;
+        if (image.getAttribute("src") !== original) {
+          event.stopImmediatePropagation();
+          image.src = original;
+          return;
+        }
+      }
+      // Out of fallbacks: Chromium would draw the alt text over a broken frame.
+      // Leave the empty card surface instead, like Android TV's failed artwork.
+      // Logos keep their alt text; callers render the title in their place.
+      if (!image.dataset?.fallbackSrcs && !/logo/i.test(image.className)) {
+        image.alt = "";
+        image.classList.add("placeholder");
+      }
+    },
+    true
+  );
+  // A re-hydrated image that loads after an earlier failure must show again.
+  document.addEventListener(
+    "load",
+    (event) => {
+      const image = event.target;
+      if (image?.tagName === "IMG" && image.classList.contains("placeholder")) {
+        image.classList.remove("placeholder");
+      }
     },
     true
   );

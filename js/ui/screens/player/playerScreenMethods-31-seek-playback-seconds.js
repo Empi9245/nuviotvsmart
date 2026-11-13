@@ -7,6 +7,7 @@ export function createPlayerScreenMethods31() {
 
   return {
     seekPlaybackSeconds(seconds, { preserveSkipIntroSuppression = false } = {}) {
+      if (this.isLivePlayback()) return false;
       const currentSeconds = Number(this.getPlaybackCurrentSeconds());
       const targetSeconds = Number(seconds);
       if (Number.isFinite(currentSeconds) && Number.isFinite(targetSeconds) && targetSeconds < currentSeconds - 0.5) {
@@ -121,6 +122,9 @@ export function createPlayerScreenMethods31() {
     },
     updateLoadingVisibility() {
       if (this.isBufferingForPauseOverlay()) this.dismissPauseOverlay();
+      if (!this.loadingVisible && !this.isStartupErrorVisible() && !this.isExternalFrameMode()) {
+        if (this.isStartupGateReleaseReady()) this.releaseStartupAudioGate();
+      }
       const overlay = this.uiRefs?.loadingOverlay;
       const bufferingSpinner = this.uiRefs?.bufferingSpinner;
       if (!overlay) {

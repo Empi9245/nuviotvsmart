@@ -10,7 +10,10 @@ import {
 } from "../local/traktSettingsStore.js";
 import { TraktAuthStore } from "../local/traktAuthStore.js";
 import { TraktAuthService } from "./traktAuthService.js";
+import { TraktEpisodeMappingService } from "./traktEpisodeMappingService.js";
 import { SimklAuthStore } from "../local/simklAuthStore.js";
+import { MdbListAccount } from "./mdbListAccount.js";
+import { MdbListTracking } from "./mdbListTracking.js";
 import { SimklSyncService } from "./simklSyncService.js";
 import { metaRepository } from "./metaRepository.js";
 import {
@@ -32,7 +35,6 @@ import { getSyncBackoffRemainingMs } from "../../core/sync/syncBackoffPolicy.js"
 import { registerSessionTeardownHandler } from "../../core/auth/sessionLifecycle.js";
 import {
   WATCH_PROGRESS_COMPLETED_THRESHOLD,
-  WATCH_PROGRESS_STARTED_THRESHOLD,
   getWatchProgressFraction,
   hasWatchProgressStarted,
   isWatchProgressCompleted,
@@ -41,7 +43,6 @@ import {
 } from "../../domain/model/watchProgress.js";
 
 const CW_DISPLAY_SNAPSHOT_KEY = "homeContinueWatchingDisplaySnapshot";
-const CW_PROGRESS_START_THRESHOLD = WATCH_PROGRESS_STARTED_THRESHOLD;
 const CW_PROGRESS_END_THRESHOLD = WATCH_PROGRESS_COMPLETED_THRESHOLD;
 // These bound a hung request so the fire-and-forget Continue Watching
 // reconciliation can't leak a never-resolving promise. They are NOT on the
@@ -163,8 +164,16 @@ registerSessionTeardownHandler?.(({ waitForInFlight = true } = {}) =>
   stopWatchProgressCloudSync({ waitForInFlight })
 );
 
+function continueWatchingSourceKey() {
+  const source = selectedContinueWatchingSource();
+  return (
+    `${activeProfileId()}:${source}` +
+    (source === WatchProgressSource.MDBLIST ? `:${MdbListAccount.scope().generation}` : "")
+  );
+}
+
 function invalidateContinueWatchingDisplaySnapshot() {
-  const sourceKey = `${activeProfileId()}:${selectedContinueWatchingSource()}`;
+  const sourceKey = continueWatchingSourceKey();
   const store = LocalStore.get(CW_DISPLAY_SNAPSHOT_KEY, {});
   if (
     !store ||
@@ -269,6 +278,8 @@ function selectedContinueWatchingSource() {
   if (requestedSource === WatchProgressSource.SIMKL && SimklAuthStore.isAuthenticated()) {
     return WatchProgressSource.SIMKL;
   }
+  if (requestedSource === WatchProgressSource.MDBLIST && MdbListAccount.connected())
+    return WatchProgressSource.MDBLIST;
   return WatchProgressSource.NUVIO_SYNC;
 }
 
@@ -278,6 +289,7 @@ function selectedLocalProgressSource() {
   const source = selectedContinueWatchingSource();
   if (source === WatchProgressSource.TRAKT) return "trakt_local";
   if (source === WatchProgressSource.SIMKL) return "simkl_local";
+  if (source === WatchProgressSource.MDBLIST) return "mdblist_local";
   return WatchProgressSource.NUVIO_SYNC;
 }
 
@@ -300,7 +312,18 @@ function filterForSelectedContinueWatchingSource(items = []) {
           !/^(tvdb|mal|anidb|anilist|kitsu|simkl):/i.test(String(item?.contentId || "")))
     );
   }
-  return all.filter((item) => !isTraktProgressItem(item) && !isSimklProgressItem(item));
+  if (source === WatchProgressSource.MDBLIST)
+    return all.filter(
+      (item) =>
+        ["mdblist_history", "mdblist_playback"].includes(item.source) ||
+        !/^(?:tt\d+|\d+$|(?:imdb|tmdb|tvdb|trakt|mdblist):)/i.test(String(item.contentId || ""))
+    );
+  return all.filter(
+    (item) =>
+      !isTraktProgressItem(item) &&
+      !isSimklProgressItem(item) &&
+      !String(item.source || "").startsWith("mdblist")
+  );
 }
 
 function deduplicateInProgress(items = [], recentLimit = 300) {
@@ -464,11 +487,8 @@ function toProgressItemFromTraktHistory(historyItem) {
 function toProgressItemFromPlayback(playbackItem) {
   if (!playbackItem || playbackItem.progressPercent == null) return null;
   const progressFraction = playbackItem.progressPercent / 100;
-  if (
-    progressFraction < CW_PROGRESS_START_THRESHOLD ||
-    progressFraction >= CW_PROGRESS_END_THRESHOLD
-  )
-    return null;
+  // Any non-zero progress is in progress now (Android/mobile rule).
+  if (progressFraction <= 0 || progressFraction >= CW_PROGRESS_END_THRESHOLD) return null;
   const isEpisode = playbackItem.type === "episode";
   const pausedAtMs = playbackItem.pausedAt ? new Date(playbackItem.pausedAt).getTime() : Date.now();
   return {
@@ -670,10 +690,22 @@ async function fetchTraktProgressSnapshot() {
     } else {
       watchedShowSeedItems = [];
       watchedShows.forEach((show) => watchedShowSeedItems.push(...toWatchedShowSeedItems(show)));
+      // Trakt numbers some anime differently from the add-on. Continue Watching and
+      // next-up must use the add-on's episode numbers.
+      watchedShowSeedItems =
+        await TraktEpisodeMappingService.remapItemsToAddon(watchedShowSeedItems);
     }
+    const [historyItems, playbackItems] = await Promise.all([
+      TraktEpisodeMappingService.remapItemsToAddon(
+        history.map(toProgressItemFromTraktHistory).filter(Boolean)
+      ),
+      TraktEpisodeMappingService.remapItemsToAddon(
+        playbackState.map(toProgressItemFromPlayback).filter(Boolean)
+      )
+    ]);
     const snapshot = {
-      historyItems: history.map(toProgressItemFromTraktHistory).filter(Boolean),
-      playbackItems: playbackState.map(toProgressItemFromPlayback).filter(Boolean),
+      historyItems,
+      playbackItems,
       watchedShowSeedItems
     };
     traktProgressSnapshotCache = { profileId, accountKey, fetchedAt: Date.now(), snapshot };
@@ -759,27 +791,49 @@ async function getProgressItemMetadata(contentType, lookupId) {
   return null;
 }
 
+const progressMetadataAttempts = new Map();
+const progressMetadataFlights = new Map();
+let progressMetadataProfile = null;
+
 async function batchEnrichProgressItems(items) {
   if (!items.length) return [];
-  const now = Date.now();
+  const pid = activeProfileId();
+  if (progressMetadataProfile !== pid) {
+    progressMetadataProfile = pid;
+    progressMetadataAttempts.clear();
+  }
   return mapWithConcurrency(items, PROGRESS_META_CONCURRENCY, async (item) => {
     const lookupId = item.imdbId || item.contentId;
     const cacheKey = `${item.contentType}:${lookupId}`;
+    const key = `${pid}:${cacheKey}`;
+    const now = Date.now();
     const cached = enrichedMetaCache.get(cacheKey);
-    let meta = null;
-    if (cached && now - cached.timestamp < ENRICHED_META_CACHE_TTL_MS) {
-      meta = cached.meta;
-    } else {
-      meta = await withTimeout(
-        getProgressItemMetadata(item.contentType, lookupId),
-        PROGRESS_META_TIMEOUT_MS,
-        null
-      ).catch(() => null);
-      // Only cache real metadata. Caching a null (timeout/miss) would leave the
-      // item unenriched for the full TTL after a single slow response.
-      if (meta) {
-        enrichedMetaCache.set(cacheKey, { meta, timestamp: now });
+    let meta = cached && now - cached.timestamp < ENRICHED_META_CACHE_TTL_MS ? cached.meta : null;
+    if (!meta) {
+      let flight = progressMetadataFlights.get(key);
+      if (!flight) {
+        const attempt = progressMetadataAttempts.get(key);
+        if (attempt && (attempt.count >= 3 || now - attempt.at < 2000 * attempt.count)) return item;
+        progressMetadataAttempts.set(key, { count: (attempt?.count || 0) + 1, at: now });
+        flight = withTimeout(
+          getProgressItemMetadata(item.contentType, lookupId),
+          PROGRESS_META_TIMEOUT_MS,
+          null
+        )
+          .catch(() => null)
+          .then((result) => {
+            if (result) {
+              enrichedMetaCache.set(cacheKey, { meta: result, timestamp: Date.now() });
+              progressMetadataAttempts.delete(key);
+            }
+            return result;
+          })
+          .finally(() => {
+            if (progressMetadataFlights.get(key) === flight) progressMetadataFlights.delete(key);
+          });
+        progressMetadataFlights.set(key, flight);
       }
+      meta = await flight;
     }
     return meta ? { ...item, enrichedMeta: meta } : item;
   });
@@ -862,7 +916,11 @@ class WatchProgressRepository {
     let sourceItems = filterForSelectedContinueWatchingSource(localItems);
 
     if (selectedContinueWatchingSource() !== WatchProgressSource.NUVIO_SYNC) {
-      sourceItems = await this.getRecent(300, { enrichMetadata: false }).catch((error) => {
+      const remote =
+        selectedContinueWatchingSource() === WatchProgressSource.MDBLIST
+          ? this.getAllForContinueWatching()
+          : this.getRecent(300, { enrichMetadata: false });
+      sourceItems = await remote.catch((error) => {
         console.warn("[CW] Resume lookup failed", error);
         return sourceItems;
       });
@@ -877,6 +935,9 @@ class WatchProgressRepository {
 
   async removeProgress(contentId, videoId = null) {
     const pid = activeProfileId();
+    if (selectedContinueWatchingSource() === WatchProgressSource.MDBLIST)
+      await MdbListTracking.clearProgress(contentId, videoId);
+    if (activeProfileId() !== pid) return;
     const removedItems = WatchProgressStore.listForProfile(pid).filter((item) =>
       matchesProgressTarget(item, contentId, videoId)
     );
@@ -913,6 +974,11 @@ class WatchProgressRepository {
       traktHistoryItems = snapshot.historyItems;
       playbackItems = snapshot.playbackItems;
       watchedShowSeedItems = snapshot.watchedShowSeedItems;
+    } else if (selectedContinueWatchingSource() === WatchProgressSource.MDBLIST) {
+      const snapshot = await MdbListTracking.getProgressSnapshot();
+      traktHistoryItems = snapshot.historyItems;
+      playbackItems = snapshot.playbackItems;
+      watchedShowSeedItems = snapshot.watchedShowSeedItems;
     } else if (useSimklProgress) {
       const snapshot = await fetchSimklProgressSnapshot();
       traktHistoryItems = snapshot.historyItems;
@@ -930,7 +996,9 @@ class WatchProgressRepository {
 
     const recentItems = [
       ...filterForSelectedContinueWatchingSource(allItems).filter(
-        (item) => cutoffMs === 0 || Number(item?.updatedAt || 0) >= cutoffMs
+        (item) =>
+          !this.isHiddenForContinueWatching(item.contentId, item.season) &&
+          (cutoffMs === 0 || Number(item?.updatedAt || 0) >= cutoffMs)
       ),
       // Cloud progress is device-local and must remain visible independently
       // of the selected Trakt/Simkl history window, just like Android.
@@ -958,7 +1026,9 @@ class WatchProgressRepository {
     const snapshot =
       selectedContinueWatchingSource() === WatchProgressSource.TRAKT
         ? await fetchTraktProgressSnapshot()
-        : await fetchSimklProgressSnapshot();
+        : selectedContinueWatchingSource() === WatchProgressSource.MDBLIST
+          ? await MdbListTracking.getProgressSnapshot()
+          : await fetchSimklProgressSnapshot();
     return [
       ...filterForSelectedContinueWatchingSource([
         ...localItems,
@@ -971,7 +1041,7 @@ class WatchProgressRepository {
   }
 
   getContinueWatchingSourceKey() {
-    return `${activeProfileId()}:${selectedContinueWatchingSource()}`;
+    return continueWatchingSourceKey();
   }
 
   getContinueWatchingSource() {
@@ -980,10 +1050,12 @@ class WatchProgressRepository {
 
   getContinueWatchingRemoteProgressState() {
     const source = selectedContinueWatchingSource();
-    const sourceKey = `${activeProfileId()}:${source}`;
+    const sourceKey = continueWatchingSourceKey();
     if (source === WatchProgressSource.NUVIO_SYNC) {
       return { sourceKey, loaded: true };
     }
+    if (source === WatchProgressSource.MDBLIST)
+      return { sourceKey, loaded: MdbListTracking.hasLoadedRemoteProgress() };
     if (source === WatchProgressSource.SIMKL) {
       return {
         sourceKey,
@@ -1012,6 +1084,13 @@ class WatchProgressRepository {
    * show current. Only Simkl models a watchlist here; every other source answers true and behaves
    * as before.
    */
+  isHiddenForContinueWatching(contentId, season = null) {
+    return (
+      selectedContinueWatchingSource() === WatchProgressSource.MDBLIST &&
+      MdbListTracking.isHidden(contentId, season)
+    );
+  }
+
   isTrackedAsWatching(contentId) {
     if (selectedContinueWatchingSource() !== WatchProgressSource.SIMKL) {
       return true;

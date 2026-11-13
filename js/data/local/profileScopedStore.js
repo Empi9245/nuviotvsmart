@@ -11,6 +11,11 @@ const SETTINGS_SYNC_PENDING_KEY = "profileSettingsSyncPendingProfiles";
 const scheduledSettingsSyncTimers = new Map();
 const settingsSyncInFlightByProfile = new Map();
 let settingsSyncGeneration = 0;
+// Normalized envelopes keyed by storage key and memoized on the raw localStorage
+// string. Hot-path readers (Home card render, player and ambient ticks) call
+// readEnvelope every second on single-core TVs; reparsing, re-normalizing and
+// re-serializing an unchanged envelope each time dominated that cost.
+const normalizedEnvelopeCache = new Map();
 
 function normalizeProfileId(profileId) {
   const raw = String(profileId ?? ProfileManager.getActiveProfileId() ?? "1").trim();
@@ -65,15 +70,43 @@ function normalizeEnvelopeProfiles(profiles = {}, normalize) {
   return normalized;
 }
 
+function readRawStorageText(key) {
+  try {
+    const text = localStorage.getItem(key);
+    return typeof text === "string" || text === null ? text : undefined;
+  } catch (_error) {
+    return undefined;
+  }
+}
+
+function invalidateEnvelopeCache(key) {
+  normalizedEnvelopeCache.delete(key);
+}
+
 function readEnvelope(key, normalize, legacyProfileIds = null) {
+  // The memo is keyed on the exact stored string, so any write that bypasses this
+  // module (cloud sync, profile cleanup, tests) is picked up on the next read.
+  const rawText = readRawStorageText(key);
+  const cached = rawText === undefined ? null : normalizedEnvelopeCache.get(key);
+  if (cached && cached.rawText === rawText) {
+    return cached.envelope;
+  }
+  invalidateEnvelopeCache(key);
+
   const raw = LocalStore.get(key, null);
   if (isProfileScopedEnvelope(raw)) {
     const next = {
       ...raw,
       profiles: normalizeEnvelopeProfiles(raw.profiles, normalize)
     };
-    if (JSON.stringify(next) !== JSON.stringify(raw)) {
+    const nextText = JSON.stringify(next);
+    if (nextText !== (typeof rawText === "string" ? rawText : JSON.stringify(raw))) {
       LocalStore.set(key, next);
+    }
+    if (rawText !== undefined) {
+      // nextText is exactly what LocalStore.set serializes, so a failed write
+      // simply misses the memo on the next read instead of returning stale data.
+      normalizedEnvelopeCache.set(key, { rawText: nextText, envelope: next });
     }
     return next;
   }
@@ -95,6 +128,9 @@ function readEnvelope(key, normalize, legacyProfileIds = null) {
 }
 
 function persistEnvelope(key, envelope) {
+  // The envelope may be the memoized instance; drop it so the next read
+  // re-reads whatever the write actually left in storage.
+  invalidateEnvelopeCache(key);
   LocalStore.set(key, envelope);
 }
 
@@ -157,24 +193,28 @@ export function queueProfileSettingsCloudSync(
 ) {
   const normalizedProfileId = normalizeProfileId(profileId);
   const generation = settingsSyncGeneration;
+  const profileVersion = ProfileManager.getProfileDataVersion(normalizedProfileId);
+  const isCurrent = () =>
+    generation === settingsSyncGeneration &&
+    profileVersion === ProfileManager.getProfileDataVersion(normalizedProfileId);
   markProfileSettingsCloudSyncPending(normalizedProfileId);
   if (scheduledSettingsSyncTimers.has(normalizedProfileId)) {
     clearTimeout(scheduledSettingsSyncTimers.get(normalizedProfileId));
   }
   const timerId = setTimeout(() => {
-    if (generation !== settingsSyncGeneration) {
+    if (!isCurrent()) {
       return;
     }
     scheduledSettingsSyncTimers.delete(normalizedProfileId);
     const runPush = async () => {
-      if (generation !== settingsSyncGeneration) {
+      if (!isCurrent()) {
         return;
       }
       const activePush = settingsSyncInFlightByProfile.get(normalizedProfileId);
       if (activePush) {
         await activePush.catch(() => false);
       }
-      if (generation !== settingsSyncGeneration) {
+      if (!isCurrent()) {
         return;
       }
       const pushPromise = import("../../core/profile/profileSettingsSyncService.js")
@@ -192,11 +232,7 @@ export function queueProfileSettingsCloudSync(
         });
       settingsSyncInFlightByProfile.set(normalizedProfileId, pushPromise);
       const didPush = await pushPromise;
-      if (
-        generation === settingsSyncGeneration &&
-        !didPush &&
-        hasProfileSettingsCloudSyncPending(normalizedProfileId)
-      ) {
+      if (isCurrent() && !didPush && hasProfileSettingsCloudSyncPending(normalizedProfileId)) {
         const retryDelayMs = getSyncBackoffRemainingMs();
         if (retryDelayMs > 0) {
           queueProfileSettingsCloudSync(normalizedProfileId, Math.max(5000, retryDelayMs));
@@ -206,6 +242,13 @@ export function queueProfileSettingsCloudSync(
     void runPush();
   }, delayMs);
   scheduledSettingsSyncTimers.set(normalizedProfileId, timerId);
+}
+
+export function cancelProfileSettingsCloudSync(profileId) {
+  const id = normalizeProfileId(profileId);
+  clearTimeout(scheduledSettingsSyncTimers.get(id));
+  scheduledSettingsSyncTimers.delete(id);
+  clearProfileSettingsCloudSyncPending(id);
 }
 
 export function stopProfileSettingsCloudSync({ waitForInFlight = true } = {}) {

@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+import { canResolveMediaServerStream } from "../../../data/mediaserver/mediaServerRepository.js";
 import * as internals from "./playerScreenContext.js";
 
 export function createPlayerScreenMethods72() {
@@ -21,6 +22,19 @@ export function createPlayerScreenMethods72() {
   return {
     onKeyUp(event) {
       const keyCode = Number(event?.keyCode || 0);
+      if (this.chaptersPanelVisible || this.episodeOptionsDialogVisible) {
+        return;
+      }
+      if (this.episodePanelVisible && this.episodePanelPendingSelect && isSelectKeyCode(keyCode)) {
+        const wasLongPress = this.episodePanelLongPressTriggered === true;
+        this.clearEpisodePanelLongPressTimer();
+        this.episodePanelPendingSelect = false;
+        this.episodePanelLongPressTriggered = false;
+        if (!wasLongPress) {
+          void this.playEpisodeFromPanel();
+        }
+        return;
+      }
       if (keyCode === 37 || keyCode === 39) {
         // Match Android TV: preview while holding a direction, seek on release.
         if (
@@ -91,6 +105,7 @@ export function createPlayerScreenMethods72() {
           Boolean(
             stream?.url ||
             stream?.externalUrl ||
+            canResolveMediaServerStream(stream) ||
             DirectDebridResolver.canResolveStream(stream, resolveContext) ||
             WebOsEngineFsResolver.canResolveStream(stream) ||
             TizenStreamingServerResolver.canResolveStream(stream)

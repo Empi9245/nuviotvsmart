@@ -4,6 +4,7 @@ import * as internals from "./settingsScreenContext.js";
 export function createSettingsScreenMethods02() {
   const {
     ThemeColors,
+    isContentRtl,
     ROW_ICONS,
     clamp,
     t,
@@ -34,7 +35,7 @@ export function createSettingsScreenMethods02() {
       const trailing = external ? "external" : icon;
       const tailContent = [
         planned ? `<span class="settings-row-badge">${escapeHtml(t("common.soon"))}</span>` : "",
-        value ? `<span class="settings-row-value">${escapeHtml(value)}</span>` : "",
+        value ? `<bdi class="settings-row-value" dir="${isContentRtl(String(value)) ? "rtl" : "ltr"}">${escapeHtml(value)}</bdi>` : "",
         trailing ? iconSvg(ROW_ICONS[trailing], `settings-row-icon${external ? " is-external" : ""}`) : ""
       ]
         .filter(Boolean)
@@ -54,6 +55,21 @@ export function createSettingsScreenMethods02() {
           </button>
         `;
     },
+    renderInformationRow({ title, subtitle = "", value = "" }) {
+      return `
+          <div class="settings-action-row settings-info-row">
+            <span class="settings-row-copy">
+              <span class="settings-row-title">${escapeHtml(title)}</span>
+              ${subtitle ? `<span class="settings-row-subtitle">${escapeHtml(subtitle)}</span>` : ""}
+            </span>
+            ${
+              value
+                ? `<span class="settings-row-tail"><bdi class="settings-row-value" dir="${isContentRtl(String(value)) ? "rtl" : "ltr"}">${escapeHtml(value)}</bdi></span>`
+                : ""
+            }
+          </div>
+        `;
+    },
     renderToggleRow({ focusKey, title, subtitle = "", checked = false, disabled = false, planned = false }) {
       const inert = disabled || planned;
       return `
@@ -61,6 +77,7 @@ export function createSettingsScreenMethods02() {
                   data-zone="content"
                   aria-disabled="${inert ? "true" : "false"}"
                   ${this.registerAction(focusKey, inert ? () => {} : this.actionMap.get(focusKey))}
+                  role="switch" aria-checked="${checked ? "true" : "false"}"
                   data-role="toggle">
             <span class="settings-row-copy">
               <span class="settings-row-title">${escapeHtml(title)}</span>
@@ -82,7 +99,7 @@ export function createSettingsScreenMethods02() {
       const swatchBackground = palette["--accent-gradient"] || theme.color;
       const swatchCheckColor = theme.onColor || palette["--on-secondary"] || "#fff";
       return `
-          <button class="settings-theme-card settings-content-focusable focusable${selectedClass}"
+          <button class="settings-theme-card settings-content-focusable focusable${selectedClass}" role="radio" aria-checked="${selected ? "true" : "false"}"
                   data-zone="content"
                   ${this.registerAction(focusKey, this.actionMap.get(focusKey))}>
             <span class="settings-theme-swatch-wrap">
@@ -96,7 +113,7 @@ export function createSettingsScreenMethods02() {
     },
     renderLayoutCard(option, selected, focusKey) {
       return `
-          <button class="settings-layout-card settings-content-focusable focusable${selected ? " is-selected" : ""}"
+          <button class="settings-layout-card settings-content-focusable focusable${selected ? " is-selected" : ""}" role="radio" aria-checked="${selected ? "true" : "false"}"
                   data-zone="content"
                   ${this.registerAction(focusKey, this.actionMap.get(focusKey))}>
             ${renderLayoutPreviewPlaceholderMarkup()}
@@ -278,6 +295,7 @@ export function createSettingsScreenMethods02() {
       const useLanguageRenderer = this.optionDialog.optionRenderer === "subtitle-language";
       const useSingleChoiceRenderer = this.optionDialog.optionRenderer === "single-choice";
       const useMultiRenderer = this.optionDialog.optionRenderer === "multi";
+      const selectable = useMultiRenderer || useLanguageRenderer || useSingleChoiceRenderer || this.optionDialog.selectedId != null;
       const isP2pConsentDialog = String(this.optionDialog.dialogClassName || "") === "settings-p2p-consent-dialog";
       const messageHtml = this.optionDialog.message
         ? `<div class="settings-text-dialog-message settings-option-dialog-message${isP2pConsentDialog ? " settings-p2p-consent-message" : ""}">${escapeHtml(String(this.optionDialog.message)).replace(/\n/g, "<br>")}</div>`
@@ -299,6 +317,7 @@ export function createSettingsScreenMethods02() {
                   <button class="settings-dialog-option settings-content-focusable focusable${useLanguageRenderer ? " settings-language-option" : ""}${useSingleChoiceRenderer ? " settings-single-choice-option" : ""}${isSelected ? " is-selected" : ""}"
                           data-zone="dialog"
                           data-dialog-index="${index}"
+                          role="${useMultiRenderer ? "checkbox" : selectable ? "radio" : "button"}" ${selectable ? `aria-checked="${isSelected ? "true" : "false"}"` : ""}
                           data-dialog-option-id="${escapeHtml(option.id)}">
                     ${
                       useLanguageRenderer

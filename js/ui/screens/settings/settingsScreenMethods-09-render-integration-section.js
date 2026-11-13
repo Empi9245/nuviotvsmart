@@ -161,6 +161,35 @@ export function createSettingsScreenMethods09() {
         });
       });
 
+      const hasBadgeImport = imports.length > 0;
+      const playerPackSource = String(badgeSettings.playerBadgeSource || "").trim();
+      const playerPack = imports.find(
+        (entry) =>
+          String(entry?.sourceUrl || "")
+            .trim()
+            .toLowerCase() === playerPackSource.toLowerCase()
+      );
+      this.actionMap.set("streams:toggle:playerBadges", () => {
+        if (!hasBadgeImport) {
+          return;
+        }
+        StreamBadgeSettingsStore.setShowInPlayer(!badgeSettings.showInPlayer);
+      });
+      const playerBadgeOptions = [
+        { id: "", label: t("settings_stream_player_badges_same", {}, "Same as stream badges") },
+        ...imports.map((entry) => ({ id: entry.sourceUrl, label: entry.sourceUrl }))
+      ];
+      this.actionMap.set("streams:playerBadgeSource", () => {
+        this.openOptionDialog({
+          title: t("settings_stream_player_badges_title", {}, "Player badges"),
+          subtitle: t("settings_stream_player_badges_description", {}, "Choose the badge pack the player uses."),
+          options: playerBadgeOptions,
+          selectedId: badgeSettings.playerBadgeSource || "",
+          returnFocusKey: "streams:playerBadgeSource",
+          onSelect: (option) => StreamBadgeSettingsStore.setPlayerBadgeSource(option.id)
+        });
+      });
+
       const previewHtml = previewImport ? this.renderStreamBadgePreviewCard(previewImport) : "";
       const emptyHtml = imports.length
         ? ""
@@ -170,6 +199,26 @@ export function createSettingsScreenMethods09() {
           ${this.renderSectionHeader(SECTION_META.find((item) => item.id === "streams"))}
           <div class="settings-group-card settings-group-card-fill">
             <div class="settings-stack">
+              ${this.renderToggleRow({
+                focusKey: "streams:toggle:playerBadges",
+                title: t("settings_stream_badges_in_player_title", {}, "Show in player"),
+                subtitle: t(
+                  "settings_stream_badges_in_player_description",
+                  {},
+                  "Show badges for the video and audio that is playing under the player title. Needs a badge pack that matches plain text, like 2160p or Atmos."
+                ),
+                checked: badgeSettings.showInPlayer === true,
+                disabled: !hasBadgeImport
+              })}
+              ${
+                badgeSettings.showInPlayer === true && hasBadgeImport
+                  ? this.renderActionRow({
+                      focusKey: "streams:playerBadgeSource",
+                      title: t("settings_stream_player_badges_title", {}, "Player badges"),
+                      subtitle: playerPack?.sourceUrl || playerBadgeOptions[0].label
+                    })
+                  : ""
+              }
               ${this.renderToggleRow({
                 focusKey: "streams:toggle:sizeBadges",
                 title: t("settings_stream_size_badges_title", {}, "Size badges"),

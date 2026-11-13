@@ -87,6 +87,13 @@ export function createHomeScreenMethods06() {
           label: t("cw_action_start_from_beginning", {}, "Start from beginning")
         });
       }
+      // Android only offers this once the next episode has aired.
+      if (!isCloud && (!item.isNextUp || item.hasAired !== false)) {
+        options.push({
+          action: "markWatched",
+          label: t("hero_mark_watched", {}, "Mark as watched")
+        });
+      }
       options.push({ action: "remove", label: t("cw_action_remove", {}, "Remove") });
       return options;
     },
@@ -202,6 +209,7 @@ export function createHomeScreenMethods06() {
       if (!state || !viewport) {
         return false;
       }
+      this.prepareHomeRowsForRestore(state);
       Object.entries(state.trackStates || {}).forEach(([rowKey, scrollLeft]) => {
         const track = this.container?.querySelector(`[data-track-row-key="${rowKey}"]`);
         if (track) {

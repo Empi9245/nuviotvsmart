@@ -1,4 +1,5 @@
 import { filenameMatches } from "./filenameEpisodeMatcher.js";
+import { indexOfPluginBingeMatch } from "./pluginBingeGroup.js";
 import { canResolveMediaServerStream } from "../../data/mediaserver/mediaServerRepository.js";
 // Auto stream selection, ported from the Android TV app's StreamAutoPlaySelector
 // and StreamAutoPlayPolicy so the two clients behave the same. Given the list of
@@ -102,6 +103,19 @@ function streamBingeGroup(stream = {}) {
   ).trim();
 }
 
+/** The stream whose plugin variant continues the saved group when the strings are not equal. */
+function findPluginBingeGroupMatchStream(streams = [], targetGroup = "") {
+  const group = String(targetGroup || "").trim();
+  if (!group) {
+    return null;
+  }
+  const index = indexOfPluginBingeMatch(
+    group,
+    (Array.isArray(streams) ? streams : []).map((stream) => streamBingeGroup(stream))
+  );
+  return index == null ? null : streams[index] || null;
+}
+
 function streamSearchableText(stream = {}) {
   // Match the readable labels even when addons decorate them with mathematical
   // letters or flag symbols. URLs and hashes are identities, not display text.
@@ -180,6 +194,12 @@ export function selectAutoPlayStream(streams, options = {}) {
             String(options.preferredInfoHash).toLowerCase()
         ));
     if (match) return match;
+    // A plugin keeps its provider/variant when the episode title changes: match the
+    // saved token group, not only the exact string.
+    if (!sameGroup.length) {
+      const pluginMatch = findPluginBingeGroupMatchStream(preciseCandidates, group);
+      if (pluginMatch) return pluginMatch;
+    }
   }
   const mode = normalizeMode(options.mode);
   const source = normalizeSource(options.source);
@@ -206,13 +226,14 @@ export function selectAutoPlayStream(streams, options = {}) {
     return null;
   }
 
-  // Android gives an exact binge-group match priority over the normal mode,
-  // including MANUAL. In bingeGroupOnly mode, a miss must open the picker.
+  // Android gives a binge-group match priority over the normal mode, including MANUAL,
+  // and searches every stream, not just the source-filtered candidates. In bingeGroupOnly
+  // mode, a miss must open the picker.
   const preferredBingeGroup = String(options.preferredBingeGroup || "").trim();
   if (options.preferBingeGroupInSelection && preferredBingeGroup) {
-    const bingeGroupMatch = candidates.find(
-      (stream) => streamBingeGroup(stream) === preferredBingeGroup && isPlayableStream(stream)
-    );
+    const bingeGroupMatch =
+      preciseCandidates.find((stream) => streamBingeGroup(stream) === preferredBingeGroup) ||
+      findPluginBingeGroupMatchStream(preciseCandidates, preferredBingeGroup);
     if (bingeGroupMatch) {
       return bingeGroupMatch;
     }

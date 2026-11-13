@@ -114,6 +114,7 @@ async function signedMemberAvatarUrl(storagePath) {
   const { backendUrl, publishableKey } = ServerConfigurationStore.getActive();
   const { httpRequest } = await import("../network/httpClient.js");
   const path = String(storagePath || "")
+    .trim()
     .replace(/^\/+/, "")
     .split("/")
     .map(encodeURIComponent)
@@ -271,7 +272,8 @@ export function createPartyRepository({
       displayName: name ? name.slice(0, 40) : DEFAULT_NAME,
       avatarUrl:
         avatarUrl && avatarUrl.startsWith("https://") && avatarUrl.length <= 512 ? avatarUrl : null,
-      avatarColor: COLOR_PATTERN.test(color) ? color : null
+      avatarColor: COLOR_PATTERN.test(color) ? color : null,
+      profileIndex: profile ? Number(profile.id ?? profile.profileIndex) : null
     };
   }
 

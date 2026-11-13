@@ -49,41 +49,75 @@ function handleRequest(request, response) {
   }
 
   if (parsed.pathname === "/settings") {
-    sendJson(response, 200, { tx3g: true, embeddedText: true, service: "nuvio-tx3g" });
+    sendJson(response, 200, { tx3g: true, embeddedText: true, bitmapSubtitle: true, service: "nuvio-tx3g" });
     return;
   }
 
+  var isEmbeddedTextRequest = parsed.pathname === "/embedded-text";
+  var isTx3gRequest = parsed.pathname === "/tx3g";
+  var isEmbeddedTextTimelineRequest = parsed.pathname === "/embedded-text-timeline";
+  var isTx3gTimelineRequest = parsed.pathname === "/tx3g-timeline";
+  var isBitmapSubtitleRequest = parsed.pathname === "/bitmap-subtitle";
   if (
-    (parsed.pathname !== "/tx3g" && parsed.pathname !== "/embedded-text") ||
+    (!isEmbeddedTextRequest &&
+      !isTx3gRequest &&
+      !isEmbeddedTextTimelineRequest &&
+      !isTx3gTimelineRequest &&
+      !isBitmapSubtitleRequest) ||
     request.method !== "GET"
   ) {
     sendJson(response, 404, { returnValue: false, errorCode: "NOT_FOUND" });
     return;
   }
 
-  var isEmbeddedTextRequest = parsed.pathname === "/embedded-text";
   var sourceUrl = String(parsed.query.url || "").trim();
   var trackNumber = parseNumber(parsed.query.trackNumber, 0);
   var trackOrdinal = parseNumber(parsed.query.trackOrdinal, -1);
   var startSeconds = Math.max(0, parseNumber(parsed.query.startSeconds, 0));
   var endSeconds = parseNumber(parsed.query.endSeconds, startSeconds + 120);
+  var isTimelineRequest = isEmbeddedTextTimelineRequest || isTx3gTimelineRequest;
   if (
     !/^https?:\/\//i.test(sourceUrl) ||
-    (isEmbeddedTextRequest
-      ? !isFinite(trackOrdinal) || trackOrdinal < 0
-      : !isFinite(trackNumber) || trackNumber <= 0)
+    (!isTimelineRequest &&
+      (isEmbeddedTextRequest
+        ? !isFinite(trackOrdinal) || trackOrdinal < 0
+        : !isFinite(trackNumber) || trackNumber <= 0))
   ) {
     sendJson(response, 400, {
       returnValue: false,
       errorCode: "INVALID_REQUEST",
-      errorText: isEmbeddedTextRequest
-        ? "Embedded text source URL and trackOrdinal are required"
-        : "TX3G source URL and trackNumber are required"
+      errorText: isTimelineRequest
+        ? "Subtitle source URL is required"
+        : isEmbeddedTextRequest
+          ? "Embedded text source URL and trackOrdinal are required"
+          : isBitmapSubtitleRequest
+            ? "Bitmap subtitle source URL and trackNumber are required"
+            : "TX3G source URL and trackNumber are required"
     });
     return;
   }
 
   var extraction = Promise.resolve().then(function () {
+    if (isEmbeddedTextTimelineRequest) {
+      return getEmbeddedTextParser().getEmbeddedTextSubtitleTimeline({
+        url: sourceUrl,
+        trackOrdinal: isFinite(trackOrdinal) && trackOrdinal >= 0 ? trackOrdinal : undefined
+      });
+    }
+    if (isTx3gTimelineRequest) {
+      return parser.extractTx3gTimeline({
+        url: sourceUrl,
+        trackNumber: isFinite(trackNumber) && trackNumber > 0 ? trackNumber : undefined
+      });
+    }
+    if (isBitmapSubtitleRequest) {
+      return getEmbeddedTextParser().getBitmapSubtitleWindow({
+        url: sourceUrl,
+        trackNumber: trackNumber,
+        startSeconds: startSeconds,
+        endSeconds: endSeconds
+      });
+    }
     return isEmbeddedTextRequest
       ? getEmbeddedTextParser().getEmbeddedTextSubtitleWindow({
           url: sourceUrl,
@@ -105,10 +139,19 @@ function handleRequest(request, response) {
     })
     .catch(function (error) {
       var errorCode = String(
-        (error && error.code) || (isEmbeddedTextRequest ? "EMBEDDED_TEXT_PARSE_FAILED" : "TX3G_PARSE_FAILED")
+        (error && error.code) ||
+          (isBitmapSubtitleRequest
+            ? "BITMAP_SUBTITLE_FAILED"
+            : isEmbeddedTextRequest
+              ? "EMBEDDED_TEXT_PARSE_FAILED"
+              : "TX3G_PARSE_FAILED")
       );
       console.warn(
-        isEmbeddedTextRequest ? "[Nuvio embedded text] extraction failed" : "[Nuvio TX3G] extraction failed",
+        isBitmapSubtitleRequest
+          ? "[Nuvio bitmap subtitle] extraction failed"
+          : isEmbeddedTextRequest || isEmbeddedTextTimelineRequest
+            ? "[Nuvio embedded text] extraction failed"
+            : "[Nuvio TX3G] extraction failed",
         errorCode,
         error && error.message ? error.message : error
       );
@@ -118,7 +161,11 @@ function handleRequest(request, response) {
         errorText: String(
           error && error.message
             ? error.message
-            : error || (isEmbeddedTextRequest ? "Embedded text extraction failed" : "TX3G extraction failed")
+            : error || (isBitmapSubtitleRequest
+                ? "Bitmap subtitle extraction failed"
+                : isEmbeddedTextRequest || isEmbeddedTextTimelineRequest
+                  ? "Embedded text extraction failed"
+                  : "TX3G extraction failed")
         )
       });
     });

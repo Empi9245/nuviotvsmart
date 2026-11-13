@@ -152,8 +152,10 @@ export function fitSidebarLabel(node, minFontSizePx) {
     return false;
   }
 
+  // Do not tolerate a rounded 1px overflow: layout overflows fractionally and
+  // an ellipsis replaces the tail of the label even for a sub-pixel overrun.
   const currentWidth = node.scrollWidth;
-  if (currentWidth <= node.clientWidth + 1) {
+  if (currentWidth <= node.clientWidth) {
     node.style.fontSize = "";
     return true;
   }
@@ -166,7 +168,7 @@ export function fitSidebarLabel(node, minFontSizePx) {
   for (let index = 0; index < 8 && high - low > 0.25; index += 1) {
     const mid = (low + high) / 2;
     node.style.fontSize = `${mid}px`;
-    if (node.scrollWidth <= node.clientWidth + 1) {
+    if (node.scrollWidth <= node.clientWidth) {
       best = mid;
       low = mid;
     } else {
@@ -181,20 +183,12 @@ export function fitSidebarLabel(node, minFontSizePx) {
 export function fitRootSidebarText(container) {
   const targets = getSidebarTextFitTargets(container);
   targets.forEach((node) => {
-    if (node.matches(".home-nav-label")) {
-      fitSidebarLabel(node, 24);
-      return;
-    }
     if (node.matches(".modern-sidebar-pill-label")) {
       fitSidebarLabel(node, 28);
       return;
     }
-    if (node.matches(".modern-sidebar-profile-name")) {
-      // Android TV AutoResizeText uses a 9sp floor; the Web TV canvas is 2x.
-      fitSidebarLabel(node, 18);
-      return;
-    }
-    fitSidebarLabel(node, 30);
+    // Android TV AutoResizeText uses a 9sp floor; the Web TV canvas is 2x.
+    fitSidebarLabel(node, 18);
   });
 }
 

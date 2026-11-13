@@ -13,15 +13,19 @@ import {
   serverEndpoint
 } from "./mediaBrowserClient.js";
 import { ProfileManager } from "../../core/profile/profileManager.js";
+import { Platform } from "../../platform/index.js";
+import { TizenCapabilities } from "../../platform/tizen/tizenCapabilities.js";
 import { I18n } from "../../i18n/index.js";
 const PAGE_SIZE = 100;
 const LIST_FIELDS =
   "ProviderIds,Overview,MediaSources,MediaStreams,Genres,DateCreated,UserData,Path";
 const refs = new Map();
 const genreScopes = new Map();
+const titleNames = new Map();
 globalThis.document?.addEventListener?.("nuvio:media-servers-changed", () => {
   refs.clear();
   genreScopes.clear();
+  titleNames.clear();
 });
 const key = (id) => encodeURIComponent(String(id));
 const profile = () => String(ProfileManager.getActiveProfileId() || "1");
@@ -142,11 +146,29 @@ function playableSources(item) {
         (source) => String(source.Type || "").toLowerCase() !== "placeholder"
       );
 }
-export function buildServerDeviceProfile() {
+export function buildServerDeviceProfile({ allowDirectPlay = true } = {}) {
+  const nativeTv = allowDirectPlay && (Platform.isWebOS() || Platform.isTizen());
+  // Samsung TVs from Tizen 6 (2021) onward decode AV1 in the native pipeline.
+  // Older Tizen and webOS keep the previous negotiation.
+  const nativeVideoCodecs =
+    nativeTv && Platform.isTizen() && TizenCapabilities.get().tizenMajorVersion >= 6
+      ? "h264,hevc,av1"
+      : "h264,hevc";
   return {
     Name: "Nuvio Smart TV",
     MaxStreamingBitrate: 120000000,
     DirectPlayProfiles: [
+      // TV native pipelines support these formats even when HTML canPlayType underreports them.
+      ...(nativeTv
+        ? [
+            {
+              Type: "Video",
+              Container: "mkv,mp4,m4v,ts",
+              VideoCodec: nativeVideoCodecs,
+              AudioCodec: "aac,mp3,ac3,eac3"
+            }
+          ]
+        : []),
       { Type: "Video", Container: "mp4,m4v,mov", VideoCodec: "h264", AudioCodec: "aac,mp3" }
     ],
     TranscodingProfiles: [
@@ -295,6 +317,7 @@ export const MediaServerRepository = {
   changed() {
     refs.clear();
     genreScopes.clear();
+    titleNames.clear();
     globalThis.document?.dispatchEvent?.(new CustomEvent("nuvio:media-servers-changed"));
   },
   addons() {
@@ -541,36 +564,70 @@ export const MediaServerRepository = {
         const scopes = connection.libraries.filter(
           (library) => library.selected && (library.kind === type || library.kind === "mixed")
         );
-        const matches = await Promise.all(
-          scopes.map((library) =>
-            get(
-              connection,
-              "items",
-              null,
-              {
-                parentId: library.id,
-                recursive: true,
-                includeItemTypes: type === "movie" ? "Movie" : "Series",
-                anyProviderIdEquals: `${external.name}.${external.id}`,
-                fields: LIST_FIELDS,
-                limit: 100
-              },
-              signal
+        if (!scopes.length) return { status: "success", data: [] };
+        const lookup = async (query) => {
+          const matches = await Promise.all(
+            scopes.map((library) =>
+              get(
+                connection,
+                "items",
+                null,
+                {
+                  parentId: library.id,
+                  recursive: true,
+                  includeItemTypes: type === "movie" ? "Movie" : "Series",
+                  fields: LIST_FIELDS,
+                  limit: 100,
+                  ...query
+                },
+                signal
+              )
             )
-          )
-        );
-        const unique = new Map(
-          matches.flatMap((result) => result?.Items || []).map((item) => [item.Id, item])
-        );
-        const found = { Items: [...unique.values()] };
-        const exact = (found?.Items || []).filter(
-          (item) =>
-            String(
-              item.ProviderIds?.[external.name] ||
-                item.ProviderIds?.[external.name.toLowerCase()] ||
-                ""
-            ) === external.id
-        );
+          );
+          const unique = new Map(
+            matches.flatMap((result) => result?.Items || []).map((item) => [item.Id, item])
+          );
+          // A title narrows the search; only provider identity can authorize playback.
+          return [...unique.values()].filter(
+            (item) =>
+              String(
+                item.ProviderIds?.[external.name] ||
+                  item.ProviderIds?.[external.name.toLowerCase()] ||
+                  ""
+              ) === external.id
+          );
+        };
+        let exact = await lookup({ anyProviderIdEquals: `${external.name}.${external.id}` });
+        if (!exact.length && !signal?.aborted && profile() === pid) {
+          const titleKey = `${pid}:${type}:${match[1]}`;
+          let title = titleNames.get(titleKey);
+          if (!title) {
+            const { metaRepository } = await import("../repository/metaRepository.js");
+            let timer;
+            try {
+              const cached = metaRepository.getCachedMeta(type, match[1]);
+              const meta =
+                cached ||
+                (
+                  await Promise.race([
+                    metaRepository.getMetaFromAllAddons(type, match[1]).catch(() => null),
+                    new Promise((resolve) => {
+                      timer = setTimeout(() => resolve(null), 3000);
+                    })
+                  ])
+                )?.data;
+              title = String(meta?.name || "").trim();
+              if (title) {
+                if (titleNames.size >= 200) titleNames.delete(titleNames.keys().next().value);
+                titleNames.set(titleKey, title);
+              }
+            } finally {
+              clearTimeout(timer);
+            }
+          }
+          if (title && !signal?.aborted && profile() === pid)
+            exact = await lookup({ searchTerm: title });
+        }
         if (exact.length !== 1) return { status: "success", data: [] };
         let itemId = exact[0].Id;
         if (type !== "movie" && match[2] && match[3]) {
@@ -618,7 +675,7 @@ export const MediaServerRepository = {
       return { status: "error", message: error?.message || "servers_failure_unreachable" };
     }
   },
-  async resolve(stream) {
+  async resolve(stream, { allowDirectPlay = true } = {}) {
     const target = (stream.clientResolve || stream.raw?.clientResolve)?.mediaServer;
     if (!target) return { status: "unavailable" };
     const pid = profile();
@@ -628,18 +685,18 @@ export const MediaServerRepository = {
       UserId: connection.remoteUserId,
       MediaSourceId: target.mediaSourceId,
       MaxStreamingBitrate: 120000000,
-      EnableDirectPlay: true,
+      EnableDirectPlay: allowDirectPlay,
       EnableDirectStream: true,
       EnableTranscoding: true,
       AllowVideoStreamCopy: true,
       AllowAudioStreamCopy: true,
       AutoOpenLiveStream: false,
       IsPlayback: true,
-      DeviceProfile: buildServerDeviceProfile()
+      DeviceProfile: buildServerDeviceProfile({ allowDirectPlay })
     };
-    const resumeItem = await get(connection, "item", target.itemId, { fields: "UserData" }).catch(
-      () => null
-    );
+    const resumeItem = allowDirectPlay
+      ? await get(connection, "item", target.itemId, { fields: "UserData" }).catch(() => null)
+      : null;
     if (profile() !== pid) return { status: "unavailable" };
     const info = await mediaServerRequest(connection, `/Items/${key(target.itemId)}/PlaybackInfo`, {
       method: "POST",
@@ -647,7 +704,7 @@ export const MediaServerRepository = {
         userId: connection.remoteUserId,
         mediaSourceId: target.mediaSourceId,
         maxStreamingBitrate: body.MaxStreamingBitrate,
-        enableDirectPlay: true
+        enableDirectPlay: allowDirectPlay
       },
       body
     });
@@ -657,7 +714,7 @@ export const MediaServerRepository = {
       info?.MediaSources?.find((entry) => String(entry.Type).toLowerCase() !== "placeholder");
     if (!source) return { status: "unavailable" };
     let url, playMethod;
-    if (source.SupportsDirectPlay) {
+    if (source.SupportsDirectPlay && allowDirectPlay) {
       url = mediaServerUrl(connection, `/Videos/${key(target.itemId)}/stream`, {
         static: true,
         mediaSourceId: source.Id,

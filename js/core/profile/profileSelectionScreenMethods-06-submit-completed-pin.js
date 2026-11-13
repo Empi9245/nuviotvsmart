@@ -5,6 +5,7 @@ export function createProfileSelectionScreenMethods06() {
   const {
     ProfileManager,
     ProfileSyncService,
+    ProfileSettingsCopyService,
     ScreenUtils,
     NuvioDialog,
     PluginStore,
@@ -251,6 +252,8 @@ export function createProfileSelectionScreenMethods06() {
 
       const editorState = { ...this.editorState };
       const trimmedName = String(editorState.name || "").trim();
+      const copySourceProfileId = editorState.copySourceProfileId || null;
+      const copyProviderCredentials = Boolean(editorState.copyProviderCredentials);
       const focusProfileId =
         editorState.mode === "edit" ? editorState.profileId : String(ProfileManager.getNextProfileIndex(this.getVisibleProfiles()) || "");
 
@@ -283,6 +286,17 @@ export function createProfileSelectionScreenMethods06() {
           profileBackgroundId: editorState.selectedBackgroundId || null,
           profileBackgroundUrl: String(editorState.selectedBackgroundUrl || "").trim() || null
         });
+        if (success !== false && copySourceProfileId) {
+          try {
+            await ProfileSettingsCopyService.copyProfileSettings({
+              sourceProfileId: copySourceProfileId,
+              targetProfileId: focusProfileId,
+              copyProviderCredentials
+            });
+          } catch (error) {
+            console.warn("Failed to copy settings into the new profile", error);
+          }
+        }
       }
 
       if (success !== false) {
@@ -302,8 +316,6 @@ export function createProfileSelectionScreenMethods06() {
 
       const deleted = await ProfileManager.deleteProfile(profile.id);
       if (deleted !== false) {
-        PluginStore.clearProfile(profile.id);
-        await PluginCodeStore.clearProfile(profile.id);
         await ProfileSyncService.deleteProfileData(profile.id);
         await ProfileSyncService.push();
         await this.refreshProfilePinStates();

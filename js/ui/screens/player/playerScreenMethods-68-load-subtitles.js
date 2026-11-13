@@ -212,6 +212,11 @@ export function createPlayerScreenMethods68() {
         return;
       }
 
+      if (action === "chapters") {
+        this.toggleChaptersPanel();
+        return;
+      }
+
       if (action === "party") {
         this.togglePartyPanel();
         return;
@@ -227,7 +232,7 @@ export function createPlayerScreenMethods68() {
         this.controlFocusZone = "buttons";
         this.controlFocusIndex = Math.max(
           0,
-          this.getControlDefinitions().findIndex((entry) => entry.action === "speed")
+          this.getControlDefinitions().findIndex((entry) => entry.action === "speed" || entry.action === "aspect")
         );
         this.renderControlButtons();
         return;
@@ -237,10 +242,7 @@ export function createPlayerScreenMethods68() {
         this.stickyProgressFocus = false;
         this.moreActionsVisible = false;
         this.controlFocusZone = "buttons";
-        this.controlFocusIndex = Math.max(
-          0,
-          this.getControlDefinitions().findIndex((entry) => entry.action === "more")
-        );
+        this.controlFocusIndex = 0;
         this.renderControlButtons();
         return;
       }

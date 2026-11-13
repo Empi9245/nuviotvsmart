@@ -19,7 +19,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: 22px 40px 56px;
-  margin-left: var(--legacy-sidebar-rail-width);
+  margin-left: var(--home-sidebar-content-offset, var(--legacy-sidebar-rail-width));
 }
 
 /* Collapsible sidebar takes no space — no margin needed */
@@ -73,21 +73,19 @@
   overflow: visible;
   transform: translateZ(0);
   backface-visibility: hidden;
-  will-change: width;
-  transition: width 385ms cubic-bezier(0, 0, 0.2, 1);
 }
+
+/* Android lays the panel out at its final width and animates only the panel
+   transform. The shell has no in-flow children, so animating its width only
+   forced a layout pass on every sidebar frame. */
 
 .modern-sidebar-shell,
 .modern-sidebar-shell * {
   box-sizing: border-box;
 }
 
-.modern-sidebar-shell.expanded:not(.opening):not(.collapsing) {
+.modern-sidebar-shell.expanded {
   width: var(--modern-sidebar-open-width);
-}
-
-.modern-sidebar-shell.opening {
-  animation: modernSidebarShellOpen 395ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 .modern-sidebar-pill,
@@ -147,10 +145,18 @@
 }
 
 .modern-sidebar-shell.blur-enabled .modern-sidebar-panel {
-  border-color: rgb(var(--focus-color-rgb) / 0.14);
+  border-color: rgba(var(--focus-color-rgb-legacy), 0.14);
   background:
-    linear-gradient(180deg, rgb(var(--bg-elevated-rgb) / 0.32), rgb(var(--bg-elevated-rgb) / 0.32)),
-    linear-gradient(180deg, rgb(var(--card-bg-rgb) / 0.88), rgb(var(--bg-elevated-rgb) / 0.84));
+    linear-gradient(
+      180deg,
+      rgba(var(--bg-elevated-rgb-legacy), 0.32),
+      rgba(var(--bg-elevated-rgb-legacy), 0.32)
+    ),
+    linear-gradient(
+      180deg,
+      rgba(var(--card-bg-rgb-legacy), 0.88),
+      rgba(var(--bg-elevated-rgb-legacy), 0.84)
+    );
   backdrop-filter: blur(0px) saturate(1);
   -webkit-backdrop-filter: blur(0px) saturate(1);
 }
@@ -173,18 +179,13 @@
   align-items: center;
   gap: 36px;
   text-align: left;
-  transform: translateZ(0) scale(1);
+  transform: translateZ(0);
   transform-origin: center center;
-  transition:
-    transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    background-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .modern-sidebar-profile.focused {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.4) !important;
-  transform: translateZ(0) scale(1.06);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .modern-sidebar-profile-avatar {
@@ -212,7 +213,8 @@
   letter-spacing: 0;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  /* ATV AutoResizeText clips instead of ellipsizing the profile name. */
+  text-overflow: clip;
   opacity: 0;
   transition: opacity 125ms cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -243,32 +245,25 @@
   transform: scale(1);
   transform-origin: center center;
   transition:
-    transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
     background-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
     color 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .modern-sidebar-nav-item.selected {
-  background: var(--secondary-color);
-  color: var(--on-secondary);
+  background: rgba(var(--secondary-color-rgb-legacy), 0.15);
+  color: var(--secondary-color);
 }
 
 .modern-sidebar-nav-item.focused {
-  background: var(--focus-bg);
-  border-color: var(--focus-color) !important;
+  background: rgba(255, 255, 255, 0.12);
   color: var(--text-color);
-  transform: scale(1.06);
+  transform: scale(1.1);
 }
 
 .modern-sidebar-nav-item.selected.focused {
-  background: var(--secondary-color);
-  color: var(--on-secondary);
-  border-color: var(--focus-color) !important;
-}
-
-.modern-sidebar-nav-item.selected.focused .modern-sidebar-nav-icon-circle {
-  background: var(--player-accent-gradient, var(--secondary-color));
+  background: rgba(var(--secondary-color-rgb-legacy), 0.28);
+  color: var(--secondary-color);
 }
 
 .modern-sidebar-nav-icon-circle,
@@ -283,13 +278,8 @@
 }
 
 .modern-sidebar-nav-icon-circle {
-  background: var(--focus-bg);
+  background: transparent;
   padding: 12px;
-}
-
-.modern-sidebar-nav-item.selected .modern-sidebar-nav-icon-circle {
-  background: var(--player-accent-gradient, var(--secondary-color));
-  color: var(--on-secondary);
 }
 
 .modern-sidebar-nav-icon,
@@ -304,14 +294,25 @@
   min-width: 0;
   flex: 1;
   font-family: var(--app-font-family);
-  /* ATV titleLarge 20sp / 28sp -> 40px / 56px */
-  font-size: min(2.08vw, 40px);
-  font-weight: 500;
-  line-height: min(2.92vw, 56px);
-  letter-spacing: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
+}
+
+.modern-sidebar-nav-label {
+  /* ATV bodyLarge 16sp / 24sp -> 32px / 48px */
+  font-size: min(1.67vw, 32px);
+  font-weight: 400;
+  line-height: min(2.5vw, 48px);
+  letter-spacing: 1px;
+}
+
+.modern-sidebar-pill-label {
+  /* ATV titleLarge 20sp / 30sp -> 40px / 60px */
+  font-size: min(2.08vw, 40px);
+  font-weight: 500;
+  line-height: min(3.125vw, 60px);
+  letter-spacing: 0;
 }
 
 .modern-sidebar-nav-label,
@@ -395,10 +396,18 @@
 }
 
 .modern-sidebar-shell.blur-enabled .modern-sidebar-pill-chip {
-  border-color: rgb(var(--focus-color-rgb) / 0.14);
+  border-color: rgba(var(--focus-color-rgb-legacy), 0.14);
   background:
-    linear-gradient(180deg, rgb(var(--bg-elevated-rgb) / 0.28), rgb(var(--bg-elevated-rgb) / 0.28)),
-    linear-gradient(180deg, rgb(var(--card-bg-rgb) / 0.86), rgb(var(--bg-elevated-rgb) / 0.82));
+    linear-gradient(
+      180deg,
+      rgba(var(--bg-elevated-rgb-legacy), 0.28),
+      rgba(var(--bg-elevated-rgb-legacy), 0.28)
+    ),
+    linear-gradient(
+      180deg,
+      rgba(var(--card-bg-rgb-legacy), 0.86),
+      rgba(var(--bg-elevated-rgb-legacy), 0.82)
+    );
 }
 
 .modern-sidebar-shell.performance-constrained.blur-enabled .modern-sidebar-panel,
@@ -430,16 +439,4 @@
 .modern-sidebar-shell.keep-pill-expanded .modern-sidebar-pill-chevron,
 .modern-sidebar-shell.keep-pill-expanded .modern-sidebar-pill-label {
   display: block;
-}
-
-@keyframes modernSidebarShellOpen {
-  from {
-    width: var(--modern-sidebar-collapsed-width);
-  }
-  47.95% {
-    width: 548px;
-  }
-  to {
-    width: var(--modern-sidebar-open-width);
-  }
 }

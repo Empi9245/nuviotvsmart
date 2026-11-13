@@ -2,14 +2,24 @@ import { watchedItemsRepository } from "./watchedItemsRepository.js";
 import { watchProgressRepository } from "./watchProgressRepository.js";
 import { TraktAuthService } from "./traktAuthService.js";
 import { watchedItemsShareIdentity } from "./watchedIdentity.js";
+import { LocalStore } from "../../core/storage/localStore.js";
+import { WatchProgressSource } from "../local/traktSettingsStore.js";
 import { ProfileManager } from "../../core/profile/profileManager.js";
+import { episodeMappingEntries } from "../../core/tracking/episodeMapping.js";
+import { TraktEpisodeMappingService } from "./traktEpisodeMappingService.js";
+import { MdbListEpisodeMappingService } from "./mdbListEpisodeMappingService.js";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const CACHE = new Map();
 
 function buildCacheKey(contentId, traktId) {
   const profileId = ProfileManager.getActiveProfileId() || "default";
-  return `${profileId}:${contentId}:${traktId}`;
+  return (
+    `${profileId}:${contentId}:${traktId}` +
+    (isMdbListSelected()
+      ? `:${watchProgressRepository.getContinueWatchingSourceKey()}:${LocalStore.revision("mdbListTracking")}:${LocalStore.revision("mdbListTrackingPlayback")}`
+      : "")
+  );
 }
 
 function getCachedEntry(cacheKey) {
@@ -34,7 +44,7 @@ function buildEpisodeKey(season, episode) {
 }
 
 async function fetchLocalWatchedMap(contentReference = {}) {
-  const allWatched = await watchedItemsRepository.getAll();
+  const allWatched = await watchedItemsRepository.getAll(isMdbListSelected() ? Infinity : 2000);
   const watchedMap = new Map();
 
   for (const item of allWatched) {
@@ -44,7 +54,10 @@ async function fetchLocalWatchedMap(contentReference = {}) {
       watchedMap.set(key, {
         isWatched: true,
         watchedAt: item.watchedAt || null,
-        source: "local"
+        source: item.source || "local",
+        tmdbId: item.tmdbId || null,
+        imdbId: item.imdbId || null,
+        episodeNumberMapped: item.episodeNumberMapped === true
       });
     } else if (item.contentType === "movie") {
       watchedMap.set("movie", {
@@ -58,8 +71,14 @@ async function fetchLocalWatchedMap(contentReference = {}) {
   return watchedMap;
 }
 
+function isMdbListSelected() {
+  return watchProgressRepository.getContinueWatchingSource() === WatchProgressSource.MDBLIST;
+}
+
 async function fetchProgressWatchedMap(contentReference = {}) {
-  const allProgress = await watchProgressRepository.getAll();
+  const allProgress = await (isMdbListSelected()
+    ? watchProgressRepository.getAllForContinueWatching()
+    : watchProgressRepository.getAll());
   const progressMap = new Map();
 
   for (const progress of allProgress) {
@@ -79,7 +98,10 @@ async function fetchProgressWatchedMap(contentReference = {}) {
           progressMap.set(key, {
             isWatched: true,
             watchedAt: progress.updatedAt || null,
-            source: "progress"
+            source: progress.source || "progress",
+            tmdbId: progress.tmdbId || null,
+            imdbId: progress.imdbId || null,
+            episodeNumberMapped: progress.episodeNumberMapped === true
           });
         }
       }
@@ -96,7 +118,7 @@ async function fetchProgressWatchedMap(contentReference = {}) {
 }
 
 async function fetchTraktSeriesWatchedMap(showTraktId) {
-  if (!showTraktId) return new Map();
+  if (!showTraktId || isMdbListSelected()) return new Map();
 
   const isAuthenticated = await TraktAuthService.isAuthenticated();
   if (!isAuthenticated) return new Map();
@@ -111,7 +133,7 @@ async function fetchTraktSeriesWatchedMap(showTraktId) {
 }
 
 async function fetchTraktMovieWatchedState(movieTraktId) {
-  if (!movieTraktId) return null;
+  if (!movieTraktId || isMdbListSelected()) return null;
 
   const isAuthenticated = await TraktAuthService.isAuthenticated();
   if (!isAuthenticated) return null;
@@ -161,6 +183,100 @@ function mergeWatchedStates(localMap, progressMap, traktMap) {
   return mergedMap;
 }
 
+function parseEpisodeMapKey(key) {
+  const [season, episode] = String(key || "")
+    .split(":")
+    .map((part) => Number(part));
+  return Number.isInteger(season) && Number.isInteger(episode) && season > 0 && episode > 0
+    ? { season, episode }
+    : null;
+}
+
+function isMdbListSource(source) {
+  return String(source || "")
+    .toLowerCase()
+    .startsWith("mdblist");
+}
+
+/**
+ * Trakt watched episodes are numbered the way Trakt splits the show. Translate the ones the
+ * add-on does not have into the add-on's numbering, leaving every other key untouched.
+ */
+async function remapTraktWatchedMap(map, { contentId, showTraktId, addonEpisodes }) {
+  if (!map.size || !addonEpisodes.length) {
+    return map;
+  }
+  const remapped = new Map();
+  for (const [key, state] of map) {
+    const episode = parseEpisodeMapKey(key);
+    if (!episode) {
+      remapped.set(key, state);
+      continue;
+    }
+    let mapping = null;
+    try {
+      mapping = await TraktEpisodeMappingService.resolveTraktToAddon({
+        contentId,
+        contentType: "series",
+        season: episode.season,
+        episode: episode.episode,
+        title: null,
+        traktId: showTraktId,
+        addonEpisodes
+      });
+    } catch (_) {
+      mapping = null;
+    }
+    if (!mapping) {
+      remapped.set(key, state);
+      continue;
+    }
+    const mappedKey = buildEpisodeKey(mapping.season, mapping.episode);
+    if (!remapped.has(mappedKey)) {
+      remapped.set(mappedKey, state);
+    }
+  }
+  return remapped;
+}
+
+/** MDBList numbers episodes as TMDB does; translate only the MDBList-sourced entries. */
+async function remapMdbListWatchedMap(map, { contentId, addonEpisodes }) {
+  if (!map.size || !addonEpisodes.length || !isMdbListSelected()) {
+    return map;
+  }
+  const remapped = new Map();
+  for (const [key, state] of map) {
+    const episode = parseEpisodeMapKey(key);
+    if (!episode || !isMdbListSource(state?.source) || state?.episodeNumberMapped === true) {
+      remapped.set(key, state);
+      continue;
+    }
+    let mapping = null;
+    try {
+      mapping = await MdbListEpisodeMappingService.resolveToAddon({
+        contentId,
+        ids: { tmdb: state.tmdbId, imdb: state.imdbId },
+        tmdbShowId: state.tmdbId,
+        season: episode.season,
+        episode: episode.episode,
+        title: null,
+        addonEpisodes
+      });
+    } catch (_) {
+      mapping = null;
+    }
+    if (!mapping) {
+      remapped.set(key, state);
+      continue;
+    }
+    const mappedKey = buildEpisodeKey(mapping.season, mapping.episode);
+    if (!remapped.has(mappedKey)) {
+      remapped.set(mappedKey, state);
+    }
+  }
+  return remapped;
+}
+
 export const detailWatchedEnrichmentService = {
   async enrichSeriesWatchedState(episodes, contentId, showTraktId) {
     if (!contentId) return new Map();
@@ -175,7 +291,14 @@ export const detailWatchedEnrichmentService = {
       fetchTraktSeriesWatchedMap(showTraktId)
     ]);
 
-    const mergedMap = mergeWatchedStates(localMap, progressMap, traktMap);
+    const addonEpisodes = episodeMappingEntries(episodes);
+    const [addonLocalMap, addonProgressMap, addonTraktMap] = await Promise.all([
+      remapMdbListWatchedMap(localMap, { contentId, addonEpisodes }),
+      remapMdbListWatchedMap(progressMap, { contentId, addonEpisodes }),
+      remapTraktWatchedMap(traktMap, { contentId, showTraktId, addonEpisodes })
+    ]);
+
+    const mergedMap = mergeWatchedStates(addonLocalMap, addonProgressMap, addonTraktMap);
     setCachedEntry(cacheKey, mergedMap);
 
     return mergedMap;

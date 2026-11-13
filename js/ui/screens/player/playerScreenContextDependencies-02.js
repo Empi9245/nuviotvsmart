@@ -96,6 +96,8 @@ import { getTx3gSubtitleSupportMessage } from "./playerScreenHelpers-04-format-s
 
 import { getBitmapSubtitleSupportMessage } from "./playerScreenHelpers-04-format-subtitle-codec-label.js";
 
+import { isBitmapSubtitleSupportReason } from "./playerScreenHelpers-04-format-subtitle-codec-label.js";
+
 import { isBitmapSubtitleSupportError } from "./playerScreenHelpers-04-format-subtitle-codec-label.js";
 
 import { isTizenTx3gEmbeddedSubtitleTrack } from "./playerScreenHelpers-04-format-subtitle-codec-label.js";
@@ -112,7 +114,7 @@ import { isUnsupportedEmbeddedSubtitleTrack } from "./playerScreenHelpers-04-for
 
 import { getEmbeddedBitmapSubtitleFormat } from "./playerScreenHelpers-04-format-subtitle-codec-label.js";
 
-import { canUseWebOsBitmapSubtitles } from "./playerScreenHelpers-04-format-subtitle-codec-label.js";
+import { canUseEmbeddedBitmapSubtitles } from "./playerScreenHelpers-04-format-subtitle-codec-label.js";
 
 import { getWebOsAudioTrackCompatibilityText } from "./playerScreenHelpers-04-format-subtitle-codec-label.js";
 
@@ -346,6 +348,7 @@ export {
   getEmbeddedSubtitleSupportState,
   getTx3gSubtitleSupportMessage,
   getBitmapSubtitleSupportMessage,
+  isBitmapSubtitleSupportReason,
   isBitmapSubtitleSupportError,
   isTizenTx3gEmbeddedSubtitleTrack,
   isTizenSubRipEmbeddedSubtitleTrack,
@@ -354,7 +357,7 @@ export {
   isEmbeddedTextSubtitleSourceTrack,
   isUnsupportedEmbeddedSubtitleTrack,
   getEmbeddedBitmapSubtitleFormat,
-  canUseWebOsBitmapSubtitles,
+  canUseEmbeddedBitmapSubtitles,
   getWebOsAudioTrackCompatibilityText,
   isUnsupportedWebOsAudioTrack,
   getAudioTrackSupportState,

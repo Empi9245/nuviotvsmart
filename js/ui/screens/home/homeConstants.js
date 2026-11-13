@@ -14,6 +14,8 @@ export const CW_RENDER_BATCH_ITEMS_CONSTRAINED = 18;
 export const CW_RENDER_BATCH_ITEMS_LEGACY_TV = 12;
 export const CW_RENDER_LOAD_AHEAD_ITEMS = 4;
 export const CW_DAYS_CAP = 60;
+// Legacy constant: Android and the mobile app no longer use a start threshold
+// (any saved, non-completed progress counts). Kept only for the existing re-exports.
 export const CW_PROGRESS_START_THRESHOLD = WATCH_PROGRESS_STARTED_THRESHOLD;
 export const CW_ENTER_DELAY_MS = 320;
 export const CW_HOLD_DELAY_MS = 650;
@@ -44,11 +46,21 @@ export const HOME_LOADING_ROW_ITEMS_CONSTRAINED = 8;
 export const HOME_LOADING_ROW_ITEMS_LEGACY_TV = 6;
 export const HOME_STABLE_GATE_TIMEOUT_MS = 5000;
 export const HOME_ROW_TIMEOUT_MS = 3500;
-export const HOME_ADDON_MANIFEST_TIMEOUT_MS = 3500;
+// Home returns the cached manifest immediately and revalidates in the
+// background, so this bounds only that request. Aggregator manifests are built
+// by fetching their child addons and can take seconds; Android's default client
+// allows 30s to connect and 60s to read. A 3.5s cap made slow manifests time
+// out and kept the previous catalog list for the whole 6h cache window.
+export const HOME_ADDON_MANIFEST_TIMEOUT_MS = 30000;
 export const HOME_CATALOG_REFRESH_TTL_MS = 15 * 60 * 1000;
 export const HOME_ROW_RETRY_TIMEOUT_MS = 12000;
 export const HOME_BACKGROUND_RENDER_DELAY_MS = 120;
 export const HOME_BACKGROUND_RENDER_DELAY_LEGACY_MS = 180;
+// Home artwork is decoded at whatever size the source serves. Measured on an
+// LG k8lp the home screen held 179MB of decoded bitmaps while only 34MB was on
+// screen, because a hydrated image is never released. Rows stay mounted, so the
+// cost only ever grows and the renderer was killed around 477MB.
+//
 export const HOME_LEGACY_LAZY_HYDRATION_DEBOUNCE_MS = 180;
 export const HOME_LEGACY_LAZY_HYDRATION_MAX_PER_FRAME = 2;
 export const HOME_LEGACY_HERO_BACKDROP_CROSSFADE_MS = 300;

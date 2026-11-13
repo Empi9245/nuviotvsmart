@@ -1,5 +1,5 @@
 import { observeProxyRedirects } from "./proxyRedirectObserver.js";
-import { describeSourceHost, resolveTizenDirectRedirect } from "../../platform/tizen/tizenRedirectResolver.js";
+import { describeSourceHost, isDirectMediaProbeResponse, resolveTizenDirectRedirect } from "../../platform/tizen/tizenRedirectResolver.js";
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerController.js";
 import { classifyWebPlaybackHeaders } from "./webPlaybackHeaders.js";
@@ -28,7 +28,8 @@ export function createPlayerControllerMethods18() {
         forceEngine = null,
         streamIdentity = null,
         cloudSessionToken = null,
-        preserveTrackSelections = false
+        preserveTrackSelections = false,
+        forceLocalProxy = false
       } = {}
     ) {
       this.cancelProxyRedirectObservation?.();
@@ -124,45 +125,68 @@ export function createPlayerControllerMethods18() {
         Platform.isTizen() &&
         preferredEngine === this.getPlatformAvplayEngineName() &&
         !this.isLivePlaybackItemType(itemType || this.currentItemType);
-      // AVPlay on some Samsung firmware (field report: Tizen 6.0) rejects every
-      // seekTo()/jumpForward() with PLAYER_ERROR_INVALID_STATE when the media
-      // is served through the local EngineFS proxy, while the same source
-      // seeks fine when AVPlay opens the CDN URL directly (as Stremio does).
-      // When the proxy is only needed to follow the addon redirect (no request
-      // headers to forward), resolve the redirect here and play directly.
-      let tizenDirectResolution = null;
+      // The local proxy is only a fallback: never require it for a source that
+      // plays without it.
+      // - Redirect-only (Tizen AVPlay VOD, no headers to forward): resolve the
+      //   addon redirect here and hand AVPlay the final media URL, as Stremio
+      //   does; some Tizen 6.0 firmware rejects seeks on redirect endpoints.
+      // - Headers the player cannot send (Referer on AVPlay, any header on the
+      //   webOS <video>): play directly when the CDN serves the media without
+      //   them. Adaptive manifests keep the proxy because their segments may
+      //   still need the headers.
+      const proxyRequired =
+        playbackProxy === TizenPlaybackProxy
+          ? TizenPlaybackProxy.requiresProxy(requestedUrl, requestHeaders, { playbackEngine: preferredEngine })
+          : Boolean(playbackProxy?.requiresProxy(requestedUrl, requestHeaders));
+      const headersNeedProxy =
+        playbackProxy === TizenPlaybackProxy
+          ? TizenPlaybackProxy.requiresProxy(requestedUrl, requestHeaders, {
+              playbackEngine: preferredEngine,
+              resolveRedirects: false
+            })
+          : proxyRequired;
+      const isAdaptiveSource = this.isLikelyHlsMimeType(sourceType) || this.isLikelyDashMimeType(sourceType);
+      const canPlayDirectWithoutHeaders =
+        playbackProxy === WebOsPlaybackProxy || (Platform.isTizen() && preferredEngine === this.getPlatformAvplayEngineName());
+      const forceTizenLocalProxy = Boolean(forceLocalProxy) && playbackProxy === TizenPlaybackProxy;
+      let routedThroughLocalProxy = false;
+      let directResolution = null;
       if (
-        isTizenAvPlayVod &&
-        playbackProxy === TizenPlaybackProxy &&
-        TizenPlaybackProxy.requiresProxy(requestedUrl, requestHeaders, { playbackEngine: preferredEngine }) &&
-        !TizenPlaybackProxy.requiresProxy(requestedUrl, requestHeaders, {
-          playbackEngine: preferredEngine,
-          resolveRedirects: false
-        })
+        !forceTizenLocalProxy &&
+        proxyRequired &&
+        !isAdaptiveSource &&
+        (headersNeedProxy ? canPlayDirectWithoutHeaders : isTizenAvPlayVod)
       ) {
-        const resolution = await resolveTizenDirectRedirect(requestedUrl, requestHeaders);
+        const resolution = await resolveTizenDirectRedirect(requestedUrl, headersNeedProxy ? {} : requestHeaders);
         if (!this.isPlaybackRequestActive(playToken, requestedUrl)) {
           return;
         }
         const status = Number(resolution.details?.status || 0);
-        const usable = (resolution.reason === "resolved" || resolution.reason === "no-redirect") && (status === 200 || status === 206);
-        logTizenAvPlayDebug("Tizen AVPlay source direct playback check", {
+        const usable =
+          (resolution.reason === "resolved" || resolution.reason === "no-redirect") &&
+          (headersNeedProxy ? isDirectMediaProbeResponse(resolution.details) : status === 200 || status === 206);
+        const log = Platform.isTizen() ? logTizenAvPlayDebug : logWebOsPlaybackDebug;
+        log("Playback source direct check (local proxy bypass)", {
           usable,
+          headersNeedProxy,
           reason: resolution.reason,
           fromHost: describeSourceHost(requestedUrl),
           toHost: describeSourceHost(resolution.url),
           ...(resolution.details || {})
         });
         if (usable) {
-          tizenDirectResolution = resolution;
+          directResolution = resolution;
         }
       }
-      if (tizenDirectResolution) {
-        playbackUrl = tizenDirectResolution.url;
+      if (directResolution) {
+        playbackUrl = directResolution.url;
         this.currentPlaybackUrl = playbackUrl;
       } else if (playbackProxy) {
         const proxyResult = Platform.isTizen()
-          ? await playbackProxy.resolve(requestedUrl, requestHeaders, { playbackEngine: preferredEngine })
+          ? await playbackProxy.resolve(requestedUrl, requestHeaders, {
+              playbackEngine: preferredEngine,
+              forceProxy: forceTizenLocalProxy
+            })
           : await playbackProxy.resolve(requestedUrl, requestHeaders);
         if (!this.isPlaybackRequestActive(playToken, requestedUrl)) {
           return;
@@ -195,6 +219,7 @@ export function createPlayerControllerMethods18() {
         }
         playbackUrl = String(proxyResult?.url || requestedUrl).trim() || requestedUrl;
         if (proxyResult?.proxied) {
+          routedThroughLocalProxy = true;
           this.currentPlaybackUrl = playbackUrl;
           this.cancelProxyRedirectObservation = observeProxyRedirects(this, {
             requestedUrl,
@@ -230,7 +255,7 @@ export function createPlayerControllerMethods18() {
       // Direct AVPlay sources are often redirect endpoints. AVPlay plays them
       // but rejects every seek with PLAYER_ERROR_INVALID_STATE, so hand it the
       // final media URL when the local proxy is not handling the source.
-      if (isTizenAvPlayVod && !tizenDirectResolution && playbackUrl === requestedUrl) {
+      if (isTizenAvPlayVod && !directResolution && playbackUrl === requestedUrl) {
         const resolution = await resolveTizenDirectRedirect(playbackUrl, requestHeaders);
         if (!this.isPlaybackRequestActive(playToken, requestedUrl)) {
           return;
@@ -298,6 +323,11 @@ export function createPlayerControllerMethods18() {
           ? "native-dash"
           : "native-file";
 
+      // Lets PlayerScreen retry a stuck direct AVPlay start through the local proxy.
+      this.lastTizenAvPlayRoute =
+        Platform.isTizen() && preferredEngine === this.getPlatformAvplayEngineName()
+          ? { url: requestedUrl, viaLocalProxy: routedThroughLocalProxy }
+          : null;
       if (preferredEngine === this.getPlatformAvplayEngineName()) {
         const avplayStarted = this.playWithAvPlay(playbackUrl, requestHeaders, sourceType, playToken);
         if (!avplayStarted) {

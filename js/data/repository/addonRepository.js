@@ -324,10 +324,34 @@ class AddonRepository {
   }
 
   readProfileScopedValue(key, normalizeValue, defaultValue, profileId = null) {
+    // Reading parses, normalizes and re-serializes the whole envelope, and one
+    // installed-addons lookup asks for the same key once per addon. Reuse the
+    // result until the key, the profile list or the active profile changes.
+    const requestedProfileId = String(profileId ?? ProfileManager.getActiveProfileId() ?? "1");
+    const cached = (this.profileScopedValueCache ||= new Map()).get(key);
+    const isFresh = () =>
+      cached.keyRevision === LocalStore.revision(key) &&
+      cached.profilesRevision === LocalStore.revision(PROFILES_KEY) &&
+      cached.profileId === requestedProfileId;
+    if (cached && isFresh()) {
+      return this.cloneValue(cached.value);
+    }
     const envelope = this.readProfileScopedEnvelope(key, normalizeValue);
-    return this.cloneValue(
-      this.ensureProfileScopedValue(key, envelope, normalizeValue, defaultValue, profileId)
+    const value = this.ensureProfileScopedValue(
+      key,
+      envelope,
+      normalizeValue,
+      defaultValue,
+      profileId
     );
+    // Stamp after the read: it may rewrite the key while normalizing it.
+    this.profileScopedValueCache.set(key, {
+      keyRevision: LocalStore.revision(key),
+      profilesRevision: LocalStore.revision(PROFILES_KEY),
+      profileId: requestedProfileId,
+      value: this.cloneValue(value)
+    });
+    return this.cloneValue(value);
   }
 
   writeProfileScopedValue(key, normalizeValue, value, profileId = null) {
@@ -408,11 +432,11 @@ class AddonRepository {
     );
   }
 
-  isAddonEnabled(url) {
+  // Each getAddonEnabledStates() call re-reads and re-normalizes the stored
+  // envelope; callers that filter a URL list pass one snapshot for the batch.
+  isAddonEnabled(url, enabledStates = this.getAddonEnabledStates()) {
     const cleanUrl = this.normalizeCinemetaUrl(this.canonicalizeUrl(url));
-    return cleanUrl
-      ? this.getAddonMapValue(this.getAddonEnabledStates(), cleanUrl) !== false
-      : false;
+    return cleanUrl ? this.getAddonMapValue(enabledStates, cleanUrl) !== false : false;
   }
 
   getAddonMapValue(map, url) {
@@ -582,9 +606,10 @@ class AddonRepository {
   getCachedInstalledAddons(urls = null, options = {}) {
     const includeDisabled = Boolean(options?.includeDisabled);
     const normalizedUrls = Array.isArray(urls) ? urls : this.getInstalledAddonUrls();
+    const enabledStates = includeDisabled ? null : this.getAddonEnabledStates();
     const selectedUrls = includeDisabled
       ? normalizedUrls
-      : normalizedUrls.filter((url) => this.isAddonEnabled(url));
+      : normalizedUrls.filter((url) => this.isAddonEnabled(url, enabledStates));
     const addons = selectedUrls
       .map((url) => this.manifestCache.get(this.canonicalizeUrl(url)))
       .filter(Boolean);
@@ -598,11 +623,12 @@ class AddonRepository {
     const requestedUrlSet = new Set(
       requestedUrls.map((url) => this.canonicalizeUrl(url)).filter(Boolean)
     );
+    const refreshEnabledStates = includeDisabled ? null : this.getAddonEnabledStates();
     const urls = allUrls
       .map((url) => this.canonicalizeUrl(url))
       .filter((url, index, values) => values.indexOf(url) === index)
       .filter((url) => requestedUrlSet.has(url))
-      .filter((url) => includeDisabled || this.isAddonEnabled(url));
+      .filter((url) => includeDisabled || this.isAddonEnabled(url, refreshEnabledStates));
     const timeoutMs = options?.timeoutMs;
     const refreshKey = JSON.stringify({
       profileId: this.getActiveStorageProfileId(),
@@ -654,7 +680,9 @@ class AddonRepository {
     const includeDisabled = Boolean(options?.includeDisabled);
     const allUrls = this.getInstalledAddonUrls();
     const enabledStates = this.getAddonEnabledStates();
-    const urls = includeDisabled ? allUrls : allUrls.filter((url) => this.isAddonEnabled(url));
+    const urls = includeDisabled
+      ? allUrls
+      : allUrls.filter((url) => this.isAddonEnabled(url, enabledStates));
     const cacheKey = JSON.stringify({
       profileId: this.getActiveStorageProfileId(),
       urls,

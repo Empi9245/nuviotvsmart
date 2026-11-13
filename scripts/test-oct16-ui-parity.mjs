@@ -11,6 +11,7 @@ export { syncHtmlSubtitleClearance } from './js/ui/screens/player/subtitleOverla
 export { createStreamScreenMethods09 } from './js/ui/screens/stream/streamScreenMethods-09-render.js';
 export { ratingToneClass } from './js/ui/screens/detail/metaDetailsScreenHelpers-04-detect-quality.js';
 export { createHomeScreenMethods13 } from './js/ui/screens/home/homeScreenMethods-13-mount-trailer-layer.js';
+export { createHomeScreenMethods14 } from './js/ui/screens/home/homeScreenMethods-14-activate-focused-poster-flow.js';
 export { createHomeScreenMethods12 } from './js/ui/screens/home/homeScreenMethods-12-sync-collection-hero-media.js';
 `;
 const bundle = await build({
@@ -26,7 +27,7 @@ const bundle = await build({
         b.onLoad(
           {
             filter:
-              /(?:ambientMode|metaDetailsScreenHelpers-04-detect-quality|streamScreenMethods-09-render|homeScreenMethods-1[23]-[^/]+)\.js$/
+              /(?:ambientMode|metaDetailsScreenHelpers-04-detect-quality|streamScreenMethods-09-render|homeScreenMethods-1[234]-[^/]+)\.js$/
           },
           async ({ path }) => {
             let contents = await readFile(path, "utf8");
@@ -51,12 +52,25 @@ const bundle = await build({
 let clock = 0,
   route = "home",
   screen = {},
-  started = 0;
+  started = 0,
+  screenSaverBlocked = false,
+  screenSaverCalls = 0;
 const classes = () => ({ contains: () => false, add() {}, remove() {} });
 const fixtures = {
   Router: { getCurrent: () => route, getCurrentScreen: () => screen },
   ProfileManager: { getActiveProfileId: () => "1" },
   AmbientModeStore: { get: () => ({ enabled: true, timeoutMinutes: 1 }) },
+  Platform: { isTizen: () => true, isWebOS: () => false },
+  TizenScreenSaver: {
+    block() {
+      if (!screenSaverBlocked) screenSaverCalls++;
+      screenSaverBlocked = true;
+    },
+    unblock() {
+      if (screenSaverBlocked) screenSaverCalls++;
+      screenSaverBlocked = false;
+    }
+  },
   ScreenUtils: { indexFocusables() {} },
   DebridSettingsStore: { get: () => ({}) },
   StreamBadgeSettingsStore: { snapshot: () => ({}) },
@@ -86,6 +100,11 @@ ambient.show = () => {
 };
 ambient.signature = JSON.stringify(["1", fixtures.AmbientModeStore.get()]);
 ambient.tick();
+assert.equal(
+  screenSaverBlocked,
+  true,
+  "ambient keeps the Tizen screensaver off before the timeout"
+);
 clock = 61000;
 screen = {
   isTrailerPlaying: true,
@@ -93,6 +112,7 @@ screen = {
 };
 ambient.tick();
 assert.equal(started, 0);
+assert.equal(screenSaverBlocked, false, "trailer playback restores the Tizen screensaver");
 clock = 120000;
 ambient.tick();
 assert.equal(started, 0);
@@ -100,6 +120,7 @@ screen = {};
 clock = 121000;
 ambient.tick();
 assert.equal(started, 0);
+assert.equal(screenSaverBlocked, true, "idle screen blocks the Tizen screensaver again");
 clock = 180999;
 ambient.tick();
 assert.equal(started, 0);
@@ -109,6 +130,7 @@ assert.equal(started, 1);
 route = "detail";
 ambient.tick();
 assert.equal(started, 1, "route changes reset idle");
+assert.equal(screenSaverCalls, 3, "screensaver state only changes when needed");
 assert.equal(
   api.isAmbientTrailerPlaying({
     isTrailerPlaying: true,
@@ -270,4 +292,74 @@ const ratingCss = await readFile("css/components-40.css", "utf8");
 assert.match(
   ratingCss,
   /\.series-episode-rating-chip\.exceptional\s*\{[^}]*background:\s*#1da1f3/i
+);
+
+// Android suppresses card expansion for effective hero autoplay, even without a trailer source.
+const flowMethods = api.createHomeScreenMethods12();
+for (const landscape of [false, true]) {
+  for (const expand of [false, true]) {
+    for (const enabled of [false, true]) {
+      for (const suppressed of [false, true]) {
+        for (const target of ["hero_media", "expanded_card", undefined, "invalid"]) {
+          const prefs = {
+            modernLandscapePostersEnabled: landscape,
+            focusedPosterBackdropExpandEnabled: expand,
+            focusedPosterBackdropTrailerEnabled: enabled,
+            focusedPosterBackdropTrailerPlaybackTarget: target
+          };
+          const state = {
+            layoutPrefs: prefs,
+            shouldSuppressAutomaticTrailerPlayback: () => suppressed
+          };
+          const config = flowMethods.getFocusedPosterFlowConfig.call(state);
+          const autoplay = enabled && !suppressed && (landscape || expand);
+          const inCard = target === "expanded_card";
+          const expectedExpand =
+            !(autoplay && !inCard) && ((expand && !landscape) || (landscape && autoplay && inCard));
+          assert.equal(config.shouldPreviewTrailer, autoplay);
+          assert.equal(config.shouldExpand, expectedExpand, JSON.stringify(prefs));
+          assert.equal(
+            config.trailerTarget,
+            expectedExpand && inCard ? "expanded_card" : "hero_media"
+          );
+        }
+      }
+    }
+  }
+}
+const focusedPoster = { classList: { contains: () => true } };
+for (const source of [null, { url: "trailer.mp4" }]) {
+  let mounted = 0;
+  const state = {
+    layoutPrefs: {
+      focusedPosterBackdropExpandEnabled: true,
+      focusedPosterBackdropTrailerEnabled: true,
+      focusedPosterBackdropTrailerPlaybackTarget: "hero_media"
+    },
+    focusedPosterFlowToken: 1,
+    isModernPosterNode: () => true,
+    isCollectionFolderNode: () => false,
+    shouldSuppressAutomaticTrailerPlayback: () => false,
+    getFocusedPosterFlowConfig: flowMethods.getFocusedPosterFlowConfig,
+    expandFocusedPoster: () => assert.fail("Hero autoplay must not expand the poster"),
+    getFocusedPosterTrailerDelayMs: () => 0,
+    prefetchFocusedPosterTrailer: async () => source,
+    getFocusedPosterFlowKey: () => "movie:1",
+    container: { querySelector: () => ({}) },
+    setHeroTrailerActive() {},
+    mountTrailerLayer: () => mounted++
+  };
+  fixtures.applyTrailerAudioPreferences = (value) => value;
+  await api.createHomeScreenMethods14().activateFocusedPosterFlow.call(state, focusedPoster, 1);
+  assert.equal(mounted, source ? 1 : 0);
+  assert.equal(
+    flowMethods.restorePersistentHeroTrailer.call(state, focusedPoster, {
+      ...state.getFocusedPosterFlowConfig(),
+      flowKey: "movie:1"
+    }),
+    Boolean(source)
+  );
+}
+console.log(
+  "Focused poster hero/card trailer parity passed (64 preference cases, activation and restoration)"
 );

@@ -1,4 +1,5 @@
 import { Router } from "./routerState.js";
+import { focusWithoutScroll } from "./focusWithoutScroll.js";
 import { Platform } from "../../platform/index.js";
 import {
   noteVidaaNavigationKeyDown,
@@ -386,13 +387,7 @@ export const FocusEngine = {
       }
     });
     target.classList.add("focused");
-    try {
-      target.focus({ preventScroll: true });
-    } catch (_) {
-      try {
-        target.focus();
-      } catch (_) {}
-    }
+    focusWithoutScroll(target);
     currentScreen?.onPointerFocus?.(target, event);
     this.lastPointerFocusTarget = target;
     return true;

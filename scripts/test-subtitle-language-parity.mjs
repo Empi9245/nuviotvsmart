@@ -12,8 +12,10 @@ const {
 } = await import("../js/core/player/subtitleLanguageAliases.js");
 const { normalizeTrackLanguageCode } =
   await import("../js/ui/screens/player/playerScreenHelpers-05-normalize-track-language-code.js");
-const { normalizeSubtitleLanguageKey } =
+const { normalizeSubtitleLanguageKey, subtitleLanguageLabel } =
   await import("../js/ui/screens/player/playerScreenHelpers-09-format-bytes.js");
+const { detectTrackLanguageVariant } =
+  await import("../js/ui/screens/player/playerScreenHelpers-07-detect-track-language-variant.js");
 const { decodeSubtitleBytes } = await import("../js/core/player/subtitleCharsetDetector.js");
 const { languageEmoji } =
   await import("../js/core/debrid/debridStreamPresentationHelpers-04-compare-key.js");
@@ -28,6 +30,16 @@ for (const input of ["spn", "SPN", " sp ", "esp", "ESP"]) {
   assert.equal(normalizeSubtitleLanguageKey(input), "es", input);
   assert.equal(languageFor(input.trim()), "ES", input);
 }
+for (const input of ["zhc", "ZHC", "zc", "yue", "Cantonese", "Chinese (Cantonese)"]) {
+  assert.equal(normalizeSubtitleLanguageKey(input), "zh-ca", input);
+}
+assert.equal(normalizeTrackLanguageCode("zhc"), "zh-ca");
+assert.equal(subtitleLanguageLabel("zh-ca"), "Chinese (Cantonese)");
+assert.equal(detectTrackLanguageVariant({ language: "zh-ca" }), "zh-ca");
+for (const input of ["cnr", "CNR", "mne", "me", "Montenegrin", "Serbian (Montenegro)"]) {
+  assert.equal(normalizeSubtitleLanguageKey(input), "sr-me", input);
+}
+assert.equal(detectTrackLanguageVariant({ language: "sr-me" }), "sr-me");
 for (const [input, expected] of [
   ["spl", "es-419"],
   ["es-419", "es-419"],
@@ -78,6 +90,43 @@ assert.equal(
   "A"
 );
 assert.deepEqual(languagesFromText(["spn", "esp"]), ["ES", "ES"]);
+// Android release-name aliases use whole tokens; parsed languages take precedence.
+for (const [language, aliases] of Object.entries({
+  EN: ["eng", "english"],
+  HI: ["hin", "hindi"],
+  IT: ["ita", "italian", "italiano"],
+  ES: ["spa", "esp", "spanish", "espanol", "castellano"],
+  FR: ["fre", "french", "truefrench"],
+  DE: ["ger", "deu", "german", "deutsch"],
+  PT: ["portuguese", "portugues"],
+  PL: ["pol", "polish"],
+  CS: ["cze", "czech"],
+  LA: ["latino"],
+  JA: ["jpn", "japanese"],
+  KO: ["kor", "korean"],
+  ZH: ["chinese"],
+  HE: ["heb", "hebrew"]
+})) {
+  for (const alias of aliases) {
+    assert.equal(languageFor(` ${alias.toUpperCase()} `), language, alias);
+    assert.deepEqual(languagesFromText([], `Film.${alias.toUpperCase()}.1080p`), [language], alias);
+    assert.deepEqual(languagesFromText([], `Film.x${alias}x.1080p`), [], alias);
+  }
+}
+assert.deepEqual(languagesFromText(["ita"], "Film.TRUEFRENCH.HEBREW"), ["IT"]);
+assert.deepEqual(languagesFromText(["unrecognized"], "Film.HEBREW"), ["HE"]);
+assert.deepEqual(languagesFromText([], "Film.ITALIAN.TRUEFRENCH.HEBREW"), ["IT", "FR", "HE"]);
+assert.deepEqual(languagesFromText([], "Film.por.chi.fra"), []);
+assert.deepEqual(languagesFromText([], "Film.pt-br"), ["PT_BR"]);
+assert.equal(languageEmoji("he"), "🇮🇱");
+const { DEBRID_STREAM_LANGUAGES, normalizeDebridStreamPreferences } =
+  await import("../js/data/local/debridSettingsStore.js");
+assert(DEBRID_STREAM_LANGUAGES.some((language) => language.id === "HE"));
+assert.deepEqual(
+  normalizeDebridStreamPreferences({ requiredLanguages: ["HE"] }).requiredLanguages,
+  ["HE"]
+);
+
 const subtitleMethods = createPlayerScreenMethods49();
 const collect = subtitleMethods.collectSubtitleOptionItems;
 const tracks = ["spn", "es", "esp", "spl", "hbs-srp", "sr", "hbs-hrv", "hbs-bos", "hbs"];

@@ -2,8 +2,21 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import { build } from "esbuild";
+import { streamProviderHeader } from "../js/core/streams/streamOrdering.js";
 
 const files = [
+  [
+    "stream/streamScreenHelpers-02-flatten-streams.js",
+    "getStreamHeadline, getStreamDescriptionLines"
+  ],
+  [
+    "detail/metaDetailsScreenMethods-10-get-episode-card-presentation.js",
+    "createMetaDetailsScreenMethods10"
+  ],
+  [
+    "detail/metaDetailsScreenMethods-11-sync-rendered-episode-track.js",
+    "createMetaDetailsScreenMethods11"
+  ],
   ["stream/streamScreenMethods-06-apply-addon-filter-dom-state.js", "createStreamScreenMethods06"],
   [
     "stream/streamScreenMethods-08-build-web-os-native-player-launch-parameters.js",
@@ -26,7 +39,7 @@ const files = [
   ],
   [
     "detail/metaDetailsScreenMethods-16-render-comments-section.js",
-    "createMetaDetailsScreenMethods16"
+    "createMetaDetailsScreenMethods16, commentReaderTextStyle, formatCommentTimestamp"
   ],
   [
     "stream/streamScreenMethods-07-restore-stream-virtual-scroll-position.js",
@@ -52,7 +65,7 @@ const bundle = await build({
         b.onLoad(
           {
             filter:
-              /(?:(?:metaDetailsScreenMethods-(?:12|14|15|16)|streamScreenMethods-(?:01|06|07|08|09))-[^/]+|layoutPreferences|homeScreenHelpers-01-modern-sidebar-pill-auto-collapse-ms)\.js$/
+              /(?:(?:metaDetailsScreenMethods-(?:10|11|12|14|15|16)|streamScreenMethods-(?:01|06|07|08|09)|streamScreenHelpers-02)-[^/]+|layoutPreferences|homeScreenHelpers-01-modern-sidebar-pill-auto-collapse-ms)\.js$/
           },
           async ({ path }) => {
             let contents = await readFile(path, "utf8");
@@ -63,7 +76,7 @@ const bundle = await build({
             contents = contents.replace(
               /^import \{([\s\S]*?)\} from "([^"]+)";/gm,
               (all, names, source) =>
-                /(?:episodeCardMetadata|watchProgress)\.js$/.test(source)
+                /(?:episodeCardMetadata|watchProgress|streamDisplayText)\.js$/.test(source)
                   ? all
                   : `const {${names}} = fixtures;`
             );
@@ -77,8 +90,7 @@ const bundle = await build({
 let normalizeLayout;
 const fixtures = {
   LayoutPreferences: { get: () => ({ posterCardCornerRadiusDp: 12 }) },
-  getStreamHeadline: (stream) => stream.name,
-  getStreamDescriptionLines: (stream) => [stream.description],
+  Environment: { isWebOS: () => false },
   renderStreamBadges: (_stream, _enabled, settings) =>
     settings?.testBadges ? "<div>TEST-BADGES</div>" : "",
   resolveStreamBadgePlacement: (settings) => settings?.badgePlacement || "BOTTOM",
@@ -87,6 +99,7 @@ const fixtures = {
     return {};
   },
   LocalStore: { get: (_key, fallback) => fallback },
+  focusWithoutScroll: (node) => node?.focus?.(),
   normalizeDetailImdbRatingsVisibility: (value) => value,
   normalizeHomeImdbRatingsVisibility: (value) => value,
   t: (key, args = []) => key + (args.length ? ":" + args[0] : ""),
@@ -102,11 +115,87 @@ const fixtures = {
   StreamBadgeSettingsStore: { snapshot: () => ({}) },
   isPerformanceConstrainedRuntime: () => false,
   contentTextDirection: () => "ltr",
+  showEpisodeImdbRating: () => false,
+  resolveEpisodeImdbRating: () => null,
+  renderImdbBadge: () => "",
+  formatEpisodeCardDate: () => "",
+  renderEpisodeRuntimeLabel: () => "",
+  normalizeEpisodeTitle: (value, fallback) => String(value || fallback || ""),
+  EPISODE_TITLE_MARQUEE_VELOCITY_PX_PER_SECOND: 100,
+  streamProviderHeader,
   ScreenUtils: { indexFocusables() {} }
 };
 const context = vm.createContext({ fixtures, console });
 vm.runInContext(bundle.outputFiles[0].text, context);
 const api = context.subject;
+fixtures.getStreamHeadline = api.getStreamHeadline;
+fixtures.getStreamDescriptionLines = api.getStreamDescriptionLines;
+for (const webos of [false, true]) {
+  fixtures.Environment.isWebOS = () => webos;
+  for (const newline of ["\n", "\r\n"]) {
+    const name = ["4K ⚡", "⟨Web-dl⟩", "★★★★★"].join(newline);
+    assert.equal(api.getStreamHeadline({ name }), name);
+    assert.equal(api.getStreamHeadline({ title: name }), name);
+    assert.equal(api.getStreamHeadline({ description: name }), name);
+  }
+  assert.equal(api.getStreamHeadline({ name: " \n4K\n★★★★★\n " }), "4K\n★★★★★");
+  assert.equal(api.getStreamHeadline({ name: " ", title: "Title" }), "Title");
+  assert.equal(api.getStreamHeadline({ addonName: "Addon" }), "Addon");
+  assert.equal(api.getStreamHeadline({}), "Unknown source");
+  assert.equal(api.getStreamHeadline({ name: "𝟒K\n★★★★★" }), webos ? "4K\n★★★★★" : "𝟒K\n★★★★★");
+}
+fixtures.Environment.isWebOS = () => false;
+const streamCss = await readFile("css/components-50.css", "utf8");
+assert.match(streamCss, /\.stream-route-card-heading\s*\{[^}]*white-space:\s*pre-line;/);
+const streamBaseCss = await readFile("css/components-44.css", "utf8");
+const ruleBody = (css, selector) =>
+  css.match(
+    new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\{([^}]*)\\}")
+  )?.[1] || "";
+// Tizen 4 has no CSS grid, so its flex fallback must keep the Android TV
+// 40/60 split and the base 96px panel insets instead of reintroducing the
+// old fixed columns with their own padding.
+const tizenStream = ruleBody(streamCss, ".legacy-tizen .stream-route-content");
+assert.match(tizenStream, /display:\s*flex;/);
+assert.match(tizenStream, /padding:\s*0;/);
+assert.match(ruleBody(streamCss, ".legacy-tizen .stream-route-left"), /flex:\s*0 0 40%;/);
+assert.match(ruleBody(streamCss, ".legacy-tizen .stream-route-right"), /flex:\s*0 0 60%;/);
+assert.doesNotMatch(ruleBody(streamCss, ".legacy-tizen .stream-route-right"), /height:\s*\d+px/);
+assert.doesNotMatch(
+  ruleBody(streamCss, ".legacy-tizen .stream-route-panel-shell"),
+  /border-radius|padding:/
+);
+assert.match(streamBaseCss, /\.stream-route-right\s*\{[^}]*padding:\s*96px 96px 96px 0;/);
+assert.match(streamBaseCss, /\.stream-route-panel-shell\s*\{[^}]*border-radius:\s*32px;/);
+// Legacy webOS keeps the absolute layout needed by webOS 6 and older, but
+// must expose the same geometry and typography as the shared Android layout.
+assert.match(ruleBody(streamCss, ".legacy-webos .stream-route-content"), /padding:\s*0;/);
+const webOsLeft = ruleBody(streamCss, ".legacy-webos .stream-route-left");
+assert.match(webOsLeft, /left:\s*0;/);
+assert.match(webOsLeft, /width:\s*768px;/);
+assert.match(webOsLeft, /padding-inline:\s*96px 48px;/);
+const webOsRight = ruleBody(streamCss, ".legacy-webos .stream-route-right");
+assert.match(webOsRight, /left:\s*768px;/);
+assert.match(webOsRight, /top:\s*96px;/);
+assert.match(webOsRight, /right:\s*96px;/);
+assert.match(webOsRight, /bottom:\s*96px;/);
+assert.match(webOsRight, /padding:\s*0;/);
+assert.doesNotMatch(
+  ruleBody(streamCss, ".legacy-webos .stream-route-panel-shell"),
+  /border-radius|padding:/
+);
+assert.doesNotMatch(ruleBody(streamCss, ".legacy-webos .stream-route-list"), /padding:/);
+// The constrained profile animates every property for 140ms. The manual
+// webOS scroller feeds focus scrolling from row rects right after the
+// transform, so it must move without a transition.
+assert.match(
+  ruleBody(streamCss, ".legacy-webos .stream-route-list.manual-scroll > *"),
+  /transition:\s*none\s*!important;/
+);
+assert.doesNotMatch(
+  streamCss,
+  /\.legacy-webos \.stream-route-(?:chip|chip-track|chip-wrap|resume-label|card-row|card-heading|card-quality|card-line|card-side|badges|stream-badge|addon-badge|addon-name|left-inner|logo|panel-header)\s*\{/
+);
 assert.equal(normalizeLayout({ posterCardCornerRadiusDp: 0 }).posterCardCornerRadiusDp, 0);
 assert.equal(normalizeLayout({ posterCardCornerRadiusDp: "bad" }).posterCardCornerRadiusDp, 12);
 assert.equal(normalizeLayout({ posterCardCornerRadiusDp: null }).posterCardCornerRadiusDp, 12);
@@ -165,7 +254,7 @@ assert.equal(
 );
 const virtualGap = api.createStreamScreenMethods01().getStreamVirtualRowGap;
 assert.equal(virtualGap.call({ isLegacyWebOsRoute: () => false }), 40);
-assert.equal(virtualGap.call({ isLegacyWebOsRoute: () => true }), 10);
+assert.equal(virtualGap.call({ isLegacyWebOsRoute: () => true }), 40);
 
 const header = api.createStreamScreenMethods07().getHeaderMeta;
 for (const [runtime, expected] of [
@@ -344,6 +433,17 @@ const filenameMarkup = renderCard.call(
 assert.ok(filenameMarkup.includes("The.<wbr>Substance_<wbr>2024-<wbr>2160p.<wbr>mkv"));
 assert.ok(filenameMarkup.includes("&lt;unsafe>"), "wrap opportunities must preserve escaping");
 assert.ok(filenameMarkup.replaceAll("<wbr>", "").includes("📁 The.Substance_2024-2160p.mkv"));
+const multilineMarkup = renderCard.call(
+  { isCardActionFocused: () => true },
+  { ...stream, name: "4K ⚡\n<Web-dl>\n★★★★★" },
+  0,
+  false,
+  {},
+  { virtualized: true, virtualRowGap: 40 }
+);
+assert.ok(multilineMarkup.includes('dir="ltr">4K ⚡\n&lt;Web-dl>\n★★★★★</div>'));
+assert.ok(multilineMarkup.includes('style="margin-bottom:40px"'));
+assert.ok(multilineMarkup.includes('data-action="playStream"'));
 
 let isFocusable = false,
   role;
@@ -377,6 +477,20 @@ assert.equal(more.hidden, false);
 preview.scrollHeight = 384;
 api.createMetaDetailsScreenMethods16().bindDetailChrome.call(chrome);
 assert.equal(isFocusable, false);
+
+for (const [length, fontSize, lineHeight] of [
+  [160, 80, 96],
+  [161, 60, 76],
+  [901, 32, 42]
+]) {
+  const style = api.commentReaderTextStyle(length);
+  assert.equal(style.fontSize, fontSize);
+  assert.equal(style.lineHeight, lineHeight);
+}
+assert.equal(api.formatCommentTimestamp("2026-11-05T16:14:26Z", null, "en-US"), "Nov 5, 2026");
+assert.equal(api.formatCommentTimestamp("", "2026-11-05T16:14:26Z", "en-US"), "Nov 5, 2026");
+assert.equal(api.formatCommentTimestamp("not-a-date", null, "en-US"), "");
+assert.equal(api.formatCommentTimestamp("", "", "en-US"), "");
 assert.equal(more.hidden, true);
 
 let dialogConfig,
@@ -413,3 +527,131 @@ assert.equal(synopsis.synopsisDialog, null);
 console.log(
   "Detail/stream parity passed: previous seasons, write failures, runtime, retry, empty hint and full synopsis."
 );
+
+// A matched party source is plain text; a separately shared link keeps its attribution.
+for (const shared of [false, true]) {
+  const html = renderCard.call(
+    { isCardActionFocused: () => false, isPartySourceStream: () => true },
+    { ...stream, name: "عنوان طويل ".repeat(12), partyShared: shared, partyHostName: "Host" },
+    0
+  );
+  assert.equal(html.includes("stream-route-party-source"), !shared);
+  assert.equal(html.includes("stream-route-party-label"), shared);
+  assert.equal(html.includes("is-party-marked"), shared);
+  assert(!html.includes("stream-route-party-chip"));
+  if (!shared) assert(html.includes('class="stream-route-party-source" dir="auto"'));
+}
+fixtures.escapeAttribute = fixtures.escapeHtml;
+fixtures.renderWatchedBadgeGlyph = () => "✓";
+const episodeRenderer = api.createMetaDetailsScreenMethods10().renderEpisodeCard;
+for (const isWatched of [false, true])
+  for (const isUnavailable of [false, true]) {
+    const html = episodeRenderer.call(
+      {
+        getEpisodeCardPresentation: () => ({
+          isWatched,
+          isUnavailable,
+          progressRatio: 0,
+          title: "Episode",
+          overview: "Overview",
+          thumbnail: "",
+          metaParts: ""
+        })
+      },
+      { id: "ep", episode: 1 },
+      0
+    );
+    assert.equal(html.includes("series-episode-status complete"), isWatched);
+    assert.equal(html.includes("series-episode-status idle"), !isWatched && !isUnavailable);
+    assert.equal(html.includes('class="series-episode-unavailable"'), isUnavailable);
+  }
+
+// Unwatched episode thumbnails must keep the shared Android TV/webOS blur on
+// Tizen instead of the old static-dim fast path.
+const episodeBlurBase = await readFile("css/components-42.css", "utf8");
+assert.match(
+  episodeBlurBase,
+  /\.series-episode-image\.is-blurred\s*\{[^}]*filter:\s*blur\(12px\);/,
+  "unwatched episode thumbs use the shared 12px blur"
+);
+const tizenFastPath = await readFile("css/components-60.css", "utf8");
+assert.doesNotMatch(
+  tizenFastPath,
+  /\.(?:legacy-tizen|performance-constrained)\s+\.series-episode-image\.is-blurred/,
+  "Tizen must not replace the episode blur with a static dim"
+);
+const presentationFor = (blurUnwatchedEpisodes, isWatched) =>
+  api.createMetaDetailsScreenMethods10().getEpisodeCardPresentation.call(
+    {
+      episodeProgressMap: new Map(),
+      isEpisodeMarkedWatched: () => isWatched
+    },
+    { id: "ep", season: 1, episode: 1, title: "Episode" },
+    { blurUnwatchedEpisodes, detailImdbRatingsVisibility: "SHOW_ALL" }
+  );
+for (const blur of [false, true])
+  for (const isWatched of [false, true]) {
+    const presentation = presentationFor(blur, isWatched);
+    assert.equal(presentation.shouldBlur, blur && !isWatched);
+    const html = episodeRenderer.call(
+      { getEpisodeCardPresentation: () => presentation },
+      { id: "ep", episode: 1 },
+      0
+    );
+    assert.equal(html.includes("series-episode-image is-blurred"), blur && !isWatched);
+  }
+
+// In-place watched updates follow the same unavailable/idle rules as initial rendering.
+class EpisodeNode {
+  constructor() {
+    this.className = "";
+    this.classList = { toggle() {} };
+  }
+  querySelector(selector) {
+    return this.children?.[selector] || null;
+  }
+  appendChild(node) {
+    this.children ||= {};
+    this.children[".series-episode-status"] = node;
+    node.parent = this;
+  }
+  remove() {
+    delete this.parent.children[".series-episode-status"];
+  }
+}
+context.HTMLElement = EpisodeNode;
+context.document = { createElement: () => new EpisodeNode() };
+fixtures.escapeSelectorValue = (value) => value;
+const cardNode = new EpisodeNode(),
+  thumbNode = new EpisodeNode();
+cardNode.children = {
+  ".series-episode-thumb": thumbNode,
+  ".series-episode-image": new EpisodeNode(),
+  ".series-episode-copy": new EpisodeNode()
+};
+const updateState = {
+  container: { querySelector: () => cardNode },
+  episodeProgressMap: new Map(),
+  isEpisodeMarkedWatched: () => false
+};
+const syncBadge = api.createMetaDetailsScreenMethods11().syncEpisodeCardWatchedDom;
+for (const watched of [false, true, false])
+  for (const available of [true, false]) {
+    updateState.isEpisodeMarkedWatched = () => watched;
+    syncBadge.call(updateState, { id: "ep", season: 1, episode: 1, available });
+    const status = thumbNode.querySelector(".series-episode-status");
+    assert.equal(
+      status?.className || "",
+      watched ? "series-episode-status complete" : available ? "series-episode-status idle" : ""
+    );
+  }
+
+const unified = renderState(null, {
+  getHeaderMeta: () => ({ title: "Movie", resumeLabel: "Resume 12:34" })
+});
+const shellStart = unified.indexOf('class="stream-route-panel-shell"');
+const headerStart = unified.indexOf('class="stream-route-panel-header"');
+assert(shellStart >= 0 && headerStart > shellStart);
+assert(unified.indexOf('class="stream-route-resume-label"') > headerStart);
+assert(unified.indexOf('class="stream-route-chip-wrap"') > headerStart);
+assert(unified.indexOf('class="stream-route-panel"') > headerStart);

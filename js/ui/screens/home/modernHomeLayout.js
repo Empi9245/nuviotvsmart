@@ -25,6 +25,16 @@ export const MODERN_HOME_CONSTANTS = {
   verticalFastScrollMaxFrameMs: 48
 };
 
+export function renderModernHeroBadges(badges = [], escapeHtml) {
+  const visibleBadges = badges.filter(Boolean);
+  if (visibleBadges.length === 2) {
+    return `<span class="home-modern-hero-badge home-modern-hero-badge-combined"><span>${escapeHtml(visibleBadges[0])}</span><span class="home-modern-hero-badge-divider" aria-hidden="true"></span><span>${escapeHtml(visibleBadges[1])}</span></span>`;
+  }
+  return visibleBadges
+    .map((badge) => `<span class="home-modern-hero-badge">${escapeHtml(badge)}</span>`)
+    .join("");
+}
+
 export function getMountedModernRowItemCounts(container) {
   return new Map(
     Array.from(container?.querySelectorAll(".home-modern-row .home-track") || []).map((track) => [

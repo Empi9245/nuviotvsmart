@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import { focusWithoutScroll } from "../../navigation/focusWithoutScroll.js";
 
 export function createPlayerScreenMethods66() {
   const { streamRepository, isSelectKeyCode, t, clamp, normalizeItemType, streamMergeKey } = internals;
@@ -299,7 +300,14 @@ export function createPlayerScreenMethods66() {
           }
           return true;
         }
-        this.playEpisodeFromPanel();
+        // Android opens the episode options overlay on a long OK press and plays on
+        // release; the actual play is committed in onKeyUp.
+        if (!event?.repeat) {
+          this.episodePanelPendingSelect = true;
+          this.scheduleEpisodePanelLongPress();
+        } else if (this.episodePanelPendingSelect) {
+          this.triggerEpisodePanelLongPress();
+        }
         return true;
       }
 
@@ -387,12 +395,7 @@ export function createPlayerScreenMethods66() {
       const focusedFilter = panel.querySelector(".player-episode-stream-filter.focused");
       scrollHorizontallyWithin(panel.querySelector(".player-episode-stream-filters"), focusedFilter);
 
-      try {
-        const focused = panel.querySelector(".focused");
-        focused?.focus?.({ preventScroll: true });
-      } catch (_) {
-        // Some TV WebKit builds reject programmatic focus during DOM replacement.
-      }
+      focusWithoutScroll(panel.querySelector(".focused"));
     }
   };
 }

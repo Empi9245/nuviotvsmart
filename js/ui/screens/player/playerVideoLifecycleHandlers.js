@@ -2,7 +2,7 @@
 import * as internals from "./playerScreenContext.js";
 
 export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback) {
-  const { PlayerController, PlayerSettingsStore, Environment, TrackingScrobbleService } = internals;
+  const { PlayerController, PlayerSettingsStore, Environment, TrackingScrobbleService, getUsableAudioTrackLanguageValue } = internals;
   const onWaiting = () => {
     this.seekLoadingVisualComplete = false;
     if (this.sourcePlaybackStarting || this.sourceFallbackPending || this.isStartupErrorVisible()) {
@@ -34,6 +34,7 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
       }
     }
     this.schedulePlaybackStallGuard();
+    this.updateUiTick();
   };
 
   const onPlaying = () => {
@@ -200,6 +201,15 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
     this.schedulePauseOverlay();
   };
 
+  // High-frequency sources coalesce; one-shot lifecycle events keep the direct tick.
+  const requestCoalescedUiTick = () => {
+    if (typeof this.requestUiTick === "function") {
+      this.requestUiTick();
+    } else {
+      this.updateUiTick();
+    }
+  };
+
   const onTimeUpdate = () => {
     if (this.isStartupErrorVisible()) {
       return;
@@ -227,11 +237,11 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
     this.refreshWebOsEmbeddedHtmlSubtitleOverlayIfNeeded();
     this.renderHtmlSubtitleOverlayAtCurrentTime();
     this.updateMediaSessionPositionState();
-    this.updateUiTick();
+    requestCoalescedUiTick();
   };
 
   const onProgress = () => {
-    this.updateUiTick();
+    requestCoalescedUiTick();
   };
 
   const onLoadedMetadata = () => {
@@ -242,6 +252,17 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
     this.reapplyPendingWebOsAddonSubtitle?.(true);
     this.attemptPendingPlaybackRestore({ force: true });
 
+    // Tizen can publish AVPlay's audio list before the header metadata is
+    // loaded. Start that read before the startup preference pass so the first
+    // AVPlay track is not latched while the languages are still missing.
+    if (Environment.isTizen()) {
+      const avplayAudioTracks = typeof PlayerController.getAvPlayAudioTracks === "function" ? PlayerController.getAvPlayAudioTracks() : [];
+      const needsEmbeddedAudioMetadata =
+        !avplayAudioTracks.length || avplayAudioTracks.some((track) => !getUsableAudioTrackLanguageValue(track));
+      if (needsEmbeddedAudioMetadata) {
+        void this.loadEmbeddedSubtitleTracks();
+      }
+    }
     this.startupTrackPreferenceReady = true;
     this.refreshTrackDialogs();
     this.updateUiTick();
@@ -305,6 +326,9 @@ export function createPlayerVideoLifecycleHandlers(video, isTizenAvPlayPlayback)
     this.markPlaybackProgress();
     this.renderWebOsEmbeddedTextSubtitleAtCurrentTime();
     this.renderBitmapSubtitleAtCurrentTime({ force: true });
+    // The overlay no longer polls every 120 ms, so a seek must render it here
+    // instead of waiting for the next timeupdate or idle wake-up.
+    this.renderHtmlSubtitleOverlayAtCurrentTime();
     this.updateMediaSessionPositionState();
     this.updateUiTick();
   };

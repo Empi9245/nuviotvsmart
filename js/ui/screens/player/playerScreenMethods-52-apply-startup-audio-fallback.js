@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import { normalizeHdrBrightness } from "../../../core/player/hdrSubtitleStyle.js";
 
 export function createPlayerScreenMethods52() {
   const {
@@ -467,7 +468,8 @@ export function createPlayerScreenMethods52() {
         rendererMode,
         supportsExternalDelay: PlayerController.supportsAvPlayExternalSubtitleDelay?.() === true,
         preserveAssStyles: assStylesManaged,
-        supportsAssPlacement: this.assSubtitleRenderer?.supportsPlacement === true
+        supportsAssPlacement: this.assSubtitleRenderer?.supportsPlacement === true,
+        bitmap: Boolean(this.bitmapSubtitleTrack || selectedEmbeddedTrack?.bitmapSubtitle)
       });
       const unavailableValue = assStylesManaged
         ? t("subtitle_style_preserves_ass", {}, "ASS/SSA styles are preserved")
@@ -484,6 +486,11 @@ export function createPlayerScreenMethods52() {
           id: "fontSize",
           label: t("subtitle_style_font_size", {}, "Font Size"),
           value: `${normalizeSubtitleFontSize(style.fontSize)}%`
+        },
+        {
+          id: "stripSdh",
+          label: t("sub_strip_sdh", {}, "Strip SDH subtitles"),
+          value: style.stripSdh ? t("subtitle_style_on", {}, "On") : t("subtitle_style_off", {}, "Off")
         },
         {
           id: "bold",
@@ -520,6 +527,15 @@ export function createPlayerScreenMethods52() {
           label: t("subtitle_style_bottom_offset", {}, "Bottom Offset"),
           value: formatSubtitleVerticalOffset(style.verticalOffset)
         },
+        ...(style.hdrStyleEnabled === true && this.isCurrentPlaybackHdr?.() === true
+          ? [
+              {
+                id: "hdrBrightness",
+                label: t("sub_hdr_brightness", {}, "HDR Brightness"),
+                value: `${normalizeHdrBrightness(style.hdrBrightness)}%`
+              }
+            ]
+          : []),
         { id: "reset", label: t("subtitle_style_defaults", {}, "Reset Defaults"), value: "" }
       ].map((item) => {
         const disabled = availability[item.id] === false;

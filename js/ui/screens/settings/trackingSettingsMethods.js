@@ -1,3 +1,5 @@
+import { registerMdbListAccountActions } from "./settingsMdbListAccount.js";
+import { focusWithoutScroll } from "../../navigation/focusWithoutScroll.js";
 import { MdbListAccount } from "../../../data/repository/mdbListAccount.js";
 /* eslint-disable no-unused-vars */
 import { ScreenUtils } from "../../navigation/screen.js";
@@ -30,14 +32,7 @@ function t(key, params = {}, fallback = key) {
 }
 
 function focusNode(node) {
-  if (!node || typeof node.focus !== "function") {
-    return;
-  }
-  try {
-    node.focus({ preventScroll: true });
-  } catch (_) {
-    node.focus();
-  }
+  focusWithoutScroll(node);
 }
 
 function captureTraktScrollState(container) {
@@ -227,6 +222,7 @@ export function createTrackingSettingsMethods() {
       const setAction = (key, callback) =>
         this.actionMap.set(key, (...args) => (current() ? callback(...args) : false));
       this.startTraktClock();
+      registerMdbListAccountActions.call(this);
       if (TraktAuthService.getCurrentAuthState().deviceCode) this.startTraktPolling();
       if (SimklAuthService.getCurrentAuthState().userCode) this.startSimklPolling();
       const trakt = TraktAuthService.getCurrentAuthState();
@@ -237,6 +233,9 @@ export function createTrackingSettingsMethods() {
       const traktWaiting = Boolean(trakt.deviceCode && trakt.expiresAt > Date.now());
       const simklWaiting = Boolean(simkl.userCode && simkl.expiresAt > Date.now());
       const connectedWatchSources = [
+        ...(MdbListAccount.connected()
+          ? [{ id: WatchProgressSource.MDBLIST, label: "MDBList" }]
+          : []),
         { id: WatchProgressSource.NUVIO_SYNC, label: "Nuvio Sync" },
         ...(traktConnected ? [{ id: WatchProgressSource.TRAKT, label: "Trakt" }] : []),
         ...(simklConnected ? [{ id: WatchProgressSource.SIMKL, label: "Simkl" }] : [])
@@ -441,10 +440,12 @@ export function createTrackingSettingsMethods() {
             <h3 class="settings-trakt-card-title">${escapeHtml(t("tracking_accounts_title", {}, "Accounts"))}</h3>
             <p class="settings-tracking-card-subtitle">${escapeHtml(t("tracking_accounts_subtitle", {}, "Connect and manage tracking services"))}</p>
             <div class="settings-trakt-options-stack">
+              ${this.renderActionRow({ focusKey: "integration:mdblist:account", leadingIconSrc: "assets/icons/mdblist_logo.svg", title: "MDBList", subtitle: MdbListAccount.connected() ? t("mdblist_connected_as", [MdbListAccount.user()?.name || t("mdblist_account_fallback")]) : t("mdblist_tracking_description"), value: MdbListAccount.connected() ? t("tracking_status_connected", {}, "Connected") : t("servers_connect"), disabled: !MdbListAccount.configured() && !MdbListAccount.connected() })}
               ${providerRow({ id: "trakt", title: "Trakt", connected: traktConnected, waiting: traktWaiting, username: trakt.username })}
               ${providerRow({ id: "simkl", title: "Simkl", connected: simklConnected, waiting: simklWaiting, username: simkl.username })}
             </div>
           </div>
+          ${this.mdbListAccountMessage ? `<p class="settings-trakt-message" role="status">${escapeHtml(this.mdbListAccountMessage)}</p>` : ""}
           ${this.expandedProvider === "trakt" ? this.renderTrackingTraktAccount(trakt, traktConnected, traktWaiting) : ""}
           ${this.expandedProvider === "simkl" ? this.renderTrackingSimklAccount(simkl, simklConnected, simklWaiting) : ""}
           <div class="settings-trakt-card">

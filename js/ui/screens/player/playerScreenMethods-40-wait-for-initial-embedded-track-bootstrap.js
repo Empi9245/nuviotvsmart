@@ -90,6 +90,9 @@ export function createPlayerScreenMethods40() {
         }
         this.embeddedSubtitleTracks = canLoadSubtitleTracks ? this.normalizeEmbeddedSubtitleTracks(tracks) : [];
         this.embeddedAudioTracks = canLoadAudioTracks ? this.normalizeEmbeddedAudioTracks(tracks) : [];
+        if (canLoadAudioTracks && typeof this.maybeReapplyTizenStartupAudioPreference === "function") {
+          this.maybeReapplyTizenStartupAudioPreference();
+        }
         this.warmBitmapSubtitleSharedResources();
         const selectedEmbeddedSubtitleTrack =
           typeof PlayerController.getSelectedWebOsEmbeddedSubtitleTrackIndex === "function"
@@ -139,15 +142,19 @@ export function createPlayerScreenMethods40() {
       this.clearWebOsEmbeddedTextSubtitleOverlay({ dispose: true });
       const hadBitmapSelection = Boolean(this.bitmapSubtitleTrack);
       this.clearBitmapSubtitleOverlay({ dispose: true });
-      if (this.selectedEmbeddedSubtitleTrackIndex < 0) {
-        return;
-      }
-      if (hadBitmapSelection && typeof PlayerController.setWebOsEmbeddedSubtitleTrack === "function") {
-        PlayerController.setWebOsEmbeddedSubtitleTrack(-1);
-      } else if (Environment.isTizen() && typeof PlayerController.setAvPlaySubtitleTrack === "function") {
-        PlayerController.setAvPlaySubtitleTrack(-1);
-      } else if (typeof PlayerController.setWebOsEmbeddedSubtitleTrack === "function") {
-        PlayerController.setWebOsEmbeddedSubtitleTrack(-1);
+      if (hadBitmapSelection) {
+        if (Environment.isTizen()) {
+          PlayerController.setAvPlaySubtitleTrack?.(-1);
+          this.selectedSubtitleTrackIndex = -1;
+        } else {
+          PlayerController.setWebOsEmbeddedSubtitleTrack?.(-1);
+        }
+      } else if (this.selectedEmbeddedSubtitleTrackIndex >= 0) {
+        if (Environment.isTizen() && typeof PlayerController.setAvPlaySubtitleTrack === "function") {
+          PlayerController.setAvPlaySubtitleTrack(-1);
+        } else if (typeof PlayerController.setWebOsEmbeddedSubtitleTrack === "function") {
+          PlayerController.setWebOsEmbeddedSubtitleTrack(-1);
+        }
       }
       this.selectedEmbeddedSubtitleTrackIndex = -1;
     },
@@ -252,7 +259,10 @@ export function createPlayerScreenMethods40() {
       const getCanonicalCodec = (entry) => formatAudioCodecName(getAuthoritativeAudioCodecValue(entry));
       const avplayCodec = getCanonicalCodec(track) || getCanonicalCodec(avplayTracks[avplayOrdinal]);
       if (!avplayCodec) {
-        return null;
+        // Some Tizen streams expose neither a codec nor a language for AVPlay.
+        // Only the shared list order can identify the track, and only when
+        // AVPlay exposes every container audio stream.
+        return avplayTracks.length === (this.embeddedAudioTracks || []).length ? this.embeddedAudioTracks[avplayOrdinal] || null : null;
       }
 
       const avplayCodecTracks = avplayTracks.filter((entry) => getCanonicalCodec(entry) === avplayCodec);
@@ -262,6 +272,9 @@ export function createPlayerScreenMethods40() {
       }
 
       const avplayCodecOrdinal = avplayTracks.slice(0, avplayOrdinal).filter((entry) => getCanonicalCodec(entry) === avplayCodec).length;
+      // AVPlay omits unsupported codecs and renumbers the remaining tracks, so
+      // its index is not the container stream index. Codec occurrence is the
+      // only identity shared by both lists.
       return embeddedCodecTracks[avplayCodecOrdinal] || null;
     },
     getEmbeddedAudioTrackByNativeIndex(index) {

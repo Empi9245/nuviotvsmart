@@ -80,22 +80,23 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 48px;
   padding: 0 0 var(--modern-rows-viewport-padding-bottom);
 }
 
 .home-screen-shell.home-layout-modern.home-modern-landscape-posters .home-modern-rows-scroll {
-  gap: 24px;
+  gap: 48px;
 }
 
 .home-screen-shell.home-layout-modern .home-modern-catalogs {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  /* Android spacing.xl = 24dp = 48px between rows. */
+  gap: 48px;
 }
 
 .home-screen-shell.home-layout-modern.home-modern-landscape-posters .home-modern-catalogs {
-  gap: 24px;
+  gap: 48px;
 }
 
 .home-screen-shell.home-layout-modern .home-row {
@@ -117,7 +118,8 @@
 }
 
 .home-screen-shell.home-layout-modern .home-row-head {
-  margin-bottom: 14px;
+  /* Android rowTitleBottom = 14dp = 28px. */
+  margin-bottom: 28px;
 }
 
 .home-screen-shell.home-layout-modern .home-row-title {
@@ -130,9 +132,17 @@
   --home-track-gap: 24px;
   margin-left: calc(var(--modern-track-peek-extension) * -1);
   padding-left: calc(var(--home-content-start) + var(--modern-track-peek-extension));
-  padding-right: 52px;
+  /* ATV row contentPadding 52dp -> 104px */
+  padding-right: 104px;
   padding-bottom: 0;
   align-items: flex-end;
+}
+
+/* Hint the compositor only while the camera is actually moving; paying for a
+   promoted layer on every idle row would cost memory, especially on TV GPUs. */
+.home-screen-shell.home-layout-modern .home-track.is-camera-scrolling,
+.home-screen-shell.home-layout-modern .home-modern-rows-viewport.is-camera-scrolling {
+  will-change: scroll-position;
 }
 
 .home-screen-shell.home-layout-modern.home-modern-landscape-posters .home-modern-row .home-track {
@@ -397,6 +407,16 @@
 .home-screen-shell.home-layout-modern .home-poster-card.is-expanded .home-poster-expanded-gradient,
 .home-screen-shell.home-layout-modern .home-poster-card.is-expanded .home-poster-expanded-brand {
   display: block;
+}
+
+/* Supplied landscape artwork already contains its branding; trailers still need ours. */
+.home-screen-shell.home-layout-modern
+  .home-poster-card.has-landscape-artwork:not(.is-trailer-active)
+  .home-poster-expanded-gradient,
+.home-screen-shell.home-layout-modern
+  .home-poster-card.has-landscape-artwork:not(.is-trailer-active)
+  .home-poster-expanded-brand {
+  display: none;
 }
 
 .home-screen-shell.home-layout-modern .home-poster-card.is-expanded .home-poster-copy {

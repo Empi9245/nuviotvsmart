@@ -201,9 +201,16 @@ export const ThemeManager = {
       "--bg-color-rgb": toRgbChannels(colors["--bg-color"], "13 13 13"),
       "--bg-color-rgb-legacy": toLegacyRgbChannels(colors["--bg-color"], "13, 13, 13"),
       "--bg-elevated-rgb": toRgbChannels(colors["--bg-elevated"], "26 26 26"),
+      "--bg-elevated-rgb-legacy": toLegacyRgbChannels(colors["--bg-elevated"], "26, 26, 26"),
       "--card-bg-rgb": toRgbChannels(colors["--card-bg"], "34 34 34"),
+      "--card-bg-rgb-legacy": toLegacyRgbChannels(colors["--card-bg"], "34, 34, 34"),
       "--secondary-color-rgb": toRgbChannels(colors["--secondary-color"], "245 245 245"),
+      "--secondary-color-rgb-legacy": toLegacyRgbChannels(
+        colors["--secondary-color"],
+        "245, 245, 245"
+      ),
       "--focus-color-rgb": toRgbChannels(colors["--focus-color"], "255 255 255"),
+      "--focus-color-rgb-legacy": toLegacyRgbChannels(colors["--focus-color"], "255, 255, 255"),
       "--player-secondary": colors["--secondary-color"],
       "--player-accent-gradient": colors["--accent-gradient"] || colors["--secondary-color"],
       "--player-on-secondary": colors["--on-secondary"],
@@ -224,7 +231,9 @@ export const ThemeManager = {
       "--app-font-family",
       FONT_STACKS[String(theme.fontFamily || "INTER").toUpperCase()] || FONT_STACKS.INTER
     );
-    document.documentElement.dataset.nuvioTheme = themeName;
+    if (document.documentElement.dataset.nuvioTheme !== themeName) {
+      document.documentElement.dataset.nuvioTheme = themeName;
+    }
     syncBrandWordmarks(themeName);
     syncLoadingIndicatorPalette(colors);
     document.documentElement.style.setProperty("color-scheme", "dark");

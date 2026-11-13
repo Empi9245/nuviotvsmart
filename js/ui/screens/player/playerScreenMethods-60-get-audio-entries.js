@@ -27,7 +27,13 @@ export function createPlayerScreenMethods60() {
             ? PlayerController.getSelectedAvPlayAudioTrackIndex()
             : -1;
         entries = avplayAudioTracks.map((track, index) => {
-          const mergedTrack = this.mergeAvPlayAudioTrackMetadata(track, index);
+          let mergedTrack = this.mergeAvPlayAudioTrackMetadata(track, index);
+          if (Environment.isTizen() && this.manifestAudioTracks.length) {
+            // AVPlay exposes manifest names/languages only from extra_info; when
+            // they are absent, the parsed HLS/DASH rendition list is the same
+            // metadata Android TV reads from the manifest.
+            mergedTrack = this.mergeManifestAudioTrackMetadata(mergedTrack, index, avplayAudioTracks.length);
+          }
           const support = this.isTizenDashAudioSwitchingUnsupported()
             ? { supported: false, unsupportedReason: "tizen-dash-audio" }
             : getAudioTrackSupportState(mergedTrack);
@@ -38,6 +44,8 @@ export function createPlayerScreenMethods60() {
             id: `audio-avplay-${normalizedTrackIndex}`,
             label: display.label,
             secondary: display.secondary,
+            languageText: display.languageText,
+            metadata: display.metadata,
             selected:
               normalizedTrackIndex === selectedAvPlayAudioTrack ||
               (selectedAvPlayAudioTrack < 0 && normalizedTrackIndex === this.selectedAudioTrackIndex),
@@ -63,6 +71,8 @@ export function createPlayerScreenMethods60() {
               id: `audio-dash-${index}-${track?.id ?? ""}`,
               label: display.label,
               secondary: display.secondary,
+              languageText: display.languageText,
+              metadata: display.metadata,
               selected: index === selectedDashAudioTrack || (selectedDashAudioTrack < 0 && index === this.selectedAudioTrackIndex),
               supported: support.supported,
               canTryAudioConversion: Boolean(support.canTryAudioConversion),
@@ -87,6 +97,8 @@ export function createPlayerScreenMethods60() {
                 id: `audio-hls-${index}-${mergedTrack?.id ?? mergedTrack?.name ?? mergedTrack?.lang ?? ""}`,
                 label: display.label,
                 secondary: display.secondary,
+                languageText: display.languageText,
+                metadata: display.metadata,
                 selected: index === selectedHlsAudioTrack || (selectedHlsAudioTrack < 0 && index === this.selectedAudioTrackIndex),
                 supported: support.supported,
                 canTryAudioConversion: Boolean(support.canTryAudioConversion),
@@ -124,6 +136,8 @@ export function createPlayerScreenMethods60() {
                   id: `audio-manifest-${track.id}`,
                   label: display.label,
                   secondary: display.secondary,
+                  languageText: display.languageText,
+                  metadata: display.metadata,
                   selected: this.selectedManifestAudioTrackId === track.id,
                   supported: support.supported,
                   canTryAudioConversion: Boolean(support.canTryAudioConversion),
@@ -201,6 +215,8 @@ export function createPlayerScreenMethods60() {
         id: "audio-implicit-0",
         label: Environment.isVidaa() ? t("player_audio_automatic", {}, "Automatic audio") : display.label,
         secondary: display.secondary,
+        languageText: display.languageText,
+        metadata: display.metadata,
         selected: true,
         supported: support.supported,
         canTryAudioConversion: Boolean(support.canTryAudioConversion),

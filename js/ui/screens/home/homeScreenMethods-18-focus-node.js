@@ -203,6 +203,10 @@ export function createHomeScreenMethods18() {
       if (!this.lastMainFocus || !this.container?.contains(this.lastMainFocus) || !this.isMainNode(this.lastMainFocus)) {
         this.lastMainFocus = rows[0]?.[0] || null;
       }
+    },
+    prepareHomeRowsForRestore() {
+      // The VIDAA fork keeps every Home row mounted, so there is no row window
+      // to rebuild before applying saved track offsets.
     }
   };
 }

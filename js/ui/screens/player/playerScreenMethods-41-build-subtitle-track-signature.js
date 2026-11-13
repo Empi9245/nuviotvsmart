@@ -15,6 +15,7 @@ export function createPlayerScreenMethods41() {
     inferTrackLanguageCodeFromText,
     getTrackLanguageValue,
     getUsableAudioTrackLanguageValue,
+    getMeaningfulTrackLabel,
     isForcedSubtitleTrack
   } = internals;
 
@@ -51,9 +52,27 @@ export function createPlayerScreenMethods41() {
         return !embeddedSignatures.has(signature);
       });
     },
+    getEmbeddedSubtitleTrackForAvPlayTrack(track, fallbackIndex = track?.avplayTrackIndex) {
+      const extraInfo = track?.extraInfo && typeof track.extraInfo === "object" ? track.extraInfo : {};
+      const rawTextTrackNumber = extraInfo.track_num ?? extraInfo.trackNumber ?? extraInfo.track_number;
+      const avplayTextTrackNumber =
+        rawTextTrackNumber === null || rawTextTrackNumber === undefined || rawTextTrackNumber === "" ? NaN : Number(rawTextTrackNumber);
+      // AVPlay's TEXT track_num is the container text ordinal. Prefer it over
+      // the exposed-list position: when AVPlay omits a track, the position
+      // shifts and the wrong local metadata would supply the language.
+      const embeddedTrackByTextOrdinal =
+        Number.isInteger(avplayTextTrackNumber) && avplayTextTrackNumber >= 0
+          ? this.getEmbeddedSubtitleTrackByEmbeddedIndex(avplayTextTrackNumber)
+          : null;
+      const targetIndex = Number(fallbackIndex);
+      return embeddedTrackByTextOrdinal || this.getEmbeddedSubtitleTrackByNativeIndex(Number.isFinite(targetIndex) ? targetIndex : -1);
+    },
     mergeAvPlaySubtitleTrackMetadata(track, index) {
       const avplayTrackIndex = Number(track?.avplayTrackIndex);
-      const embeddedTrack = this.getEmbeddedSubtitleTrackByNativeIndex(Number.isFinite(avplayTrackIndex) ? avplayTrackIndex : index);
+      const embeddedTrack = this.getEmbeddedSubtitleTrackForAvPlayTrack(
+        track,
+        Number.isFinite(avplayTrackIndex) ? avplayTrackIndex : index
+      );
       const support = getEmbeddedSubtitleSupportState({
         ...embeddedTrack,
         ...track,
@@ -82,6 +101,8 @@ export function createPlayerScreenMethods41() {
       );
       const displayLabel = (useEmbeddedLabel ? meaningfulEmbeddedLabel : avplayLabel || meaningfulEmbeddedLabel) || subtitleLabel(index);
       const selectedLanguage = avplayLanguage || embeddedLanguage;
+      const bitmapSubtitle = Boolean(embeddedTrack?.bitmapSubtitle);
+      const embeddedCodec = cleanDisplayText(embeddedTrack?.codec);
       return {
         ...track,
         label: displayLabel,
@@ -91,8 +112,13 @@ export function createPlayerScreenMethods41() {
         // placeholders such as "unknown" or "und".
         language: selectedLanguage,
         lang: track?.lang || selectedLanguage,
-        codec: track?.codec || embeddedTrack?.codec || "",
+        codec: bitmapSubtitle ? embeddedCodec || track?.codec || "" : track?.codec || embeddedTrack?.codec || "",
         format: track?.format || embeddedTrack?.format || "",
+        // Keep the container identity available for the software VobSub path:
+        // AVPlay reports this track as text/plain and cannot draw its bitmaps.
+        bitmapSubtitle,
+        bitmapSubtitleFormat: embeddedTrack?.bitmapSubtitleFormat || null,
+        sourceTrackId: Number(embeddedTrack?.sourceTrackId) || -1,
         supported: support.supported,
         unsupportedReason: embeddedTrack?.unsupportedReason || support.unsupportedReason || null,
         forced: isForcedSubtitleTrack(track) || isForcedSubtitleTrack(embeddedTrack),
@@ -260,6 +286,62 @@ export function createPlayerScreenMethods41() {
       return {
         ...mergedTrack,
         ...getAudioTrackSupportState(mergedTrack)
+      };
+    },
+    mergeManifestAudioTrackMetadata(track, index, avplayTrackCount = 0) {
+      const manifestTracks = Array.isArray(this.manifestAudioTracks) ? this.manifestAudioTracks : [];
+      if (!manifestTracks.length) {
+        return track;
+      }
+
+      const avplayLanguage = getUsableAudioTrackLanguageValue(track);
+      const avplayLanguageCode = normalizeTrackLanguageCode(avplayLanguage);
+      const avplayLabel = getMeaningfulTrackLabel(track);
+      let manifestTrack = null;
+
+      if (avplayLanguageCode) {
+        // AVPlay already knows the language; only take the manifest entry that
+        // carries the same language, never a positional guess.
+        manifestTrack =
+          manifestTracks.find((entry) => {
+            const manifestLanguage = normalizeTrackLanguageCode(getUsableAudioTrackLanguageValue(entry));
+            return Boolean(manifestLanguage) && manifestLanguage === avplayLanguageCode;
+          }) || null;
+      } else if (Number(avplayTrackCount) === manifestTracks.length) {
+        // HLS keeps the EXT-X-MEDIA order in the player's audio list. Position
+        // is only safe with a single audio group; a flattened multi-group
+        // manifest has no deterministic player order.
+        const groupIds = new Set(manifestTracks.map((entry) => cleanDisplayText(entry?.groupId)).filter(Boolean));
+        if (groupIds.size <= 1) {
+          manifestTrack = manifestTracks[Number(index)] || null;
+        }
+      }
+      if (!manifestTrack && avplayLabel) {
+        const normalizedAvplayLabel = normalizeComparableText(avplayLabel);
+        manifestTrack =
+          manifestTracks.find((entry) =>
+            [entry?.name, entry?.label].some((value) => normalizeComparableText(cleanDisplayText(value)) === normalizedAvplayLabel)
+          ) || null;
+      }
+      if (!manifestTrack) {
+        return track;
+      }
+
+      const manifestLanguage = getUsableAudioTrackLanguageValue(manifestTrack);
+      const displayLabel = avplayLabel || getMeaningfulTrackLabel(manifestTrack);
+      const language = avplayLanguage || manifestLanguage;
+      return {
+        ...track,
+        label: displayLabel || track?.label || "",
+        name: displayLabel || track?.name || "",
+        language,
+        lang: cleanDisplayText(track?.lang) || language,
+        channels: track?.channels || manifestTrack?.channels || "",
+        channelCount: track?.channelCount || manifestTrack?.channels || "",
+        characteristics: track?.characteristics || manifestTrack?.characteristics || "",
+        isDefault: Boolean(track?.isDefault || manifestTrack?.isDefault),
+        autoselect: Boolean(track?.autoselect || manifestTrack?.autoselect),
+        uri: track?.uri || manifestTrack?.uri || null
       };
     },
     revokeExternalSubtitleObjectUrls() {

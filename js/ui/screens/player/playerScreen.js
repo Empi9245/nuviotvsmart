@@ -73,6 +73,7 @@ import { createPlayerScreenMethods71 } from "./playerScreenMethods-71-on-key-dow
 import { createPlayerScreenMethods72 } from "./playerScreenMethods-72-on-key-up.js";
 import { createPlayerScreenMethods73 } from "./playerScreenMethods-73-cleanup.js";
 import { createPlayerScreenMethods74 } from "./playerScreenMethods-74-stream-subtitle-delay.js";
+import { createPlayerScreenMethods74 as createPlayerScreenMethods74AutomaticSubtitleSync } from "./playerScreenMethods-74-automatic-subtitle-sync.js";
 import { createPlayerScreenMethods75 } from "./playerScreenMethods-75-apply-stream-audio-delay.js";
 import { createPlayerSourceFallbackMethods } from "./playerSourceFallback.js";
 
@@ -154,6 +155,7 @@ export const PlayerScreen = {
   ...createPlayerScreenMethods72(),
   ...createPlayerScreenMethods73(),
   ...createPlayerScreenMethods74(),
+  ...createPlayerScreenMethods74AutomaticSubtitleSync(),
   ...createPlayerScreenMethods75(),
   ...createPlayerSourceFallbackMethods(),
   ...createPlayerPartyMethods()

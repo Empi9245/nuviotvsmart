@@ -21,7 +21,7 @@ export function createPlayerScreenMethods62() {
       const focused = this.audioFocusedColumn === "controls" && index === this.audioMixFocusIndex;
       if (control.toggle) {
         return `
-            <div class="player-audio-control-card player-audio-toggle focusable${this.persistAudioAmplification ? " selected" : ""}${focused ? " focused" : ""}" data-audio-column="controls" data-audio-index="${index}">
+            <div class="player-audio-control-card player-audio-toggle focusable${this.persistAudioAmplification ? " selected" : ""}${focused ? " focused" : ""}" role="switch" aria-checked="${this.persistAudioAmplification ? "true" : "false"}" data-audio-column="controls" data-audio-index="${index}">
               <div class="player-dialog-item-main">${escapeHtml(control.title)}</div>
               <div class="player-dialog-item-sub">${escapeHtml(control.helper || "")}</div>
             </div>
@@ -32,8 +32,8 @@ export function createPlayerScreenMethods62() {
             <div class="player-audio-control-title">${escapeHtml(control.title)}</div>
             <div class="player-audio-control-value">${escapeHtml(control.value)}</div>
             <div class="player-audio-step-row">
-              <button class="player-dialog-step player-dialog-step-minus focusable${focused ? " focused" : ""}${!control.canDecrease ? " disabled" : ""}" type="button" tabindex="-1" data-audio-column="controls" data-audio-index="${index}" data-audio-step="-1">&#8722;</button>
-              <button class="player-dialog-step player-dialog-step-plus focusable${focused ? " focused" : ""}${!control.canIncrease ? " disabled" : ""}" type="button" tabindex="-1" data-audio-column="controls" data-audio-index="${index}" data-audio-step="1">&#43;</button>
+              <button class="player-dialog-step player-dialog-step-minus focusable${focused ? " focused" : ""}${!control.canDecrease ? " disabled" : ""}" type="button" tabindex="-1" data-audio-column="controls" data-audio-index="${index}" data-audio-step="-1" aria-label="${escapeHtml(t("cd_decrease", {}, "Decrease"))} ${escapeHtml(control.title)}">&#8722;</button>
+              <button class="player-dialog-step player-dialog-step-plus focusable${focused ? " focused" : ""}${!control.canIncrease ? " disabled" : ""}" type="button" tabindex="-1" data-audio-column="controls" data-audio-index="${index}" data-audio-step="1" aria-label="${escapeHtml(t("cd_increase", {}, "Increase"))} ${escapeHtml(control.title)}">&#43;</button>
             </div>
             <div class="player-dialog-item-sub">${escapeHtml(control.helper || "")}</div>
           </div>
@@ -185,7 +185,7 @@ export function createPlayerScreenMethods62() {
             ${speedOptions
               .map(
                 (speed, index) => `
-              <div class="player-dialog-item focusable${speed === currentSpeed ? " selected" : ""}${index === this.speedDialogIndex ? " focused" : ""}" data-speed-index="${index}">
+              <div class="player-dialog-item focusable${speed === currentSpeed ? " selected" : ""}${index === this.speedDialogIndex ? " focused" : ""}" role="radio" aria-checked="${speed === currentSpeed ? "true" : "false"}" data-speed-index="${index}">
                 <div class="player-dialog-item-main">${escapeHtml(`${speed}x`)}</div>
                 <div class="player-dialog-item-sub">${escapeHtml(speed === 1 ? t("common.normal", {}, "Normal") : t("player_playback_speed", {}, "Playback speed"))}</div>
                 <div class="player-dialog-item-check">${speed === currentSpeed ? "&#10003;" : ""}</div>
@@ -309,6 +309,7 @@ export function createPlayerScreenMethods62() {
     openSourcesPanel({ forceReload = false } = {}) {
       streamRepository.setLocalPluginSearchPaused(false);
       this.cancelSeekPreview({ commit: false });
+      this.closeChaptersPanel?.({ restoreFocus: false });
       this.sourcesPanelVisible = true;
       this.sourcesLastNavigationRepeatAt = 0;
       this.subtitleDialogVisible = false;

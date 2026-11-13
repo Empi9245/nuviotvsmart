@@ -1,5 +1,7 @@
+import { stripSubtitleSdh } from "../../../core/player/subtitleSdhFilter.js";
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import { buildHtmlSubtitleCueIndex, findActiveHtmlSubtitleCues } from "./htmlSubtitleCueIndex.js";
 
 export function createPlayerScreenMethods45() {
   const {
@@ -202,27 +204,34 @@ export function createPlayerScreenMethods45() {
       if (!node) {
         return;
       }
-      const cueKey = activeCues
-        .map(
-          (cue) =>
-            `${cue.start}-${cue.end}-${cue.line ?? "default"}-${cue.position ?? "default"}-${cue.align || "center"}-${cue.size ?? "default"}-${cue.text}`
-        )
-        .join("|");
+      this.htmlSubtitleLastActiveCues = activeCues;
+      const cueKey =
+        String(Boolean(this.subtitleStyleSettings?.stripSdh)) +
+        activeCues
+          .map(
+            (cue) =>
+              `${cue.start}-${cue.end}-${cue.line ?? "default"}-${cue.position ?? "default"}-${cue.align || "center"}-${cue.size ?? "default"}-${cue.text}`
+          )
+          .join("|");
       const hasRenderedActiveCue =
         activeCues.length > 0 &&
         !node.classList.contains("hidden") &&
         node.getAttribute("aria-hidden") === "false" &&
         node.childNodes.length > 0;
-      const hasRenderedEmptyCue = activeCues.length === 0 && node.classList.contains("hidden") && node.childNodes.length === 0;
+      const hasRenderedEmptyCue =
+        (activeCues.length === 0 || this.htmlSubtitleRenderedEmpty) && node.classList.contains("hidden") && node.childNodes.length === 0;
       if (cueKey === this.htmlSubtitleActiveCueKey && (hasRenderedActiveCue || hasRenderedEmptyCue)) {
         return;
       }
       this.htmlSubtitleActiveCueKey = cueKey;
+      if (this.subtitleStyleSettings?.stripSdh)
+        activeCues = activeCues.map((cue) => ({ ...cue, text: stripSubtitleSdh(cue.text || "") })).filter((cue) => cue.text.trim());
       if (typeof node.replaceChildren === "function") {
         node.replaceChildren();
       } else {
         node.innerHTML = "";
       }
+      this.htmlSubtitleRenderedEmpty = activeCues.length === 0;
       if (!activeCues.length) {
         node.classList.add("hidden");
         node.setAttribute("aria-hidden", "true");
@@ -301,8 +310,16 @@ export function createPlayerScreenMethods45() {
       const currentTime = Number(this.getPlaybackCurrentSeconds() || 0);
       const delaySeconds = this.getActiveSubtitleDelayMs() / 1000;
       const subtitleTime = currentTime - delaySeconds;
-      const activeCues = this.htmlSubtitleCues.filter((cue) => subtitleTime >= cue.start && subtitleTime < cue.end);
+      // The index is rebuilt whenever a new cue array is assigned; cue arrays
+      // are replaced, never mutated in place, by every subtitle loader.
+      if (!this.htmlSubtitleCueIndex || this.htmlSubtitleCueIndex.cues !== this.htmlSubtitleCues) {
+        this.htmlSubtitleCueIndex = buildHtmlSubtitleCueIndex(this.htmlSubtitleCues);
+      }
+      const { activeCues, nextBoundarySeconds } = findActiveHtmlSubtitleCues(this.htmlSubtitleCueIndex, subtitleTime);
       this.renderHtmlSubtitleOverlayCue(activeCues);
+      // Re-arm the overlay timer from the newest position (timeupdate, seek,
+      // delay change) so it wakes at the next cue boundary, not on a fixed poll.
+      this.planHtmlSubtitleOverlayRender?.(nextBoundarySeconds - subtitleTime);
       return true;
     }
   };

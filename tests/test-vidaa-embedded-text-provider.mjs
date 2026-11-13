@@ -645,7 +645,9 @@ test("stream -> discovery -> normal subtitle menu -> real VIDAA selection -> sha
   ui.syncTrackState();
   assert.equal(ui.selectedEmbeddedSubtitleTrackIndex, 0);
   ui.time = 4;
-  [...consumerTimers.values()][0]();
+  // Upstream 1.4 stopped polling the overlay every 120 ms (issue #1208):
+  // time changes and seeks render directly instead of waiting for a timer.
+  ui.renderHtmlSubtitleOverlayAtCurrentTime();
   assert.equal(ui.visibleCues.length, 0);
   ui.subtitleDelayMs = 1000;
   ui.time = 2;

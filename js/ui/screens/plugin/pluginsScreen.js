@@ -1,4 +1,5 @@
 import { ScreenUtils } from "../../navigation/screen.js";
+import { focusWithoutScroll } from "../../navigation/focusWithoutScroll.js";
 import { Router } from "../../navigation/routerState.js";
 import { Platform } from "../../../platform/index.js";
 import { I18n } from "../../../i18n/index.js";
@@ -55,7 +56,7 @@ function dateLabel(value) {
   const timestamp = Number(value || 0);
   if (!timestamp) return "";
   try {
-    return new Date(timestamp).toLocaleString();
+    return new Date(timestamp).toLocaleString(I18n.getLocale());
   } catch (_) {
     return "";
   }
@@ -380,11 +381,7 @@ export const PluginsScreen = {
     if (!target) return;
     target.classList.add("focused");
     this.rememberFocusedTarget(target);
-    try {
-      target.focus({ preventScroll: true });
-    } catch (_) {
-      target.focus();
-    }
+    focusWithoutScroll(target);
     this.ensureMainVisibility(target);
   },
   moveFocusWithinHorizontalRow(direction) {
@@ -410,11 +407,7 @@ export const PluginsScreen = {
     current.classList.remove("focused");
     next.classList.add("focused");
     this.rememberFocusedTarget(next);
-    try {
-      next.focus({ preventScroll: true });
-    } catch (_) {
-      next.focus();
-    }
+    focusWithoutScroll(next);
     this.ensureMainVisibility(next);
     return true;
   },

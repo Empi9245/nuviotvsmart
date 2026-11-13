@@ -38,6 +38,10 @@ export function createSettingsScreenMethods15() {
         cancelAnimationFrame(navSlot.settingsScrollAnimationFrame);
         navSlot.settingsScrollAnimationFrame = null;
       }
+      if (navSlot?.settingsScrollAnimationFrameX) {
+        cancelAnimationFrame(navSlot.settingsScrollAnimationFrameX);
+        navSlot.settingsScrollAnimationFrameX = null;
+      }
       this.handleWheelBound = null;
       this.handleClickBound = null;
       this.handleRailScrollBound = null;

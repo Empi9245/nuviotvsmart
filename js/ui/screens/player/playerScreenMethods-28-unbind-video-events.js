@@ -34,7 +34,7 @@ export function createPlayerScreenMethods28() {
           action: "playPause",
           label: paused ? ">" : "II",
           icon: paused ? "assets/icons/ic_player_play.svg" : "assets/icons/ic_player_pause.svg",
-          title: "Play/Pause",
+          title: paused ? t("cd_play", {}, "Play") : t("cd_pause", {}, "Pause"),
           primary: true
         }
       ];
@@ -48,21 +48,31 @@ export function createPlayerScreenMethods28() {
         });
       }
 
-      base.push({
-        action: "subtitleDialog",
-        icon: "assets/icons/ic_player_subtitles.svg",
-        title: t("subtitle_dialog_title", {}, "Subtitles")
-      });
+      if (this.hasSubtitleTracksAvailable())
+        base.push({
+          action: "subtitleDialog",
+          icon: "assets/icons/ic_player_subtitles.svg",
+          title: t("subtitle_dialog_title", {}, "Subtitles")
+        });
 
-      base.push({
-        action: "audioTrack",
-        icon:
-          this.selectedAudioTrackIndex >= 0 || this.selectedManifestAudioTrackId
-            ? "assets/icons/ic_player_audio_filled.svg"
-            : "assets/icons/ic_player_audio_outline.svg",
-        useMask: true,
-        title: t("audio_dialog_title", {}, "Audio")
-      });
+      if (this.hasAudioTracksAvailable())
+        base.push({
+          action: "audioTrack",
+          icon:
+            this.selectedAudioTrackIndex >= 0 || this.selectedManifestAudioTrackId
+              ? "assets/icons/ic_player_audio_filled.svg"
+              : "assets/icons/ic_player_audio_outline.svg",
+          useMask: true,
+          title: t("audio_dialog_title", {}, "Audio")
+        });
+
+      if (Array.isArray(this.playerChapters) && this.playerChapters.length > 1 && this.isLivePlayback?.() !== true) {
+        base.push({
+          action: "chapters",
+          icon: "assets/icons/ic_player_chapters.svg",
+          title: t("player_chapters", {}, "Chapters")
+        });
+      }
 
       base.push({
         action: "source",
@@ -289,6 +299,7 @@ export function createPlayerScreenMethods28() {
         this.subtitleDelayOverlayVisible ||
         this.audioDialogVisible ||
         this.sourcesPanelVisible ||
+        this.chaptersPanelVisible ||
         this.episodePanelVisible ||
         this.speedDialogVisible ||
         Boolean(this.partyPanelVisible)
@@ -314,6 +325,7 @@ export function createPlayerScreenMethods28() {
       this.container?.classList.toggle("post-play-trailer-consumed", postPlayTrailerConsumed);
       this.container?.classList.toggle("post-play-returning", Boolean(postPlayState.hasReturnedToPlayer));
       this.syncPostPlayPlayerSurface(postPlayState);
+      this.setPostPlaySubtitleOutputHidden(postPlayVisible);
       this.syncPlayerActionOverlayOffset();
     },
     cancelPostPlayPlayerSurfaceAnimation() {

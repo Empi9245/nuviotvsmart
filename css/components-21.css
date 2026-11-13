@@ -79,6 +79,16 @@
   line-height: 1.2;
 }
 
+.settings-section-label {
+  color: var(--text-secondary);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  padding: 4px 8px 0;
+  text-transform: uppercase;
+}
+
 .settings-account-card {
   padding: 28px;
 }
@@ -129,7 +139,7 @@
   min-height: 64px;
   padding: 16px 24px;
   border-radius: 16px;
-  background: rgb(var(--secondary-color-rgb) / 0.1);
+  background: rgba(var(--secondary-color-rgb-legacy), 0.1);
   display: flex;
   align-items: center;
   gap: 16px;
@@ -449,5 +459,5 @@
 
 .settings-toggle-pill.is-checked {
   justify-content: flex-end;
-  background: rgb(var(--secondary-color-rgb) / 0.35);
+  background: rgba(var(--secondary-color-rgb-legacy), 0.35);
 }
