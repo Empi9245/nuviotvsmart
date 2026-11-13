@@ -1,8 +1,13 @@
 # nuviotvsmart-plugins — copia di lavoro per l'integrazione plugin
 
-Copia di `D:\nuvio\nuviotvsmart` (fork Empi9245/nuviotvsmart v1.2.7, HEAD `c8bfd565`)
-creata il 21/10/2026 (robocopy: 4.914 file, 170 MB, 0 falliti; log in
-`../05-DOCUMENTAZIONE/log-copie/robocopy-nuviotvsmart-plugins.txt`).
+Copia di `D:\nuvio\nuviotvsmart` (fork Empi9245/nuviotvsmart, ora **v1.4.1**,
+HEAD `84084001`) creata il 21/10/2026 (robocopy: 4.914 file, 170 MB, 0 falliti;
+log in `../05-DOCUMENTAZIONE/log-copie/robocopy-nuviotvsmart-plugins.txt`).
+
+L'integrazione upstream 1.4.1 è descritta in
+[`docs/upstream-1.4.1-integration.md`](docs/upstream-1.4.1-integration.md):
+merge, adattamenti VIDAA, 94 suite verdi e limiti della verifica senza TV
+fisica.
 
 **REGOLA: qui si lavora. La versione deployata `D:\nuvio\nuviotvsmart` (usata da tutti)
 NON si tocca** — verificata intatta il 21/10 (git status pulito, HEAD c8bfd565).
