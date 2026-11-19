@@ -215,7 +215,7 @@ export function createDefaultPluginState() {
     repositories: [],
     scrapers: [],
     settings: {
-      pluginsEnabled: globalThis.__NUVIO_PLUGINS_DISABLED__ !== true,
+      pluginsEnabled: true,
       groupStreamsByRepository: false,
       scraperSettings: {}
     },
