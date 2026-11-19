@@ -253,6 +253,15 @@ export const PluginServiceClient = {
   },
 
   async health({ force = false } = {}) {
+    if (globalThis.__NUVIO_PLUGINS_DISABLED__ === true) {
+      cachedHealth = {
+        returnValue: false,
+        status: "unsupported",
+        detail: "Plugins are not included in this build"
+      };
+      cachedHealthAt = Date.now();
+      return cachedHealth;
+    }
     const now = Date.now();
     if (!areTizenPluginsSupported()) {
       cachedHealth = unsupportedTizenPluginResult();
@@ -379,6 +388,9 @@ export const PluginServiceClient = {
   },
 
   async fetch(request = {}) {
+    if (globalThis.__NUVIO_PLUGINS_DISABLED__ === true) {
+      throw new Error("Plugins are not included in this build");
+    }
     const androidContract = request.androidResponseContract === true;
     const requestDetails = pluginRequestDetails(request);
     try {

@@ -15,6 +15,19 @@ NON si tocca** — verificata intatta il 21/10 (git status pulito, HEAD c8bfd565
 Esclusi dalla copia (reinstallabili): `node_modules/` (rigenerato con `npm ci`:
 432 pacchetti) e `.cache/`.
 
+## Build free / Sidee+ (19/11/2026)
+
+Il client ora produce due entry HTML dallo stesso bundle:
+
+- `vidaa.html` (e la root `index.html`) → **free**:
+  `__NUVIO_PLUGINS_DISABLED__ = true`, `__NUVIO_TORRENTS_DISABLED__ = true`;
+  il runtime plugin è chiuso, la sezione Plug-in è nascosta e il P2P non parte.
+- `plus.html` → **Sidee+**: plugin abilitati, stesso proxy
+  `/api/plugin-proxy`, torrent/P2P ancora spento.
+
+Entrambe le entry sono generate da `scripts/package-vidaa.mjs`; il canale di
+aggiornamento resta separato nel catalogo Sidee (`nuvio` / `nuvio-plus`).
+
 ## Stato integrazione plugin (21/10/2026)
 
 | Verifica                                                                   | Esito                                                                                                                      |

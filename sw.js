@@ -3,6 +3,7 @@ var ASSETS = [
   "./",
   "./index.html",
   "./vidaa.html",
+  "./plus.html",
   "./manifest.json",
   "./boot-guard.js",
   "./core-js.bundle.js",

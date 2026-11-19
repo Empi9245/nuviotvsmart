@@ -194,6 +194,7 @@ export const TizenCapabilities = {
   },
 
   canUseP2p(runtime = globalThis) {
+    if (runtime.__NUVIO_TORRENTS_DISABLED__ === true) return false;
     return getTizenCapabilities(runtime).supportsP2p;
   },
 
@@ -203,6 +204,7 @@ export const TizenCapabilities = {
   },
 
   isP2pUnsupported(runtime = globalThis) {
+    if (runtime.__NUVIO_TORRENTS_DISABLED__ === true) return true;
     const capabilities = getTizenCapabilities(runtime);
     return capabilities.isTizen && !capabilities.supportsP2p;
   },

@@ -100,7 +100,9 @@ function migrateLegacyIfNeeded(profileId) {
     ...createDefaultPluginState(),
     legacySources: Array.isArray(legacySources) ? legacySources : [],
     settings: {
-      pluginsEnabled: LocalStore.get(LEGACY_ENABLED_KEY, true) !== false,
+      pluginsEnabled:
+        globalThis.__NUVIO_PLUGINS_DISABLED__ !== true &&
+        LocalStore.get(LEGACY_ENABLED_KEY, true) !== false,
       groupStreamsByRepository: false,
       scraperSettings: {}
     },

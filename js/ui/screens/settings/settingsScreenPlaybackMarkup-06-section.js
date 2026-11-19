@@ -16,6 +16,7 @@ export function renderPlaybackSectionMarkup(model) {
   const generalBody = renderPlaybackGeneralBody.call(this, model);
   const audioBody = renderPlaybackAudioBody.call(this, model);
   const subtitleBody = renderPlaybackSubtitleBody.call(this, model);
+  const torrentsDisabled = globalThis.__NUVIO_TORRENTS_DISABLED__ === true;
   const p2pBody = renderPlaybackP2pBody.call(this, model, {
     torrentSettings,
     tizenP2pUnsupported,
@@ -50,13 +51,17 @@ export function renderPlaybackSectionMarkup(model) {
                 expanded: Boolean(expanded.subtitles),
                 bodyHtml: subtitleBody
               })}
-              ${this.renderCollapsibleRow({
-                focusKey: "playback:toggle:p2p",
-                title: t("settings_p2p_title"),
-                subtitle: t("settings_p2p_subtitle"),
-                expanded: Boolean(expanded.p2p),
-                bodyHtml: p2pBody
-              })}
+              ${
+                torrentsDisabled
+                  ? ""
+                  : this.renderCollapsibleRow({
+                      focusKey: "playback:toggle:p2p",
+                      title: t("settings_p2p_title"),
+                      subtitle: t("settings_p2p_subtitle"),
+                      expanded: Boolean(expanded.p2p),
+                      bodyHtml: p2pBody
+                    })
+              }
             </div>
           </div>
         `;

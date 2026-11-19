@@ -168,7 +168,7 @@ export function t(key, params = {}, fallback = key) {
 }
 
 export function arePluginsSupported() {
-  return TizenCapabilities.canUsePlugins();
+  return globalThis.__NUVIO_PLUGINS_DISABLED__ !== true && TizenCapabilities.canUsePlugins();
 }
 
 export function escapeHtml(value) {

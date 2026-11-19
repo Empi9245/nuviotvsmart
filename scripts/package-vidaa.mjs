@@ -97,13 +97,19 @@ async function packageVidaa() {
       JSON.stringify(`./${alias}`)
     );
   }
-  const vidaaEntry = versionedIndex.replace(
+  const buildMeta = `<meta name="nuvio-build" content="${buildId}" />`;
+  const freeEntry = versionedIndex.replace(
     "<head>",
-    `<head>\n    <meta name="nuvio-build" content="${buildId}" />\n    <script>window.__NUVIO_PLATFORM__ = "vidaa";</script>`
+    `<head>\n    ${buildMeta}\n    <script>window.__NUVIO_PLATFORM__ = "vidaa"; window.__NUVIO_PLUGINS_DISABLED__ = true; window.__NUVIO_TORRENTS_DISABLED__ = true;</script>`
+  );
+  const plusEntry = versionedIndex.replace(
+    "<head>",
+    `<head>\n    ${buildMeta}\n    <script>window.__NUVIO_PLATFORM__ = "vidaa"; window.__NUVIO_PLUGINS_DISABLED__ = false; window.__NUVIO_TORRENTS_DISABLED__ = true;</script>`
   );
   await Promise.all([
-    writeFile(indexPath, versionedIndex),
-    writeFile(path.join(vidaaDistDir, "vidaa.html"), vidaaEntry),
+    writeFile(indexPath, freeEntry),
+    writeFile(path.join(vidaaDistDir, "vidaa.html"), freeEntry),
+    writeFile(path.join(vidaaDistDir, "plus.html"), plusEntry),
     writeFile(path.join(vidaaDistDir, "sw.js"), versionedWorker),
     cp(path.join(rootDir, "manifest.json"), path.join(vidaaDistDir, "manifest.json")),
     ...Array.from(assetAliases, ([asset, alias]) =>

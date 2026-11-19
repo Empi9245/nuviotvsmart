@@ -57,6 +57,10 @@ function currentState(profileId = null) {
   return normalizePluginState(profileId == null ? PluginStore.get() : PluginStore.get(profileId));
 }
 
+function pluginsDisabledForBuild() {
+  return globalThis.__NUVIO_PLUGINS_DISABLED__ === true;
+}
+
 function diagnosticError(error) {
   const details = {
     name: String(error?.name || "Error"),
@@ -1131,6 +1135,7 @@ async function executeOne(
 
 export const PluginManager = {
   get pluginsEnabled() {
+    if (pluginsDisabledForBuild()) return false;
     return currentState().settings.pluginsEnabled !== false;
   },
 
@@ -1145,7 +1150,8 @@ export const PluginManager = {
   getCapabilitySnapshot() {
     const capabilities = getPluginCapabilitySnapshot();
     const runtime = currentState().runtime;
-    const executable = capabilities.candidate && runtime.lastStatus === "ready";
+    const executable =
+      !pluginsDisabledForBuild() && capabilities.candidate && runtime.lastStatus === "ready";
     return {
       ...capabilities,
       executable,
@@ -1187,6 +1193,10 @@ export const PluginManager = {
   },
 
   async ensureRuntime() {
+    if (pluginsDisabledForBuild()) {
+      markRuntime("unsupported", "Plugins are not included in this build");
+      throw new Error("Plugins are not included in this build");
+    }
     const capabilities = getPluginCapabilitySnapshot();
     logPluginDiagnostic("runtime ensure begin", {
       platform: capabilities.platform,
@@ -1262,7 +1272,7 @@ export const PluginManager = {
       scrapers: state.scrapers,
       legacySources: state.legacySources,
       unknownRemoteRows: state.unknownRemoteRows,
-      pluginsEnabled: state.settings.pluginsEnabled !== false,
+      pluginsEnabled: this.pluginsEnabled,
       groupStreamsByRepository: state.settings.groupStreamsByRepository === true,
       runtime: this.getCapabilitySnapshot(),
       readOnly: !canEdit(),
@@ -1271,7 +1281,7 @@ export const PluginManager = {
   },
 
   setPluginsEnabled(enabled) {
-    if (!canEdit()) return false;
+    if (pluginsDisabledForBuild() || !canEdit()) return false;
     const state = currentState();
     PluginStore.replace({
       ...state,

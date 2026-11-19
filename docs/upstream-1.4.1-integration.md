@@ -44,9 +44,11 @@ function`.
 | Live `https://nuviotvsmart.vercel.app/vidaa.html` | ✅ HTTP 200, build `8897b7c349114430`              |
 | Live `appinfo.json`                               | ✅ versione `1.4.1`                                |
 
-Il wrapper Cloudflare `SIDEE-SUITE/UTENTI/core/src/forge/apps/nuvio.apphtml`
-continua a puntare a `https://nuviotvsmart.vercel.app/vidaa.html`: l'URL non è
-cambiato, quindi non è stato necessario ridistribuire il Worker Sidee.
+Dal 19/11 il wrapper Sidee non è più un semplice redirect unico: la tile free
+apre `https://nuviotvsmart.vercel.app/vidaa.html` (plugin spenti) e la tile
+Sidee+ `nuvio-plus` apre `https://nuviotvsmart.vercel.app/plus.html` (plugin
+accesi). Le due entry sono generate da `scripts/package-vidaa.mjs`; il proxy
+same-origin resta lo stesso.
 
 ## Limiti
 

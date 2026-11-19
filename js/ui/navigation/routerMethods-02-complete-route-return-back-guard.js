@@ -125,7 +125,10 @@ export function createRouterMethods02() {
           }
         }
       }
-      if (routeName === "plugins" && Platform.isTizen() && !TizenCapabilities.canUsePlugins()) {
+      if (
+        routeName === "plugins" &&
+        (globalThis.__NUVIO_PLUGINS_DISABLED__ === true || (Platform.isTizen() && !TizenCapabilities.canUsePlugins()))
+      ) {
         return;
       }
       const navigationStart = ROUTER_PERF_DEBUG ? routerPerfNow() : 0;
