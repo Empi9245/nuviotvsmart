@@ -70,7 +70,6 @@ function detectPlatformName() {
   if (
     globalThis.Hisense_GetOSVersion ||
     globalThis.Hisense_GetFirmWareVersion ||
-    globalThis.Hisense_installApp ||
     globalThis.Hisense_Exit ||
     globalThis.omi_platform ||
     globalThis.opera_omi ||
