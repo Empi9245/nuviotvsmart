@@ -67,7 +67,6 @@ The easiest way to test Nuvio on a VIDAA TV without developer tools:
    npm run build:vidaa
    npm run serve:vidaa
    ```
-   _(Alternatively, run the included installer helper: `python3 installer/server.py` or double-click `installer/start-windows.bat` on Windows)._
 3. **Open the TV browser:**
    - The server terminal will output a local network URL (e.g. `http://192.168.1.50:8080`).
    - On your Hisense TV, launch the built-in **Web Browser**.
