@@ -97,7 +97,6 @@ async function packageVidaa() {
   console.log("      Host this directory or use 'npm run serve:vidaa'");
   console.log("      Open the URL in the TV browser and bookmark it.");
   console.log("   2. Method 2 (Home Screen Launcher Icon):");
-  console.log("      Run 'sudo python3 installer/server.py'");
   console.log("      Set TV DNS to your PC IP, go to https://vidaahub.com on TV,");
   console.log("      and click 'Install to TV Launcher'.");
   console.log("=======================================================\n");
